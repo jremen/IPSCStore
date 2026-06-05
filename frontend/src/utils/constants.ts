@@ -1,0 +1,252 @@
+export const CATEGORIES = [
+  { value: 'regular', label: 'Regular' },
+  { value: 'junior', label: 'Junior' },
+  { value: 'senior', label: 'Senior' },
+  { value: 'super_senior', label: 'Super Senior' },
+  { value: 'lady', label: 'Lady' },
+] as const;
+
+export const DIVISIONS = [
+  // IPSC/USPSA
+  { value: 'standard', label: 'Standard', group: 'IPSC/USPSA' },
+  { value: 'open', label: 'Open', group: 'IPSC/USPSA' },
+  { value: 'production', label: 'Production', group: 'IPSC/USPSA' },
+  { value: 'production_optics', label: 'Production Optics', group: 'IPSC/USPSA' },
+  { value: 'classic', label: 'Classic', group: 'IPSC/USPSA' },
+  { value: 'revolver', label: 'Revolver', group: 'IPSC/USPSA' },
+  { value: 'pcc_optics', label: 'PCC Optics', group: 'IPSC/USPSA' },
+  { value: 'pcc_iron', label: 'PCC Iron', group: 'IPSC/USPSA' },
+  // IDPA
+  { value: 'ssp', label: 'SSP', group: 'IDPA' },
+  { value: 'esp', label: 'ESP', group: 'IDPA' },
+  { value: 'cdp', label: 'CDP', group: 'IDPA' },
+  { value: 'ccp', label: 'CCP', group: 'IDPA' },
+  { value: 'bug', label: 'BUG', group: 'IDPA' },
+  { value: 'revolver_idpa', label: 'Revolver', group: 'IDPA' },
+  // 3-Gun
+  { value: 'tactical', label: 'Tactical', group: '3-Gun' },
+  { value: 'open_3gun', label: 'Open', group: '3-Gun' },
+  { value: 'heavy', label: 'Heavy', group: '3-Gun' },
+  // PRS
+  { value: 'open_prs', label: 'Open', group: 'PRS' },
+  { value: 'production_prs', label: 'Production', group: 'PRS' },
+  // NRL22
+  { value: 'any', label: 'Any', group: 'NRL22' },
+  { value: 'irons', label: 'Irons', group: 'NRL22' },
+  { value: 'open_22', label: 'Open', group: 'NRL22' },
+  // Bullseye
+  { value: 'conventional', label: 'Conventional', group: 'Bullseye' },
+  { value: 'international', label: 'International', group: 'Bullseye' },
+] as const;
+
+export const POWER_FACTORS = [
+  { value: 'minor', label: 'Minor' },
+  { value: 'major', label: 'Major' },
+] as const;
+
+export const ORGANIZATIONS = [
+  { value: 'IPSC', label: 'IPSC' },
+  { value: 'USPSA', label: 'USPSA' },
+  { value: 'IDPA', label: 'IDPA' },
+  { value: '3GUN', label: '3-Gun' },
+  { value: 'NRL22', label: 'NRL22' },
+  { value: 'PRS', label: 'PRS' },
+  { value: 'NRA', label: 'NRA (Bullseye)' },
+  { value: 'USA_ARCHERY', label: 'USA Archery' },
+] as const;
+
+export const FIREARM_TYPES = [
+  { value: 'handgun', label: 'Handgun' },
+  { value: 'rifle', label: 'Rifle' },
+  { value: 'pcc', label: 'PCC' },
+  { value: 'shotgun', label: 'Shotgun' },
+  { value: 'combined', label: 'Combined' },
+  { value: 'bow', label: 'Bow' },
+] as const;
+
+export const SCORING_TYPES = [
+  // IPSC/USPSA
+  { value: 'comstock', label: 'Comstock', group: 'IPSC/USPSA' },
+  { value: 'virginia', label: 'Virginia Count', group: 'IPSC/USPSA' },
+  { value: 'fixed_time', label: 'Fixed Time', group: 'IPSC/USPSA' },
+  { value: 'chrono', label: 'Chrono', group: 'IPSC/USPSA' },
+  // General
+  { value: 'hit_factor', label: 'Hit Factor', group: 'General' },
+  // IDPA
+  { value: 'idpa', label: 'IDPA (Vickers Count)', group: 'IDPA' },
+  // Steel Challenge
+  { value: 'action_steel', label: 'Action Steel', group: 'Steel' },
+  // Multi-Gun
+  { value: 'multi_gun', label: 'Multi-Gun (3-Gun)', group: 'Multi-Gun' },
+  // Precision
+  { value: 'long_range', label: 'Long Range Rifle', group: 'Precision' },
+  { value: 'bullseye', label: 'Bullseye', group: 'Precision' },
+  // Archery
+  { value: 'archery', label: 'Archery', group: 'Archery' },
+  // Rimfire
+  { value: 'nrl22', label: 'NRL22', group: 'Rimfire' },
+] as const;
+
+// Scoring category helpers
+export type ScoringCategory = 'zone_per_target' | 'time_plus' | 'ring_per_shot' | 'hit_count';
+
+export function getScoringCategory(type: string): ScoringCategory {
+  switch (type) {
+    case 'comstock':
+    case 'virginia':
+    case 'fixed_time':
+    case 'hit_factor':
+      return 'zone_per_target';
+    case 'idpa':
+      return 'zone_per_target'; // same UI pattern but different labels/penalties
+    case 'action_steel':
+    case 'multi_gun':
+      return 'time_plus';
+    case 'bullseye':
+    case 'archery':
+      return 'ring_per_shot';
+    case 'long_range':
+      return 'ring_per_shot'; // f_class variant; prs variant is hit_count
+    case 'nrl22':
+      return 'hit_count';
+    default:
+      return 'zone_per_target';
+  }
+}
+
+export function getScoringCategoryConfig(type: string) {
+  const category = getScoringCategory(type);
+  const isLongRangePrs = type === 'long_range'; // will be refined with variant from config
+
+  if (category === 'zone_per_target' && type === 'idpa') {
+    return {
+      category: 'zone_per_target' as const,
+      zoneLabels: { alpha: '-0', charlie: '-1', delta: '-3', miss: 'M', no_shoot: 'NS' },
+      hasTime: true,
+      hasHitFactor: false,
+      rankingMethod: 'lowest_time' as const,
+      showPowerFactor: false,
+      penaltyDefs: [
+        { key: 'penalty_pe', label: 'PE (Procedural)', seconds: 3 },
+        { key: 'penalty_hnt', label: 'HNT (Hit No-Shoot)', seconds: 5 },
+        { key: 'penalty_ftn', label: 'FTN (Fail to Neutralize)', seconds: 5 },
+        { key: 'penalty_fp', label: 'FP (Flagrant Penalty)', seconds: 10 },
+        { key: 'penalty_ftdr', label: 'FTDR (Fail to Do Right)', seconds: 20 },
+      ],
+    };
+  }
+
+  if (category === 'zone_per_target') {
+    return {
+      category: 'zone_per_target' as const,
+      zoneLabels: { alpha: 'A', charlie: 'C', delta: 'D', miss: 'M', no_shoot: 'NS' },
+      hasTime: type !== 'fixed_time',
+      hasHitFactor: type === 'comstock' || type === 'virginia' || type === 'hit_factor',
+      rankingMethod: 'hit_factor' as const,
+      showPowerFactor: true,
+      penaltyDefs: [],
+    };
+  }
+
+  if (category === 'time_plus') {
+    if (type === 'action_steel') {
+      return {
+        category: 'time_plus' as const,
+        hasTime: true,
+        hasStrings: true,
+        rankingMethod: 'lowest_time' as const,
+        showPowerFactor: false,
+        penaltyDefs: [],
+      };
+    }
+    // multi_gun
+    return {
+      category: 'time_plus' as const,
+      hasTime: true,
+      hasStrings: false,
+      rankingMethod: 'lowest_time' as const,
+      showPowerFactor: false,
+      penaltyDefs: [
+        { key: 'penalty_ftn_sec', label: 'FTN', seconds: 5 },
+        { key: 'penalty_miss_sec', label: 'Miss', seconds: 10 },
+        { key: 'penalty_no_shoot_sec', label: 'No-Shoot', seconds: 5 },
+        { key: 'penalty_procedural_sec', label: 'Procedural', seconds: 5 },
+      ],
+    };
+  }
+
+  if (category === 'ring_per_shot') {
+    const ringValues = type === 'archery'
+      ? [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+      : [10, 9, 8, 7, 6, 5]; // bullseye, f_class
+    const hasX = type !== 'archery'; // archery uses 10-ring, not X
+    return {
+      category: 'ring_per_shot' as const,
+      hasTime: false,
+      rankingMethod: 'highest_score' as const,
+      showPowerFactor: false,
+      ringValues,
+      hasX,
+      penaltyDefs: [],
+    };
+  }
+
+  // hit_count
+  return {
+    category: 'hit_count' as const,
+    hasTime: false,
+    rankingMethod: 'percentage_of_winner' as const,
+    showPowerFactor: false,
+    penaltyDefs: [],
+  };
+}
+
+/** IDPA zone labels for display */
+export const IDPA_ZONE_LABELS = { alpha: '-0', charlie: '-1', delta: '-3', miss: 'M', no_shoot: 'NS' } as const;
+
+/** IDPA zone point-down values */
+export const IDPA_ZONE_POINTS_DOWN = { alpha: 0, charlie: 1, delta: 3 } as const;
+
+/** Ring values for bullseye (includes X=11) */
+export const BULLSEYE_RING_VALUES = [11, 10, 9, 8, 7, 6, 5] as const;
+
+/** Ring values for archery (no X, 10-1) */
+export const ARCHERY_RING_VALUES = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1] as const;
+
+/** Ring values for F-Class (includes X=11) */
+export const FCLASS_RING_VALUES = [11, 10, 9, 8, 7, 6, 5] as const;
+
+/** Ring value display labels */
+export function ringValueLabel(value: number): string {
+  if (value === 11) return 'X';
+  if (value === 0) return 'M';
+  return String(value);
+}
+
+/** Get human-readable division label from value (e.g. 'production_optics' → 'Production Optics') */
+export function divisionLabel(value: string): string {
+  const found = DIVISIONS.find(d => d.value === value);
+  return found ? found.label : value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Get human-readable category label from value (e.g. 'super_senior' → 'Super Senior') */
+export function categoryLabel(value: string): string {
+  const found = CATEGORIES.find(c => c.value === value);
+  return found ? found.label : value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Get human-readable power factor label from value (e.g. 'minor' → 'Minor') */
+export function powerFactorLabel(value: string): string {
+  const found = POWER_FACTORS.find(p => p.value === value);
+  return found ? found.label : value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Format an ISO date string using the document's lang attribute for localization */
+export function formatDate(isoDate: string): string {
+  const lang = document.documentElement.lang || 'en';
+  return new Date(isoDate).toLocaleDateString(lang, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}

@@ -1,0 +1,21 @@
+{
+  "name": "ipscscore",
+  "version": "1.0.0",
+  "private": true,
+  "description": "IPSC/USPSA scoring application",
+  "workspaces": [
+    "backend",
+    "frontend",
+    "electron"
+  ],
+  "scripts": {
+    "dev:docker": "docker compose up",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:electron": "cd electron && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "build:electron": "cd electron && npm run build",
+    "build:all": "npm run build:backend && npm run build:frontend && npm run build:electron"
+  }
+}

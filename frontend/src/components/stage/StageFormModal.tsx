@@ -1,0 +1,263 @@
+import { useState, useEffect } from 'react';
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, TextInput, Select, Label } from 'flowbite-react';
+import { useTranslation } from 'react-i18next';
+import { useStageStore } from '../../stores/stageStore';
+import { useUIStore } from '../../stores/uiStore';
+import { SCORING_TYPES } from '../../utils/constants';
+import type { ScoringType, StageConfig } from '../../types/stage';
+import type { Stage } from '../../types/stage';
+
+interface StageForm {
+  name: string;
+  scoring_type: ScoringType;
+  paper_targets: number;
+  steel_targets: number;
+  no_shoot_targets: number;
+  hits_per_paper: number;
+  par_time: number | null;
+  config: StageConfig;
+  password: string;
+}
+
+const emptyForm = (): StageForm => ({
+  name: '', scoring_type: 'comstock',
+  paper_targets: 0, steel_targets: 0, no_shoot_targets: 0,
+  hits_per_paper: 2, par_time: null, config: {},
+  password: '',
+});
+
+function getVisibleFields(type: ScoringType) {
+  const ipsc = ['comstock', 'virginia', 'fixed_time', 'hit_factor', 'chrono', 'idpa'];
+  if (ipsc.includes(type)) {
+    return { paperTargets: true, steelTargets: true, noShootTargets: true, hitsPerPaper: true, parTime: type === 'fixed_time', config: false };
+  }
+  switch (type) {
+    case 'action_steel':
+      return { paperTargets: false, steelTargets: false, noShootTargets: false, hitsPerPaper: false, parTime: false, config: true };
+    case 'multi_gun':
+      return { paperTargets: false, steelTargets: false, noShootTargets: false, hitsPerPaper: false, parTime: false, config: true };
+    case 'long_range':
+      return { paperTargets: false, steelTargets: false, noShootTargets: false, hitsPerPaper: false, parTime: false, config: true };
+    case 'bullseye':
+      return { paperTargets: false, steelTargets: false, noShootTargets: false, hitsPerPaper: false, parTime: false, config: true };
+    case 'archery':
+      return { paperTargets: false, steelTargets: false, noShootTargets: false, hitsPerPaper: false, parTime: false, config: true };
+    case 'nrl22':
+      return { paperTargets: false, steelTargets: false, noShootTargets: false, hitsPerPaper: false, parTime: false, config: true };
+    default:
+      return { paperTargets: true, steelTargets: true, noShootTargets: true, hitsPerPaper: true, parTime: false, config: false };
+  }
+}
+
+interface StageFormModalProps {
+  show: boolean;
+  onClose: () => void;
+  editStage?: Stage | null;
+  matchId: string;
+}
+
+export default function StageFormModal({ show, onClose, editStage, matchId }: StageFormModalProps) {
+  const { createStage, updateStage } = useStageStore();
+  const { addToast } = useUIStore();
+  const { t } = useTranslation();
+  const [form, setForm] = useState<StageForm>(emptyForm());
+
+  useEffect(() => {
+    if (editStage) {
+      setForm({
+        name: editStage.name,
+        scoring_type: editStage.scoring_type,
+        paper_targets: editStage.paper_targets,
+        steel_targets: editStage.steel_targets,
+        no_shoot_targets: editStage.no_shoot_targets,
+        hits_per_paper: editStage.hits_per_paper,
+        par_time: editStage.par_time,
+        config: editStage.config || {},
+        password: editStage.password || '',
+      });
+    } else {
+      setForm(emptyForm());
+    }
+  }, [editStage, show]);
+
+  const handleCreate = async () => {
+    if (!matchId || !form.name) return;
+    await createStage(matchId, form);
+    onClose();
+    setForm(emptyForm());
+  };
+
+  const handleEdit = async () => {
+    if (!editStage) return;
+    try {
+      await updateStage(editStage.id, form);
+      addToast(t('stages.updated'), 'success');
+      onClose();
+      setForm(emptyForm());
+    } catch (err: any) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  const visibleFields = getVisibleFields(form.scoring_type);
+  const isEdit = !!editStage;
+  const title = isEdit ? t('stages.editTitle', { number: editStage?.stage_number }) : t('stages.addTitle');
+  const submitLabel = isEdit ? t('stages.saveChanges') : t('stages.addTitle');
+  const handleSubmit = isEdit ? handleEdit : handleCreate;
+
+  return (
+    <Modal show={show} onClose={onClose} size="lg">
+      <ModalHeader>{title}</ModalHeader>
+      <ModalBody>
+        <div className="flex flex-col gap-4">
+          <div>
+            <Label>{t('stages.name')}</Label>
+            <TextInput value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t('stages.namePlaceholder')} />
+          </div>
+          <div>
+            <Label>{t('stages.scoringType')}</Label>
+            <Select value={form.scoring_type} onChange={(e) => setForm({ ...form, scoring_type: e.target.value as ScoringType, config: {} })}>
+              {SCORING_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </Select>
+          </div>
+
+          {visibleFields.paperTargets && (
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>{t('stages.paperTargets')}</Label>
+                <TextInput type="number" min={0} value={form.paper_targets} onChange={(e) => setForm({ ...form, paper_targets: parseInt(e.target.value) || 0 })} />
+              </div>
+              <div>
+                <Label>{t('stages.steelTargets')}</Label>
+                <TextInput type="number" min={0} value={form.steel_targets} onChange={(e) => setForm({ ...form, steel_targets: parseInt(e.target.value) || 0 })} />
+              </div>
+              <div>
+                <Label>{t('stages.noShootTargets')}</Label>
+                <TextInput type="number" min={0} value={form.no_shoot_targets} onChange={(e) => setForm({ ...form, no_shoot_targets: parseInt(e.target.value) || 0 })} />
+              </div>
+            </div>
+          )}
+
+          {(visibleFields.hitsPerPaper || visibleFields.parTime) && (
+            <div className="grid grid-cols-2 gap-3">
+              {visibleFields.hitsPerPaper && (
+                <div>
+                  <Label>{t('stages.hitsPerPaper')}</Label>
+                  <TextInput type="number" min={1} value={form.hits_per_paper} onChange={(e) => setForm({ ...form, hits_per_paper: parseInt(e.target.value) || 2 })} />
+                </div>
+              )}
+              {visibleFields.parTime && (
+                <div>
+                  <Label>{t('stages.parTime')}</Label>
+                  <TextInput type="number" step="0.01" value={form.par_time ?? ''} onChange={(e) => setForm({ ...form, par_time: e.target.value ? parseFloat(e.target.value) : null })} disabled={form.scoring_type !== 'fixed_time'} />
+                </div>
+              )}
+              <div>
+                <Label>{t('stages.password')}</Label>
+                <TextInput type="text" placeholder={t('stages.passwordPlaceholder')} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                <p className="text-xs text-gray-500 mt-1">{t('stages.passwordHelp')}</p>
+              </div>
+            </div>
+          )}
+
+          {visibleFields.config && form.scoring_type === 'action_steel' && (
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>{t('stages.configNumberOfStrings')}</Label>
+                <TextInput type="number" min={1} value={form.config.number_of_strings ?? 5} onChange={(e) => setForm({ ...form, config: { ...form.config, number_of_strings: parseInt(e.target.value) || 5 } })} />
+              </div>
+              <div>
+                <Label>{t('stages.configTargetsPerString')}</Label>
+                <TextInput type="number" min={1} value={form.config.targets_per_string ?? 5} onChange={(e) => setForm({ ...form, config: { ...form.config, targets_per_string: parseInt(e.target.value) || 5 } })} />
+              </div>
+              <div>
+                <Label>{t('stages.configDropWorst')}</Label>
+                <TextInput type="number" min={0} value={form.config.drop_worst ?? 1} onChange={(e) => setForm({ ...form, config: { ...form.config, drop_worst: parseInt(e.target.value) || 1 } })} />
+              </div>
+            </div>
+          )}
+
+          {visibleFields.config && form.scoring_type === 'multi_gun' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>{t('stages.configNumTargets')}</Label>
+                <TextInput type="number" min={1} value={form.config.num_targets ?? 8} onChange={(e) => setForm({ ...form, config: { ...form.config, num_targets: parseInt(e.target.value) || 8 } })} />
+              </div>
+              <div>
+                <Label>{t('stages.configHasNoShoots')}</Label>
+                <Select value={form.config.has_no_shoot ? 'true' : 'false'} onChange={(e) => setForm({ ...form, config: { ...form.config, has_no_shoot: e.target.value === 'true' } })}>
+                  <option value="false">{t('common.no')}</option>
+                  <option value="true">{t('common.yes')}</option>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {visibleFields.config && form.scoring_type === 'long_range' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>{t('stages.configVariant')}</Label>
+                <Select value={form.config.variant || 'prs'} onChange={(e) => setForm({ ...form, config: { ...form.config, variant: e.target.value as 'prs' | 'f_class' } })}>
+                  <option value="prs">{t('stages.configPrsHitMiss')}</option>
+                  <option value="f_class">{t('stages.configFClass')}</option>
+                </Select>
+              </div>
+              {form.config.variant === 'f_class' ? (
+                <div>
+                  <Label>{t('stages.configShotsPerString')}</Label>
+                  <TextInput type="number" min={1} value={form.config.shots_per_string ?? 20} onChange={(e) => setForm({ ...form, config: { ...form.config, shots_per_string: parseInt(e.target.value) || 20 } })} />
+                </div>
+              ) : (
+                <div>
+                  <Label>{t('stages.configNumTargets')}</Label>
+                  <TextInput type="number" min={1} value={form.config.num_targets ?? 10} onChange={(e) => setForm({ ...form, config: { ...form.config, num_targets: parseInt(e.target.value) || 10 } })} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {visibleFields.config && form.scoring_type === 'bullseye' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>{t('stages.configFireType')}</Label>
+                <Select value={form.config.fire_type || 'slow'} onChange={(e) => setForm({ ...form, config: { ...form.config, fire_type: e.target.value as 'slow' | 'timed' | 'rapid' } })}>
+                  <option value="slow">{t('stages.configSlowFire')}</option>
+                  <option value="timed">{t('stages.configTimedFire')}</option>
+                  <option value="rapid">{t('stages.configRapidFire')}</option>
+                </Select>
+              </div>
+              <div>
+                <Label>{t('stages.configShotsPerString')}</Label>
+                <TextInput type="number" min={1} value={form.config.shots_per_string ?? 10} onChange={(e) => setForm({ ...form, config: { ...form.config, shots_per_string: parseInt(e.target.value) || 10 } })} />
+              </div>
+            </div>
+          )}
+
+          {visibleFields.config && form.scoring_type === 'archery' && (
+            <div>
+              <Label>{t('stages.configArrowsPerEnd')}</Label>
+              <TextInput type="number" min={1} value={form.config.arrows_per_end ?? 6} onChange={(e) => setForm({ ...form, config: { ...form.config, arrows_per_end: parseInt(e.target.value) || 6 } })} />
+            </div>
+          )}
+
+          {visibleFields.config && form.scoring_type === 'nrl22' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>{t('stages.configNumTargets')}</Label>
+                <TextInput type="number" min={1} value={form.config.num_targets ?? 10} onChange={(e) => setForm({ ...form, config: { ...form.config, num_targets: parseInt(e.target.value) || 10 } })} />
+              </div>
+              <div>
+                <Label>{t('stages.configPointValue')}</Label>
+                <TextInput type="number" min={1} value={form.config.point_value ?? 10} onChange={(e) => setForm({ ...form, config: { ...form.config, point_value: parseInt(e.target.value) || 10 } })} />
+              </div>
+            </div>
+          )}
+        </div>
+      </ModalBody>
+      <ModalFooter>
+        <Button color="gray" onClick={onClose}>{t('common.cancel')}</Button>
+        <Button color="blue" onClick={handleSubmit} disabled={!form.name}>{submitLabel}</Button>
+      </ModalFooter>
+    </Modal>
+  );
+}

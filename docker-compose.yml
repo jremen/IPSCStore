@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ipscscore
+      POSTGRES_USER: ipscscore
+      POSTGRES_PASSWORD: ipscscore_dev
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ipscscore"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://ipscscore:ipscscore_dev@postgres:5432/ipscscore
+      PORT: 3001
+      UPLOAD_DIR: /app/uploads
+      NODE_ENV: development
+    volumes:
+      - ./backend/src:/app/src
+      - ./uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: npx tsx watch src/index.ts
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+    depends_on:
+      - backend
+    command: npx vite --host 0.0.0.0
+
+volumes:
+  pgdata:

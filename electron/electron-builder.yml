@@ -1,0 +1,46 @@
+appId: com.ipscscore.app
+productName: IPSCScore
+copyright: Copyright © 2025 IPSCScore
+
+directories:
+  output: ../dist-electron
+  buildResources: resources
+
+files:
+  - dist/**/*
+  - node_modules/**/*
+
+extraResources:
+  - from: ../frontend/dist
+    to: frontend-dist
+    filter:
+      - "**/*"
+  - from: ../backend/dist
+    to: backend-dist
+    filter:
+      - "**/*"
+  - from: ../backend/node_modules
+    to: backend-node-modules
+    filter:
+      - "**/*"
+  - from: resources/pg
+    to: pg
+    filter:
+      - "**/*"
+
+mac:
+  target: dmg
+  icon: resources/icon.icns
+  category: public.app-category.utilities
+  # Hardened runtime needed for macOS distribution
+  # hardenedRuntime: true
+  # entitlements: resources/entitlements.mac.plist
+
+win:
+  target: nsis
+  icon: resources/icon.ico
+
+linux:
+  target: AppImage
+  icon: resources/icon.png
+  category: Utility

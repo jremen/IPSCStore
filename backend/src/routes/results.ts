@@ -327,12 +327,12 @@ resultsRoutes.get('/matches/:matchId/results/stages/:stageId', async (c) => {
   });
 });
 
-// Results by category
+// Results by category (grouped by division within each category)
 resultsRoutes.get('/matches/:matchId/results/categories', async (c) => {
   const matchId = c.req.param('matchId');
 
   const categories = ['regular', 'junior', 'senior', 'super_senior', 'lady'];
-  const categoryResults: Record<string, any[]> = {};
+  const categoryResults: Record<string, Record<string, any[]>> = {};
 
   for (const cat of categories) {
     const results = await sql`
@@ -347,17 +347,28 @@ resultsRoutes.get('/matches/:matchId/results/categories', async (c) => {
       LEFT JOIN stage_scores ss ON ss.registration_id = mr.id
       WHERE mr.match_id = ${matchId} AND COALESCE(mr.category, s.category) = ${cat} AND mr.is_dq = FALSE
       GROUP BY mr.id, s.id, mr.division, mr.category, mr.power_factor
-      ORDER BY match_points DESC
+      ORDER BY division, match_points DESC
     `;
 
     if (results.length > 0) {
-      const highest = Number(results[0].match_points);
-      categoryResults[cat] = results.map((r: any, i: number) => ({
-        ...r,
-        position: i + 1,
-        match_points: Number(r.match_points),
-        match_percent: highest > 0 ? Math.round((Number(r.match_points) / highest) * 10000) / 100 : 0,
-      }));
+      // Group by division and rank within each division
+      const byDivision: Record<string, any[]> = {};
+      for (const r of results) {
+        const div = r.division || 'unknown';
+        if (!byDivision[div]) byDivision[div] = [];
+        byDivision[div].push(r);
+      }
+
+      categoryResults[cat] = {};
+      for (const [div, divResults] of Object.entries(byDivision)) {
+        const highest = Number(divResults[0].match_points);
+        categoryResults[cat][div] = divResults.map((r: any, i: number) => ({
+          ...r,
+          position: i + 1,
+          match_points: Number(r.match_points),
+          match_percent: highest > 0 ? Math.round((Number(r.match_points) / highest) * 10000) / 100 : 0,
+        }));
+      }
     }
   }
 
@@ -390,7 +401,7 @@ resultsRoutes.get('/matches/:matchId/results/categories', async (c) => {
   return c.json({ ...categoryResults, dq: dqRanked });
 });
 
-// Results by tag
+// Results by tag (grouped by division within each tag)
 resultsRoutes.get('/matches/:matchId/results/tags', async (c) => {
   const matchId = c.req.param('matchId');
 
@@ -401,7 +412,7 @@ resultsRoutes.get('/matches/:matchId/results/tags', async (c) => {
     ORDER BY s.tag
   `;
 
-  const tagResults: Record<string, any[]> = {};
+  const tagResults: Record<string, Record<string, any[]>> = {};
 
   for (const { tag } of tags) {
     const results = await sql`
@@ -416,17 +427,28 @@ resultsRoutes.get('/matches/:matchId/results/tags', async (c) => {
       LEFT JOIN stage_scores ss ON ss.registration_id = mr.id
       WHERE mr.match_id = ${matchId} AND s.tag = ${tag} AND mr.is_dq = FALSE
       GROUP BY mr.id, s.id, mr.division, mr.power_factor
-      ORDER BY match_points DESC
+      ORDER BY division, match_points DESC
     `;
 
     if (results.length > 0) {
-      const highest = Number(results[0].match_points);
-      tagResults[tag] = results.map((r: any, i: number) => ({
-        ...r,
-        position: i + 1,
-        match_points: Number(r.match_points),
-        match_percent: highest > 0 ? Math.round((Number(r.match_points) / highest) * 10000) / 100 : 0,
-      }));
+      // Group by division and rank within each division
+      const byDivision: Record<string, any[]> = {};
+      for (const r of results) {
+        const div = r.division || 'unknown';
+        if (!byDivision[div]) byDivision[div] = [];
+        byDivision[div].push(r);
+      }
+
+      tagResults[tag] = {};
+      for (const [div, divResults] of Object.entries(byDivision)) {
+        const highest = Number(divResults[0].match_points);
+        tagResults[tag][div] = divResults.map((r: any, i: number) => ({
+          ...r,
+          position: i + 1,
+          match_points: Number(r.match_points),
+          match_percent: highest > 0 ? Math.round((Number(r.match_points) / highest) * 10000) / 100 : 0,
+        }));
+      }
     }
   }
 

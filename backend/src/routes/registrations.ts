@@ -87,6 +87,117 @@ registrationRoutes.post('/matches/:matchId/registrations/create-and-add', async 
   return c.json({ shooter, registration: reg }, 201);
 });
 
+// Bulk update registrations (division, category, power_factor, squad overrides)
+registrationRoutes.put('/matches/:matchId/registrations/bulk', async (c) => {
+  const matchId = c.req.param('matchId');
+  const body = await c.req.json();
+  const { registrationIds, updates } = body;
+
+  if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+    return c.json({ error: 'registrationIds must be a non-empty array' }, 400);
+  }
+  if (!updates || typeof updates !== 'object') {
+    return c.json({ error: 'updates object is required' }, 400);
+  }
+
+  const allowedFields = ['division', 'category', 'power_factor', 'squad'];
+  const updateFields: Record<string, any> = {};
+  for (const field of allowedFields) {
+    if (updates[field] !== undefined) {
+      updateFields[field] = updates[field];
+    }
+  }
+
+  if (Object.keys(updateFields).length === 0) {
+    return c.json({ error: 'No fields to update' }, 400);
+  }
+
+  let updated = 0;
+  const failed: Array<{ id: string; name: string; reason: string }> = [];
+
+  for (const regId of registrationIds) {
+    try {
+      // Verify registration belongs to this match
+      const [reg] = await sql`
+        SELECT mr.id, s.first_name, s.last_name
+        FROM match_registrations mr
+        JOIN shooters s ON s.id = mr.shooter_id
+        WHERE mr.id = ${regId} AND mr.match_id = ${matchId}
+      `;
+      if (!reg) {
+        failed.push({ id: regId, name: regId, reason: 'Not found in this match' });
+        continue;
+      }
+
+      await sql`
+        UPDATE match_registrations
+        SET division = ${updateFields.division !== undefined ? updateFields.division : sql`division`},
+            category = ${updateFields.category !== undefined ? updateFields.category : sql`category`},
+            power_factor = ${updateFields.power_factor !== undefined ? updateFields.power_factor : sql`power_factor`},
+            squad = ${updateFields.squad !== undefined ? updateFields.squad : sql`squad`}
+        WHERE id = ${regId}
+      `;
+      updated++;
+    } catch {
+      const [reg] = await sql`
+        SELECT s.first_name, s.last_name
+        FROM match_registrations mr JOIN shooters s ON s.id = mr.shooter_id
+        WHERE mr.id = ${regId}
+      `;
+      failed.push({ id: regId, name: reg ? `${reg.first_name} ${reg.last_name}` : regId, reason: 'Update failed' });
+    }
+  }
+
+  return c.json({ updated, failed });
+});
+
+// Bulk remove registrations from a match
+registrationRoutes.delete('/matches/:matchId/registrations/bulk', async (c) => {
+  const matchId = c.req.param('matchId');
+  const body = await c.req.json();
+  const { registrationIds } = body;
+
+  if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+    return c.json({ error: 'registrationIds must be a non-empty array' }, 400);
+  }
+
+  let removed = 0;
+  const failed: Array<{ id: string; name: string; reason: string }> = [];
+
+  for (const regId of registrationIds) {
+    try {
+      // Get shooter name for reporting before delete
+      const [reg] = await sql`
+        SELECT mr.id, s.first_name, s.last_name
+        FROM match_registrations mr
+        JOIN shooters s ON s.id = mr.shooter_id
+        WHERE mr.id = ${regId} AND mr.match_id = ${matchId}
+      `;
+      if (!reg) {
+        failed.push({ id: regId, name: regId, reason: 'Not found in this match' });
+        continue;
+      }
+
+      // Cascade deletes stage_scores, target_scores, chrono_results via FK
+      const result = await sql`DELETE FROM match_registrations WHERE id = ${regId} AND match_id = ${matchId} RETURNING id`;
+      if (result.length > 0) {
+        removed++;
+      } else {
+        failed.push({ id: regId, name: `${reg.first_name} ${reg.last_name}`, reason: 'Not found' });
+      }
+    } catch {
+      const [reg] = await sql`
+        SELECT s.first_name, s.last_name
+        FROM match_registrations mr JOIN shooters s ON s.id = mr.shooter_id
+        WHERE mr.id = ${regId}
+      `;
+      failed.push({ id: regId, name: reg ? `${reg.first_name} ${reg.last_name}` : regId, reason: 'Remove failed' });
+    }
+  }
+
+  return c.json({ removed, failed });
+});
+
 // Update registration (overrides, squad)
 registrationRoutes.put('/matches/:matchId/registrations/:id', async (c) => {
   const id = c.req.param('id');

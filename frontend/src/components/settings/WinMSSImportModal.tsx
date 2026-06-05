@@ -9,7 +9,7 @@ import { useMatchStore } from '../../stores/matchStore';
 interface ImportResult {
   matches: Array<{ id: string; name: string; date: string; imported: boolean; updated?: boolean }>;
   stages: Array<{ id: string; name: string; stage_number: number; updated?: boolean }>;
-  shooters: { created: number; skipped: number };
+  shooters: { created: number; skipped: number; errors: string[] };
   registrations: { created: number; skipped: number };
   scores: { created: number; errors: string[] };
   warnings: string[];
@@ -151,7 +151,7 @@ export default function WinMSSImportModal({ show, onClose }: { show: boolean; on
         )}
 
         {inspectData && (
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-4 max-h-[40vh] overflow-y-auto">
             <Alert color="info">
               <p className="font-medium">{t('import.winMss.inspectionTitle')}</p>
               <p className="text-sm mt-1">{t('import.winMss.inspectionDescription')}</p>
@@ -194,7 +194,7 @@ export default function WinMSSImportModal({ show, onClose }: { show: boolean; on
         )}
 
         {error && (
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[40vh] overflow-y-auto">
             <Alert color="failure">
               <p className="font-medium">{t('import.winMss.importFailed')}</p>
               <p className="text-sm mt-1">{error}</p>
@@ -213,7 +213,7 @@ export default function WinMSSImportModal({ show, onClose }: { show: boolean; on
         )}
 
         {result && (
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[40vh] overflow-y-auto">
             <Alert color={result.scores.created > 0 ? 'success' : 'warning'}>
               <p className="font-medium">
                 {result.scores.created > 0 ? t('import.winMss.importCompleted') : t('import.winMss.importNoScores')}
@@ -261,7 +261,7 @@ export default function WinMSSImportModal({ show, onClose }: { show: boolean; on
                 <TableRow>
                   <TableCell>{t('import.winMss.shootersRow')}</TableCell>
                   <TableCell>{result.shooters.created}</TableCell>
-                  <TableCell>{result.shooters.skipped}</TableCell>
+                  <TableCell>{result.shooters.skipped}{result.shooters.errors.length > 0 ? ` (${result.shooters.errors.length} errors)` : ''}</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell>{t('import.winMss.registrationsRow')}</TableCell>
@@ -303,6 +303,20 @@ export default function WinMSSImportModal({ show, onClose }: { show: boolean; on
                   {result.warnings.map((w, i) => (
                     <li key={i}>{w}</li>
                   ))}
+                </ul>
+              </Alert>
+            )}
+
+            {result.shooters.errors.length > 0 && (
+              <Alert color="failure">
+                <p className="font-medium mb-1">Shooter import errors ({result.shooters.errors.length})</p>
+                <ul className="list-disc list-inside text-sm">
+                  {result.shooters.errors.slice(0, 20).map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                  {result.shooters.errors.length > 20 && (
+                    <li>...and {result.shooters.errors.length - 20} more</li>
+                  )}
                 </ul>
               </Alert>
             )}

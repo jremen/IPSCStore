@@ -21,22 +21,15 @@ interface StageResult {
 interface ImportResult {
   matches: Array<{ id: string; name: string; date: string; imported: boolean; updated?: boolean }>;
   stages: StageResult[];
-  shooters: { created: number; skipped: number };
+  shooters: { created: number; skipped: number; errors: string[] };
   registrations: { created: number; skipped: number };
   scores: { created: number; errors: string[] };
   warnings: string[];
-  debug?: {
-    scoreSampleRows: Array<Record<string, any>>;
-    stageSampleRows: Array<Record<string, any>>;
-    memberSampleRows: Array<Record<string, any>>;
-    competitorSampleRows: Array<Record<string, any>>;
-  };
 }
 
 /**
  * GET /api/import/winmss/inspect
  * Upload a .mdb file and inspect its tables/columns without importing.
- * Returns table names, column names, and sample rows.
  */
 winmssImportRoutes.post('/winmss/inspect', async (c) => {
   const body = await c.req.parseBody();
@@ -77,6 +70,9 @@ winmssImportRoutes.post('/winmss/inspect', async (c) => {
 /**
  * POST /api/import/winmss
  * Import matches from a WinMSS .mdb file.
+ *
+ * Architecture: shooters are processed ONCE globally (not per-match),
+ * then matches/stages/registrations/scores are processed per-match.
  */
 winmssImportRoutes.post('/winmss', async (c) => {
   const body = await c.req.parseBody();
@@ -100,7 +96,7 @@ winmssImportRoutes.post('/winmss', async (c) => {
     const result: ImportResult = {
       matches: [],
       stages: [],
-      shooters: { created: 0, skipped: 0 },
+      shooters: { created: 0, skipped: 0, errors: [] },
       registrations: { created: 0, skipped: 0 },
       scores: { created: 0, errors: [] },
       warnings: [],
@@ -190,7 +186,99 @@ winmssImportRoutes.post('/winmss', async (c) => {
       }
     }
 
-    // ── 4. Import ALL matches ──────────────────────────────────────────
+    // ── 4. Import Shooters ONCE (global, not per-match) ────────────────
+    // Shooters are global in WinMSS (tblMember is shared across all matches).
+    // Process them once and build a memberIdMap used by all matches.
+    const memberIdMap = new Map<number | string, string>(); // WinMSS MemberId → IPSCScore shooter.id
+
+    if (memberTableName) {
+      const memberTable = reader.getTable(memberTableName);
+      const memberRows = memberTable.getData() as Record<string, any>[];
+      console.log(`[WinMSS Import] Processing ${memberRows.length} member rows globally`);
+
+      if (memberRows.length > 0) {
+        console.log('[WinMSS Import] First member row:', JSON.stringify(memberRows[0]));
+      }
+
+      for (let i = 0; i < memberRows.length; i++) {
+        const memberRow = memberRows[i];
+        try {
+          const wmsMemberId = findColumn(memberRow, 'memberId');
+          const memberIdNum = wmsMemberId !== undefined ? Number(wmsMemberId) : i + 1;
+          const firstName = (findColumn(memberRow, 'firstName')?.toString() || '').trim();
+          const lastName = (findColumn(memberRow, 'lastName')?.toString() || '').trim();
+
+          if (!firstName && !lastName) {
+            result.shooters.skipped++;
+            result.shooters.errors.push(`Member row ${i + 1} (MemberId=${memberIdNum}): both names empty`);
+            continue;
+          }
+
+          if (!firstName || !lastName) {
+            result.shooters.skipped++;
+            result.shooters.errors.push(`Member row ${i + 1} (MemberId=${memberIdNum}): missing name (first="${firstName}", last="${lastName}")`);
+            continue;
+          }
+
+          // Resolve tag from DfltTagId lookup (explicit IPSC tag table)
+          let tag: string | null = null;
+          const dfltTagId = findColumn(memberRow, 'memberDfltTagId');
+          if (dfltTagId !== undefined && tagLookup.size > 0) {
+            const tagId = Number(dfltTagId);
+            if (tagLookup.has(tagId)) {
+              tag = tagLookup.get(tagId)!;
+            }
+          }
+
+          // Look up by WinMSS MemberId ONLY — this is the unique key
+          const existing = await sql`
+            SELECT id FROM shooters WHERE winmss_member_id = ${memberIdNum} LIMIT 1
+          `;
+
+          if (existing.length > 0) {
+            memberIdMap.set(memberIdNum, existing[0].id);
+            // Update tag/region if available
+            const regionRaw = findColumn(memberRow, 'region');
+            const region = mapRegion(regionRaw, regionLookup);
+            if (tag || region) {
+              await sql`
+                UPDATE shooters
+                SET tag = COALESCE(${tag || null}, tag),
+                    region = CASE WHEN region = '' OR region IS NULL THEN ${region} ELSE region END,
+                    updated_at = NOW()
+                WHERE id = ${existing[0].id}
+              `;
+            }
+            result.shooters.skipped++;
+          } else {
+            const division = mapDivision(findColumn(memberRow, 'shooterDivision'), divisionLookup);
+            const category = mapCategory(findColumn(memberRow, 'shooterCategory'), categoryLookup);
+            const regionRaw = findColumn(memberRow, 'region');
+            const region = mapRegion(regionRaw, regionLookup);
+            const email = findColumn(memberRow, 'shooterEmail')?.toString() || null;
+            const pfRaw = findColumn(memberRow, 'shooterPowerFactor');
+            const shooterPf = mapPowerFactor(pfRaw, powerFactorLookup);
+
+            const [shooter] = await sql`
+              INSERT INTO shooters (first_name, last_name, category, division, power_factor, region, email, tag, winmss_member_id)
+              VALUES (${firstName}, ${lastName}, ${category}, ${division}, ${shooterPf}, ${region}, ${email}, ${tag || null}, ${memberIdNum})
+              RETURNING id
+            `;
+            memberIdMap.set(memberIdNum, shooter.id);
+            result.shooters.created++;
+          }
+        } catch (err: any) {
+          result.shooters.errors.push(`Member row ${i + 1}: ${err.message}`);
+          console.error(`[WinMSS Import] Error importing member row ${i + 1}:`, err.message);
+        }
+      }
+
+      console.log(`[WinMSS Import] Shooters: ${result.shooters.created} created, ${result.shooters.skipped} skipped, ${result.shooters.errors.length} errors`);
+    } else {
+      result.warnings.push('No member/shooter table found in .mdb file');
+    }
+
+    // ── 5. Import ALL matches ──────────────────────────────────────────
     const matchTable = reader.getTable(matchTableName);
     const matchRows = matchTable.getData() as Record<string, any>[];
 
@@ -202,11 +290,44 @@ winmssImportRoutes.post('/winmss', async (c) => {
     console.log('[WinMSS Import] Found', matchRows.length, 'match(es)');
     console.log('[WinMSS Import] First match row:', JSON.stringify(matchRows[0]));
 
+    // Pre-load all competitor and score data once (they're global tables in WinMSS)
+    let allCompetitorRows: Record<string, any>[] = [];
+    if (competitorTableName) {
+      const competitorTable = reader.getTable(competitorTableName);
+      allCompetitorRows = competitorTable.getData() as Record<string, any>[];
+      if (allCompetitorRows.length > 0) {
+        console.log('[WinMSS Import] First competitor row:', JSON.stringify(allCompetitorRows[0]));
+      }
+    }
+
+    let allScoreRows: Record<string, any>[] = [];
+    if (scoreTableName) {
+      const scoreTable = reader.getTable(scoreTableName);
+      allScoreRows = scoreTable.getData() as Record<string, any>[];
+      if (allScoreRows.length > 0) {
+        console.log('[WinMSS Import] Score sample row keys:', Object.keys(allScoreRows[0]).join(', '));
+        console.log('[WinMSS Import] Score sample row (first):', JSON.stringify(allScoreRows[0]));
+      }
+    }
+
     // Process each match
     for (const matchRow of matchRows) {
       const matchName = findColumn(matchRow, 'matchName')?.toString() || file.name.replace(/\.mdb$/i, '');
       const matchDateRaw = findColumn(matchRow, 'matchDate');
-      const matchDate = matchDateRaw instanceof Date ? matchDateRaw : new Date(matchDateRaw?.toString() || Date.now());
+      let matchDate: Date;
+      if (matchDateRaw instanceof Date) {
+        matchDate = matchDateRaw;
+      } else if (matchDateRaw) {
+        matchDate = new Date(String(matchDateRaw));
+      } else {
+        matchDate = new Date();
+      }
+      // Handle invalid dates gracefully
+      if (isNaN(matchDate.getTime())) {
+        console.warn('[WinMSS Import] Invalid match date for match:', matchName, 'raw:', matchDateRaw);
+        matchDate = new Date();
+        result.warnings.push(`Match "${matchName}" has invalid date, using current date`);
+      }
       const matchDateStr = matchDate.toISOString().split('T')[0];
       const firearmType = mapFirearmType(findColumn(matchRow, 'matchFirearmType'));
 
@@ -230,14 +351,13 @@ winmssImportRoutes.post('/winmss', async (c) => {
         result.matches.push({ id: match.id, name: match.name, date: matchDateStr, imported: true });
       }
 
-      // ── 5. Import Stages for this match ──────────────────────────────
+      // ── 6. Import Stages for this match ──────────────────────────────
       if (!stageTableName) {
         result.warnings.push('No stage table found in .mdb file');
       } else {
         const stageTable = reader.getTable(stageTableName);
         const allStageRows = stageTable.getData() as Record<string, any>[];
 
-        // Log first stage row for debugging
         if (allStageRows.length > 0) {
           console.log('[WinMSS Import] First stage row:', JSON.stringify(allStageRows[0]));
         }
@@ -245,7 +365,7 @@ winmssImportRoutes.post('/winmss', async (c) => {
         // Filter stages belonging to this match
         let stageRows = allStageRows;
         if (matchRows.length > 1) {
-          const currentMatchId = matchRow['Id'] ?? matchRow['ID'] ?? matchRow['MatchId'] ?? matchRow['MatchId'];
+          const currentMatchId = findColumn(matchRow, 'matchId');
           if (currentMatchId !== undefined) {
             const filtered = allStageRows.filter(r => {
               const sid = findColumn(r, 'stageMatchId') ?? findColumn(r, 'matchId');
@@ -269,623 +389,468 @@ winmssImportRoutes.post('/winmss', async (c) => {
           const hpp = inferHitsPerPaper();
           const maxPoints = paperTargets * hpp * 5 + steelTargets * 5;
 
-          // Check if stage already exists for this match
-          const existingStage = await sql`
-            SELECT id FROM stages WHERE match_id = ${matchId} AND stage_number = ${Number(stageNum)}
-          `;
+          try {
+            const existingStage = await sql`
+              SELECT id FROM stages WHERE match_id = ${matchId} AND stage_number = ${Number(stageNum)}
+            `;
 
-          if (existingStage.length > 0) {
-            await sql`
-              UPDATE stages SET
-                name = ${stageName},
-                scoring_type = ${scoringType},
-                paper_targets = ${paperTargets},
-                steel_targets = ${steelTargets},
-                no_shoot_targets = ${noShootTargets},
-                hits_per_paper = ${hpp},
-                min_rounds = ${minRounds},
-                max_points = ${maxPoints}
-              WHERE id = ${existingStage[0].id}
-            `;
-            result.stages.push({ id: existingStage[0].id, name: stageName, stage_number: Number(stageNum), updated: true });
-          } else {
-            const [stage] = await sql`
-              INSERT INTO stages (match_id, stage_number, name, scoring_type, paper_targets, steel_targets,
-                no_shoot_targets, hits_per_paper, min_rounds, max_points)
-              VALUES (${matchId}, ${Number(stageNum)}, ${stageName}, ${scoringType}, ${paperTargets},
-                ${steelTargets}, ${noShootTargets}, ${hpp}, ${minRounds}, ${maxPoints})
-              RETURNING id, name, stage_number
-            `;
-            result.stages.push({ id: stage.id, name: stage.name, stage_number: stage.stage_number });
+            if (existingStage.length > 0) {
+              await sql`
+                UPDATE stages SET
+                  name = ${stageName},
+                  scoring_type = ${scoringType},
+                  paper_targets = ${paperTargets},
+                  steel_targets = ${steelTargets},
+                  no_shoot_targets = ${noShootTargets},
+                  hits_per_paper = ${hpp},
+                  min_rounds = ${minRounds},
+                  max_points = ${maxPoints}
+                WHERE id = ${existingStage[0].id}
+              `;
+              result.stages.push({ id: existingStage[0].id, name: stageName, stage_number: Number(stageNum), updated: true });
+            } else {
+              const [stage] = await sql`
+                INSERT INTO stages (match_id, stage_number, name, scoring_type, paper_targets, steel_targets,
+                  no_shoot_targets, hits_per_paper, min_rounds, max_points)
+                VALUES (${matchId}, ${Number(stageNum)}, ${stageName}, ${scoringType}, ${paperTargets},
+                  ${steelTargets}, ${noShootTargets}, ${hpp}, ${minRounds}, ${maxPoints})
+                RETURNING id, name, stage_number
+              `;
+              result.stages.push({ id: stage.id, name: stage.name, stage_number: stage.stage_number });
+            }
+          } catch (err: any) {
+            result.warnings.push(`Failed to import stage ${stageNum} "${stageName}": ${err.message}`);
           }
         }
       }
 
-      // ── 6. Import Shooters ────────────────────────────────────────────
-      if (!memberTableName) {
-        result.warnings.push('No member/shooter table found in .mdb file');
-        continue;
-      }
-
-      const memberTable = reader.getTable(memberTableName);
-      const memberRows = memberTable.getData() as Record<string, any>[];
-      const memberIdMap = new Map<number | string, string>(); // WinMSS MemberId → IPSCScore shooter.id
-
-      // Log first member row for debugging
-      if (memberRows.length > 0) {
-        console.log('[WinMSS Import] First member row:', JSON.stringify(memberRows[0]));
-      }
-
-      for (const memberRow of memberRows) {
-        const wmsMemberId = findColumn(memberRow, 'memberId');
-        const memberIdNum = wmsMemberId !== undefined ? Number(wmsMemberId) : 0;
-        const firstName = (findColumn(memberRow, 'firstName')?.toString() || '').trim();
-        const lastName = (findColumn(memberRow, 'lastName')?.toString() || '').trim();
-
-        if (!firstName && !lastName) {
-          result.shooters.skipped++;
-          continue;
-        }
-
-        // Try to find existing shooter by name (or by tag if available)
-        // Resolve tag: first try DfltTagId lookup from tblTag, then direct column extraction
-        let tag: string | null = null;
-        const dfltTagId = findColumn(memberRow, 'memberDfltTagId');
-        if (dfltTagId !== undefined && tagLookup.size > 0) {
-          const tagId = Number(dfltTagId);
-          if (tagLookup.has(tagId)) {
-            tag = tagLookup.get(tagId)!;
-          }
-        }
-        if (!tag) {
-          tag = extractTag(memberRow);
-        }
-        let existing: any[];
-
-        if (tag) {
-          existing = await sql`
-            SELECT id FROM shooters WHERE tag = ${tag} LIMIT 1
-          `;
-          if (existing.length === 0) {
-            existing = await sql`
-              SELECT id FROM shooters
-              WHERE LOWER(first_name) = ${firstName.toLowerCase()}
-                AND LOWER(last_name) = ${lastName.toLowerCase()}
-              LIMIT 1
-            `;
-          }
-        } else {
-          existing = await sql`
-            SELECT id FROM shooters
-            WHERE LOWER(first_name) = ${firstName.toLowerCase()}
-              AND LOWER(last_name) = ${lastName.toLowerCase()}
-            LIMIT 1
-          `;
-        }
-
-        if (existing.length > 0) {
-          memberIdMap.set(memberIdNum, existing[0].id);
-          // Fill in tag/region if the shooter is missing them and we now have data
-          const regionRaw = findColumn(memberRow, 'region');
-          const region = mapRegion(regionRaw, regionLookup);
-          if (tag || region) {
-            await sql`
-              UPDATE shooters
-              SET tag = COALESCE(${tag}, tag),
-                  region = CASE WHEN region = '' OR region IS NULL THEN ${region} ELSE region END,
-                  updated_at = NOW()
-              WHERE id = ${existing[0].id}
-            `;
-          }
-          result.shooters.skipped++;
-        } else {
-          const division = mapDivision(findColumn(memberRow, 'shooterDivision'), divisionLookup);
-          const category = mapCategory(findColumn(memberRow, 'shooterCategory'), categoryLookup);
-          const regionRaw = findColumn(memberRow, 'region');
-          const region = mapRegion(regionRaw, regionLookup);
-          const email = findColumn(memberRow, 'shooterEmail')?.toString() || null;
-          const pfRaw = findColumn(memberRow, 'shooterPowerFactor');
-          const shooterPf = mapPowerFactor(pfRaw, powerFactorLookup);
-
-          const [shooter] = await sql`
-            INSERT INTO shooters (first_name, last_name, category, division, power_factor, region, email, tag)
-            VALUES (${firstName}, ${lastName}, ${category}, ${division}, ${shooterPf}, ${region}, ${email}, ${tag})
-            RETURNING id
-          `;
-          memberIdMap.set(memberIdNum, shooter.id);
-          result.shooters.created++;
-        }
-      }
-
-      // ── 7. Import Registrations ────────────────────────────────────────
+      // ── 7. Import Registrations for this match ────────────────────────
       if (!competitorTableName) {
         result.warnings.push('No competitor/registration table found in .mdb file');
-        continue;
-      }
+      } else {
+        // Map: memberId → registrationId (per match)
+        const competitorIdMap = new Map<string, string>();
 
-      const competitorTable = reader.getTable(competitorTableName);
-      const allCompetitorRows = competitorTable.getData() as Record<string, any>[];
-      // Map: memberId → registrationId (per match)
-      const competitorIdMap = new Map<string, string>();
-
-      // Log first competitor row for debugging
-      if (allCompetitorRows.length > 0) {
-        console.log('[WinMSS Import] First competitor row:', JSON.stringify(allCompetitorRows[0]));
-      }
-
-      // Filter competitors for this match
-      let competitorRows = allCompetitorRows;
-      if (matchRows.length > 1) {
-        const currentMatchId = matchRow['Id'] ?? matchRow['ID'] ?? matchRow['MatchId'] ?? matchRow['MatchId'];
-        if (currentMatchId !== undefined) {
-          const filtered = allCompetitorRows.filter(r => {
-            const cid = findColumn(r, 'competitorMatchId') ?? findColumn(r, 'matchId');
-            return cid == currentMatchId;
-          });
-          if (filtered.length > 0) competitorRows = filtered;
-        }
-      }
-
-      for (const compRow of competitorRows) {
-        const wmsMemberIdRaw = findColumn(compRow, 'competitorMemberId') ?? findColumn(compRow, 'memberId');
-        const wmsMemberId = wmsMemberIdRaw !== undefined ? Number(wmsMemberIdRaw) : 0;
-        const shooterId = memberIdMap.get(wmsMemberId);
-        if (!shooterId) {
-          result.warnings.push(`Competitor member ID ${wmsMemberId} not found in member table, skipping`);
-          continue;
-        }
-
-        // Use competitor-specific division/category/power_factor as overrides
-        const divisionOverride = findColumn(compRow, 'competitorDivision') ?? findColumn(compRow, 'shooterDivision') ?? findColumn(compRow, 'division');
-        const categoryOverride = findColumn(compRow, 'competitorCategory') ?? findColumn(compRow, 'shooterCategory') ?? findColumn(compRow, 'category');
-        const pfOverride = findColumn(compRow, 'competitorPowerFactor') ?? findColumn(compRow, 'shooterPowerFactor') ?? findColumn(compRow, 'powerFactor');
-
-        const division = divisionOverride ? mapDivision(divisionOverride, divisionLookup) : null;
-        const category = categoryOverride ? mapCategory(categoryOverride, categoryLookup) : null;
-        const powerFactor = pfOverride ? mapPowerFactor(pfOverride, powerFactorLookup) : null;
-        const isDq = Boolean(findColumn(compRow, 'competitorDq'));
-        const squad = findColumn(compRow, 'competitorSquad') ? Number(findColumn(compRow, 'competitorSquad')) : null;
-
-        // Check if already registered
-        const existingReg = await sql`
-          SELECT id FROM match_registrations
-          WHERE match_id = ${matchId} AND shooter_id = ${shooterId}
-        `;
-
-        if (existingReg.length > 0) {
-          const regId = existingReg[0].id;
-          competitorIdMap.set(`${wmsMemberId}`, regId);
-          result.registrations.skipped++;
-          // Update with overrides if available
-          if (division || category || powerFactor || isDq) {
-            await sql`
-              UPDATE match_registrations SET
-                division = COALESCE(${division}, division),
-                category = COALESCE(${category}, category),
-                power_factor = COALESCE(${powerFactor}, power_factor),
-                is_dq = ${isDq},
-                dq_reason = ${isDq ? 'DQ (imported from WinMSS)' : null}
-              WHERE id = ${regId}
-            `;
+        // Filter competitors for this match
+        let competitorRows = allCompetitorRows;
+        if (matchRows.length > 1) {
+          const currentMatchId = findColumn(matchRow, 'matchId');
+          if (currentMatchId !== undefined) {
+            const filtered = allCompetitorRows.filter(r => {
+              const cid = findColumn(r, 'competitorMatchId') ?? findColumn(r, 'matchId');
+              return cid == currentMatchId;
+            });
+            if (filtered.length > 0) competitorRows = filtered;
           }
+        }
+
+        for (const compRow of competitorRows) {
+          try {
+            const wmsMemberIdRaw = findColumn(compRow, 'competitorMemberId') ?? findColumn(compRow, 'memberId');
+            const wmsMemberId = wmsMemberIdRaw !== undefined ? Number(wmsMemberIdRaw) : 0;
+            const shooterId = memberIdMap.get(wmsMemberId);
+            if (!shooterId) {
+              result.warnings.push(`Competitor member ID ${wmsMemberId} not found in member table, skipping`);
+              continue;
+            }
+
+            const divisionOverride = findColumn(compRow, 'competitorDivision') ?? findColumn(compRow, 'shooterDivision') ?? findColumn(compRow, 'division');
+            const categoryOverride = findColumn(compRow, 'competitorCategory') ?? findColumn(compRow, 'shooterCategory') ?? findColumn(compRow, 'category');
+            const pfOverride = findColumn(compRow, 'competitorPowerFactor') ?? findColumn(compRow, 'shooterPowerFactor') ?? findColumn(compRow, 'powerFactor');
+
+            const division = divisionOverride ? mapDivision(divisionOverride, divisionLookup) : null;
+            const category = categoryOverride ? mapCategory(categoryOverride, categoryLookup) : null;
+            const powerFactor = pfOverride ? mapPowerFactor(pfOverride, powerFactorLookup) : null;
+            const isDq = Boolean(findColumn(compRow, 'competitorDq'));
+            const squad = findColumn(compRow, 'competitorSquad') ? Number(findColumn(compRow, 'competitorSquad')) : null;
+
+            const existingReg = await sql`
+              SELECT id FROM match_registrations
+              WHERE match_id = ${matchId} AND shooter_id = ${shooterId}
+            `;
+
+            if (existingReg.length > 0) {
+              const regId = existingReg[0].id;
+              competitorIdMap.set(`${wmsMemberId}`, regId);
+              result.registrations.skipped++;
+              if (division || category || powerFactor || isDq) {
+                await sql`
+                  UPDATE match_registrations SET
+                    division = COALESCE(${division}, division),
+                    category = COALESCE(${category}, category),
+                    power_factor = COALESCE(${powerFactor}, power_factor),
+                    is_dq = ${isDq},
+                    dq_reason = ${isDq ? 'DQ (imported from WinMSS)' : null}
+                  WHERE id = ${regId}
+                `;
+              }
+            } else {
+              const [reg] = await sql`
+                INSERT INTO match_registrations (match_id, shooter_id, squad, division, category, power_factor, is_dq, dq_reason)
+                VALUES (${matchId}, ${shooterId}, ${squad},
+                  ${division}, ${category}, ${powerFactor},
+                  ${isDq}, ${isDq ? 'DQ (imported from WinMSS)' : null})
+                RETURNING id
+              `;
+              competitorIdMap.set(`${wmsMemberId}`, reg.id);
+              result.registrations.created++;
+            }
+          } catch (err: any) {
+            result.warnings.push(`Registration import error: ${err.message}`);
+          }
+        }
+
+        // ── 8. Import Scores for this match ──────────────────────────────
+        if (!scoreTableName) {
+          result.warnings.push('No score table found in .mdb file');
         } else {
-          const [reg] = await sql`
-            INSERT INTO match_registrations (match_id, shooter_id, squad, division, category, power_factor, is_dq, dq_reason)
-            VALUES (${matchId}, ${shooterId}, ${squad},
-              ${division}, ${category}, ${powerFactor},
-              ${isDq}, ${isDq ? 'DQ (imported from WinMSS)' : null})
-            RETURNING id
+          // Get all stages for this match
+          const dbStages = await sql`
+            SELECT id, stage_number, scoring_type, paper_targets, steel_targets,
+              no_shoot_targets, hits_per_paper, min_rounds, max_points
+            FROM stages WHERE match_id = ${matchId}
           `;
-          competitorIdMap.set(`${wmsMemberId}`, reg.id);
-          result.registrations.created++;
-        }
-      }
+          const stageByNumber = new Map(dbStages.map((s: any) => [s.stage_number, s]));
 
-      // ── 8. Import Scores ──────────────────────────────────────────────
-      if (!scoreTableName) {
-        result.warnings.push('No score table found in .mdb file');
-        continue;
-      }
+          console.log('[WinMSS Import] DB stages for match:', dbStages.map((s: any) => `#${s.stage_number} ${s.name}`).join(', '));
+          console.log('[WinMSS Import] Competitor map entries:', competitorIdMap.size);
 
-      const scoreTable = reader.getTable(scoreTableName);
-      const allScoreRows = scoreTable.getData() as Record<string, any>[];
-
-      // Get all stages for this match
-      const dbStages = await sql`
-        SELECT id, stage_number, scoring_type, paper_targets, steel_targets,
-          no_shoot_targets, hits_per_paper, min_rounds, max_points
-        FROM stages WHERE match_id = ${matchId}
-      `;
-      const stageByNumber = new Map(dbStages.map((s: any) => [s.stage_number, s]));
-
-      console.log('[WinMSS Import] DB stages for match:', dbStages.map((s: any) => `#${s.stage_number} ${s.name}`).join(', '));
-      console.log('[WinMSS Import] Competitor map entries:', competitorIdMap.size);
-
-      // Filter scores for this match using the MatchID column in the score table
-      let scoreRows = allScoreRows;
-      const wmsMatchId = findColumn(matchRow, 'matchId');
-      if (wmsMatchId !== undefined) {
-        const filtered = allScoreRows.filter(r => {
-          const rowMatchId = findColumn(r, 'scoreMatchId') ?? findColumn(r, 'matchId');
-          return rowMatchId == wmsMatchId;
-        });
-        if (filtered.length > 0) {
-          scoreRows = filtered;
-          console.log('[WinMSS Import] Filtered scores for match', wmsMatchId, ':', filtered.length, 'of', allScoreRows.length);
-        }
-      }
-
-      // Debug: log how many scores we're processing and what we find
-      console.log('[WinMSS Import] Processing', scoreRows.length, 'score rows');
-      if (scoreRows.length > 0) {
-        console.log('[WinMSS Import] First score row columns:', Object.keys(scoreRows[0]).join(', '));
-        console.log('[WinMSS Import] First score row values:', dumpRow(scoreRows[0]));
-      }
-
-      let scoreSkippedNoReg = 0;
-      let scoreSkippedNoStage = 0;
-
-      for (const scoreRow of scoreRows) {
-        try {
-          // Try multiple column names for member ID lookup
-          const wmsMemberIdRaw = findColumn(scoreRow, 'scoreMemberId') ?? findColumn(scoreRow, 'memberId') ?? findColumn(scoreRow, 'competitorId');
-          const wmsMemberId = wmsMemberIdRaw !== undefined ? Number(wmsMemberIdRaw) : 0;
-          const wmsStageId = Number(findColumn(scoreRow, 'stageId') ?? findColumn(scoreRow, 'stageNumber') ?? 0);
-
-          const registrationId = competitorIdMap.get(`${wmsMemberId}`);
-          const stage = stageByNumber.get(wmsStageId);
-
-          if (!registrationId) {
-            scoreSkippedNoReg++;
-            if (scoreSkippedNoReg <= 5) {
-              // Log detailed info for first few failures
-              const allKeys = Object.keys(scoreRow);
-              result.scores.errors.push(
-                `Score row: member ${wmsMemberId} not in competitor map. Row keys: ${allKeys.join(',')}. Stage=${wmsStageId}`
-              );
-            }
-            continue;
-          }
-          if (!stage) {
-            scoreSkippedNoStage++;
-            if (scoreSkippedNoStage <= 5) {
-              result.scores.errors.push(
-                `Score row: stage ${wmsStageId} not found in DB stages (available: ${[...stageByNumber.keys()].join(',')})`
-              );
-            }
-            continue;
-          }
-
-          // Extract score data from WinMSS — try all known column aliases
-          const alpha = Number(findColumn(scoreRow, 'scoreAlpha')) || 0;
-          const charlie = Number(findColumn(scoreRow, 'scoreCharlie')) || 0;
-          const delta = Number(findColumn(scoreRow, 'scoreDelta')) || 0;
-          const miss = Number(findColumn(scoreRow, 'scoreMiss')) || 0;
-          const noShootHits = Number(findColumn(scoreRow, 'scoreNoShoot')) || 0;
-          const procedural = Number(findColumn(scoreRow, 'scoreProcedural')) || 0;
-          const ftsaCount = Number(findColumn(scoreRow, 'scoreFTSA')) || 0;
-          const time = Number(findColumn(scoreRow, 'scoreTime')) || 0;
-          const isDnf = Boolean(findColumn(scoreRow, 'scoreDnf'));
-          const isDq = Boolean(findColumn(scoreRow, 'scoreDq'));
-
-          // Log first score's extracted values for debugging
-          if (result.scores.created === 0) {
-            console.log('[WinMSS Import] First score extracted: alpha=' + alpha + ' charlie=' + charlie + ' delta=' + delta + ' miss=' + miss + ' ns=' + noShootHits + ' proc=' + procedural + ' time=' + time + ' member=' + wmsMemberId + ' stage=' + wmsStageId);
-          }
-
-          // Warn if all hit values are zero — likely a column matching failure
-          if (alpha === 0 && charlie === 0 && delta === 0 && miss === 0 && time === 0 && result.scores.created < 3) {
-            console.log('[WinMSS Import] WARNING: Score has all-zero hits/time. Full row:', dumpRow(scoreRow));
-            result.warnings.push(`Score for member ${wmsMemberId} stage ${wmsStageId} has zero hits — column names may not match`);
-          }
-
-          // Get effective power factor from registration
-          const reg = await sql`SELECT power_factor FROM match_registrations WHERE id = ${registrationId}`;
-          const pf = reg.length > 0 ? (reg[0].power_factor || 'minor') : 'minor';
-
-          // ── Calculate score from aggregated totals ────────────────────────
-          // WinMSS stores TOTALS across all targets (e.g., ScoreA=22, ScoreC=8).
-          // CRITICAL: ScoreA INCLUDES steel hits (steel = 5pts = A in WinMSS).
-          // So raw_points = A×alpha + C×charlie + D×delta (steel is already in A).
-          //
-          // We calculate raw_points/penalties/hit_factor directly from the
-          // aggregated totals, bypassing the per-target "best N" model entirely.
-          // The score_data JSONB stores the original totals for reference.
-
-          const steelCount = stage.steel_targets || 0;
-
-          const calcResult = calculateAggregatedScore({
-            total_alpha: alpha,       // includes steel hits
-            total_charlie: charlie,
-            total_delta: delta,
-            total_miss: miss,         // includes missed steel
-            total_no_shoot: noShootHits,
-            total_steel: steelCount,  // for display only
-            steel_hit_count: steelCount, // assume all steel hit for WinMSS
-            procedural_count: procedural,
-            ftsa_count: ftsaCount,
-            extra_shot_count: 0,
-            extra_hit_count: 0,
-            stacking_count: 0,
-            overtime_shot_count: 0,
-            time,
-            scoring_type: stage.scoring_type,
-            power_factor: pf,
-          });
-
-          // ── Distribute hits across targets for display ──────────────────────
-          // Per-target display respects HPP (hits per paper = 2).
-          // Steel hits are included in ScoreA, so paper A = ScoreA - steel_count.
-          // Fill targets with A first, then C, then D, then miss — respecting HPP.
-          const hpp = stage.hits_per_paper || 2;
-          const paperCount = Math.max(stage.paper_targets || 0, 1);
-
-          // Paper-only alpha: subtract steel hits (steel is already in ScoreA)
-          const paperAlpha = Math.max(0, alpha - steelCount);
-          const paperCharlie = charlie;
-          const paperDelta = delta;
-          const paperMiss = miss;
-
-          // Bin-pack hits across paper targets, respecting HPP capacity
-          function distributeHits(
-            totalA: number, totalC: number, totalD: number, totalM: number,
-            count: number, maxPerTarget: number
-          ): Array<{ alpha: number; charlie: number; delta: number; miss: number }> {
-            const targets: Array<{ alpha: number; charlie: number; delta: number; miss: number }> =
-              Array.from({ length: count }, () => ({ alpha: 0, charlie: 0, delta: 0, miss: 0 }));
-
-            // Fill A hits first (highest value), up to HPP per target
-            let remaining = totalA;
-            for (let i = 0; i < count && remaining > 0; i++) {
-              const space = maxPerTarget - targets[i].alpha;
-              const fill = Math.min(space, remaining);
-              targets[i].alpha = fill;
-              remaining -= fill;
-            }
-
-            // Fill C hits in remaining capacity
-            remaining = totalC;
-            for (let i = 0; i < count && remaining > 0; i++) {
-              const space = maxPerTarget - (targets[i].alpha + targets[i].charlie);
-              const fill = Math.min(space, remaining);
-              targets[i].charlie = fill;
-              remaining -= fill;
-            }
-
-            // Fill D hits in remaining capacity
-            remaining = totalD;
-            for (let i = 0; i < count && remaining > 0; i++) {
-              const space = maxPerTarget - (targets[i].alpha + targets[i].charlie + targets[i].delta);
-              const fill = Math.min(space, remaining);
-              targets[i].delta = fill;
-              remaining -= fill;
-            }
-
-            // Fill misses in remaining capacity
-            remaining = totalM;
-            for (let i = 0; i < count && remaining > 0; i++) {
-              const space = maxPerTarget - (targets[i].alpha + targets[i].charlie + targets[i].delta + targets[i].miss);
-              const fill = Math.min(space, remaining);
-              targets[i].miss = fill;
-              remaining -= fill;
-            }
-
-            return targets;
-          }
-
-          const paperTargets = distributeHits(paperAlpha, paperCharlie, paperDelta, paperMiss, paperCount, hpp);
-
-          // No-shoot hits: if stage has dedicated no-shoot targets, put hits there;
-          // otherwise distribute across paper targets (in remaining capacity)
-          const nsOnPaper = stage.no_shoot_targets === 0 ? noShootHits : 0;
-          if (nsOnPaper > 0) {
-            let remaining = nsOnPaper;
-            for (let i = 0; i < paperCount && remaining > 0; i++) {
-              const space = hpp - (paperTargets[i].alpha + paperTargets[i].charlie + paperTargets[i].delta + paperTargets[i].miss);
-              const fill = Math.min(Math.max(space, 0), remaining);
-              paperTargets[i].miss += fill; // no-shoot on paper shows as penalty, add to miss count
-              remaining -= fill;
-            }
-          }
-
-          // Build target_scores entries
-          const targets: Array<{
-            target_type: 'paper' | 'steel' | 'no_shoot';
-            alpha: number; charlie: number; delta: number; miss: number;
-            no_shoot_hits: number; steel_hit: boolean | null;
-          }> = [];
-
-          // Paper targets
-          for (let i = 0; i < paperCount; i++) {
-            targets.push({
-              target_type: 'paper',
-              alpha: paperTargets[i].alpha,
-              charlie: paperTargets[i].charlie,
-              delta: paperTargets[i].delta,
-              miss: paperTargets[i].miss,
-              no_shoot_hits: 0, // handled separately via no-shoot targets
-              steel_hit: null,
+          // Filter scores for this match
+          let matchScoreRows = allScoreRows;
+          const wmsMatchId = findColumn(matchRow, 'matchId');
+          if (wmsMatchId !== undefined) {
+            const filtered = allScoreRows.filter(r => {
+              const rowMatchId = findColumn(r, 'scoreMatchId') ?? findColumn(r, 'matchId');
+              return rowMatchId == wmsMatchId;
             });
-          }
-
-          // Dedicated no-shoot targets
-          if (stage.no_shoot_targets > 0) {
-            const nsPerTarget = Math.floor(noShootHits / stage.no_shoot_targets);
-            let nsRemaining = noShootHits % stage.no_shoot_targets;
-            for (let i = 0; i < stage.no_shoot_targets; i++) {
-              targets.push({
-                target_type: 'no_shoot',
-                alpha: 0, charlie: 0, delta: 0, miss: 0,
-                no_shoot_hits: nsPerTarget + (nsRemaining > 0 ? 1 : 0),
-                steel_hit: null,
-              });
-              if (nsRemaining > 0) nsRemaining--;
+            if (filtered.length > 0) {
+              matchScoreRows = filtered;
+              console.log('[WinMSS Import] Filtered scores for match', wmsMatchId, ':', filtered.length, 'of', allScoreRows.length);
             }
           }
 
-          // Steel targets (assume all hit for WinMSS imports)
-          for (let i = 0; i < steelCount; i++) {
-            targets.push({
-              target_type: 'steel',
-              alpha: 0, charlie: 0, delta: 0, miss: 0,
-              no_shoot_hits: 0,
-              steel_hit: true,
-            });
+          console.log('[WinMSS Import] Processing', matchScoreRows.length, 'score rows');
+          if (matchScoreRows.length > 0) {
+            console.log('[WinMSS Import] First score row columns:', Object.keys(matchScoreRows[0]).join(', '));
+            console.log('[WinMSS Import] First score row values:', dumpRow(matchScoreRows[0]));
           }
 
-          // Store aggregated totals in score_data for reference
-          const scoreData = {
-            source: 'winmss',
-            aggregated: {
-              alpha, charlie, delta, miss,
-              no_shoot: noShootHits,
-              procedural,
-              steel_count: steelCount,
-            },
-          };
+          let scoreSkippedNoReg = 0;
+          let scoreSkippedNoStage = 0;
 
-          // Check for existing score
-          const existingScore = await sql`
-            SELECT id FROM stage_scores
-            WHERE stage_id = ${stage.id} AND registration_id = ${registrationId}
-          `;
-
-          if (existingScore.length > 0) {
-            await sql`
-              UPDATE stage_scores SET
-                time = ${time},
-                procedural_count = ${procedural},
-                raw_points = ${calcResult.raw_points},
-                penalty_points = ${calcResult.penalty_points},
-                net_points = ${calcResult.net_points},
-                hit_factor = ${calcResult.hit_factor},
-                is_dnf = ${isDnf},
-                score_data = ${JSON.stringify(scoreData)}::jsonb
-              WHERE id = ${existingScore[0].id}
-            `;
-            await sql`DELETE FROM target_scores WHERE stage_score_id = ${existingScore[0].id}`;
-
-            for (let i = 0; i < targets.length; i++) {
-              const t = targets[i];
-              await sql`
-                INSERT INTO target_scores (stage_score_id, target_index, target_type,
-                  alpha, charlie, delta, miss, no_shoot_hits, steel_hit)
-                VALUES (${existingScore[0].id}, ${i + 1}, ${t.target_type},
-                  ${t.alpha}, ${t.charlie}, ${t.delta}, ${t.miss},
-                  ${t.no_shoot_hits}, ${t.steel_hit})
-              `;
-            }
-          } else {
-            const [score] = await sql`
-              INSERT INTO stage_scores (match_id, stage_id, registration_id, time,
-                procedural_count, raw_points, penalty_points, net_points, hit_factor, is_dnf, score_data)
-              VALUES (${matchId}, ${stage.id}, ${registrationId}, ${time},
-                ${procedural}, ${calcResult.raw_points}, ${calcResult.penalty_points},
-                ${calcResult.net_points}, ${calcResult.hit_factor}, ${isDnf}, ${JSON.stringify(scoreData)}::jsonb)
-              RETURNING id
-            `;
-
-            for (let i = 0; i < targets.length; i++) {
-              const t = targets[i];
-              await sql`
-                INSERT INTO target_scores (stage_score_id, target_index, target_type,
-                  alpha, charlie, delta, miss, no_shoot_hits, steel_hit)
-                VALUES (${score.id}, ${i + 1}, ${t.target_type},
-                  ${t.alpha}, ${t.charlie}, ${t.delta}, ${t.miss},
-                  ${t.no_shoot_hits}, ${t.steel_hit})
-              `;
-            }
-          }
-
-          result.scores.created++;
-        } catch (err: any) {
-          result.scores.errors.push(`Score import error: ${err.message}`);
-        }
-      }
-
-      if (scoreSkippedNoReg > 0) {
-        result.warnings.push(`${scoreSkippedNoReg} scores skipped — could not match member ID to registration`);
-      }
-      if (scoreSkippedNoStage > 0) {
-        result.warnings.push(`${scoreSkippedNoStage} scores skipped — could not match stage number`);
-      }
-
-      // ── 9. Recalculate stage rankings ────────────────────────────────
-      for (const stage of dbStages) {
-        try {
-          const stageScores = await sql`
-            SELECT ss.id, ss.time, ss.net_points, ss.registration_id, ss.is_dnf,
-              COALESCE(mr.division, s.division) as division,
-              mr.power_factor as reg_pf, s.power_factor as shooter_pf
-            FROM stage_scores ss
-            JOIN match_registrations mr ON mr.id = ss.registration_id
-            JOIN shooters s ON s.id = mr.shooter_id
-            WHERE ss.stage_id = ${stage.id}
-          `;
-
-          if (stageScores.length === 0) continue;
-
-          const maxPoints = Number(stage.max_points) || stage.paper_targets * stage.hits_per_paper * 5 + stage.steel_targets * 5;
-
-          // Get DQ registration IDs for this match
+          // Get DQ registration IDs for this match (used for scoring)
           const dqRegIds = new Set(
             (await sql`
               SELECT id FROM match_registrations WHERE match_id = ${matchId} AND is_dq = true
             `).map((r: any) => r.id)
           );
 
-          // Group by division for per-division ranking
-          const divisionGroups = new Map<string, any[]>();
-          for (const s of stageScores) {
-            if (s.is_dnf || dqRegIds.has(s.registration_id)) continue;
-            const div = (s as any).division || 'unknown';
-            if (!divisionGroups.has(div)) divisionGroups.set(div, []);
-            divisionGroups.get(div)!.push(s);
-          }
+          for (const scoreRow of matchScoreRows) {
+            try {
+              const wmsMemberIdRaw = findColumn(scoreRow, 'scoreMemberId') ?? findColumn(scoreRow, 'memberId') ?? findColumn(scoreRow, 'competitorId');
+              const wmsMemberId = wmsMemberIdRaw !== undefined ? Number(wmsMemberIdRaw) : 0;
+              const wmsStageId = Number(findColumn(scoreRow, 'stageId') ?? findColumn(scoreRow, 'stageNumber') ?? 0);
 
-          // For each division, find the best hit factor and compute per-division rankings
-          for (const [division, divScores] of divisionGroups) {
-            let bestHF = 0;
-            for (const s of divScores) {
-              const hf = Number(s.time) > 0 ? Number(s.net_points) / Number(s.time) : 0;
-              if (hf > bestHF) bestHF = hf;
-            }
+              const registrationId = competitorIdMap.get(`${wmsMemberId}`);
+              const stage = stageByNumber.get(wmsStageId);
 
-            for (const s of divScores) {
-              const hf = Number(s.time) > 0 ? Number(s.net_points) / Number(s.time) : 0;
-              const stagePercent = bestHF > 0 ? (hf / bestHF) * 100 : 0;
-              const stagePoints = (stagePercent / 100) * maxPoints;
+              if (!registrationId) {
+                scoreSkippedNoReg++;
+                if (scoreSkippedNoReg <= 5) {
+                  const allKeys = Object.keys(scoreRow);
+                  result.scores.errors.push(
+                    `Score row: member ${wmsMemberId} not in competitor map. Row keys: ${allKeys.join(',')}. Stage=${wmsStageId}`
+                  );
+                }
+                continue;
+              }
+              if (!stage) {
+                scoreSkippedNoStage++;
+                if (scoreSkippedNoStage <= 5) {
+                  result.scores.errors.push(
+                    `Score row: stage ${wmsStageId} not found in DB stages (available: ${[...stageByNumber.keys()].join(',')})`
+                  );
+                }
+                continue;
+              }
 
-              await sql`
-                UPDATE stage_scores SET
-                  stage_percent = ${Math.round(stagePercent * 10000) / 10000},
-                  stage_points = ${Math.round(stagePoints * 100) / 100}
-                WHERE id = ${s.id}
+              const alpha = Number(findColumn(scoreRow, 'scoreAlpha')) || 0;
+              const charlie = Number(findColumn(scoreRow, 'scoreCharlie')) || 0;
+              const delta = Number(findColumn(scoreRow, 'scoreDelta')) || 0;
+              const miss = Number(findColumn(scoreRow, 'scoreMiss')) || 0;
+              const noShootHits = Number(findColumn(scoreRow, 'scoreNoShoot')) || 0;
+              const procedural = Number(findColumn(scoreRow, 'scoreProcedural')) || 0;
+              const ftsaCount = Number(findColumn(scoreRow, 'scoreFTSA')) || 0;
+              const time = Number(findColumn(scoreRow, 'scoreTime')) || 0;
+              const isDnf = Boolean(findColumn(scoreRow, 'scoreDnf'));
+              const isDq = Boolean(findColumn(scoreRow, 'scoreDq'));
+
+              if (result.scores.created === 0) {
+                console.log('[WinMSS Import] First score extracted: alpha=' + alpha + ' charlie=' + charlie + ' delta=' + delta + ' miss=' + miss + ' ns=' + noShootHits + ' proc=' + procedural + ' time=' + time + ' member=' + wmsMemberId + ' stage=' + wmsStageId);
+              }
+
+              if (alpha === 0 && charlie === 0 && delta === 0 && miss === 0 && time === 0 && result.scores.created < 3) {
+                console.log('[WinMSS Import] WARNING: Score has all-zero hits/time. Full row:', dumpRow(scoreRow));
+                result.warnings.push(`Score for member ${wmsMemberId} stage ${wmsStageId} has zero hits — column names may not match`);
+              }
+
+              const reg = await sql`SELECT power_factor FROM match_registrations WHERE id = ${registrationId}`;
+              const pf = reg.length > 0 ? (reg[0].power_factor || 'minor') : 'minor';
+
+              const steelCount = stage.steel_targets || 0;
+
+              const calcResult = calculateAggregatedScore({
+                total_alpha: alpha,
+                total_charlie: charlie,
+                total_delta: delta,
+                total_miss: miss,
+                total_no_shoot: noShootHits,
+                total_steel: steelCount,
+                steel_hit_count: steelCount,
+                procedural_count: procedural,
+                ftsa_count: ftsaCount,
+                extra_shot_count: 0,
+                extra_hit_count: 0,
+                stacking_count: 0,
+                overtime_shot_count: 0,
+                time,
+                scoring_type: stage.scoring_type,
+                power_factor: pf,
+              });
+
+              const hpp = stage.hits_per_paper || 2;
+              const paperCount = Math.max(stage.paper_targets || 0, 1);
+              const paperAlpha = Math.max(0, alpha - steelCount);
+              const paperCharlie = charlie;
+              const paperDelta = delta;
+              const paperMiss = miss;
+
+              function distributeHits(
+                totalA: number, totalC: number, totalD: number, totalM: number,
+                count: number, maxPerTarget: number
+              ): Array<{ alpha: number; charlie: number; delta: number; miss: number }> {
+                const targets: Array<{ alpha: number; charlie: number; delta: number; miss: number }> =
+                  Array.from({ length: count }, () => ({ alpha: 0, charlie: 0, delta: 0, miss: 0 }));
+
+                let remaining = totalA;
+                for (let i = 0; i < count && remaining > 0; i++) {
+                  const space = maxPerTarget - targets[i].alpha;
+                  const fill = Math.min(space, remaining);
+                  targets[i].alpha = fill;
+                  remaining -= fill;
+                }
+                remaining = totalC;
+                for (let i = 0; i < count && remaining > 0; i++) {
+                  const space = maxPerTarget - (targets[i].alpha + targets[i].charlie);
+                  const fill = Math.min(space, remaining);
+                  targets[i].charlie = fill;
+                  remaining -= fill;
+                }
+                remaining = totalD;
+                for (let i = 0; i < count && remaining > 0; i++) {
+                  const space = maxPerTarget - (targets[i].alpha + targets[i].charlie + targets[i].delta);
+                  const fill = Math.min(space, remaining);
+                  targets[i].delta = fill;
+                  remaining -= fill;
+                }
+                remaining = totalM;
+                for (let i = 0; i < count && remaining > 0; i++) {
+                  const space = maxPerTarget - (targets[i].alpha + targets[i].charlie + targets[i].delta + targets[i].miss);
+                  const fill = Math.min(space, remaining);
+                  targets[i].miss = fill;
+                  remaining -= fill;
+                }
+                return targets;
+              }
+
+              const paperTargets = distributeHits(paperAlpha, paperCharlie, paperDelta, paperMiss, paperCount, hpp);
+
+              const nsOnPaper = stage.no_shoot_targets === 0 ? noShootHits : 0;
+              if (nsOnPaper > 0) {
+                let remaining = nsOnPaper;
+                for (let i = 0; i < paperCount && remaining > 0; i++) {
+                  const space = hpp - (paperTargets[i].alpha + paperTargets[i].charlie + paperTargets[i].delta + paperTargets[i].miss);
+                  const fill = Math.min(Math.max(space, 0), remaining);
+                  paperTargets[i].miss += fill;
+                  remaining -= fill;
+                }
+              }
+
+              const targets: Array<{
+                target_type: 'paper' | 'steel' | 'no_shoot';
+                alpha: number; charlie: number; delta: number; miss: number;
+                no_shoot_hits: number; steel_hit: boolean | null;
+              }> = [];
+
+              for (let i = 0; i < paperCount; i++) {
+                targets.push({
+                  target_type: 'paper',
+                  alpha: paperTargets[i].alpha,
+                  charlie: paperTargets[i].charlie,
+                  delta: paperTargets[i].delta,
+                  miss: paperTargets[i].miss,
+                  no_shoot_hits: 0,
+                  steel_hit: null,
+                });
+              }
+
+              if (stage.no_shoot_targets > 0) {
+                const nsPerTarget = Math.floor(noShootHits / stage.no_shoot_targets);
+                let nsRemaining = noShootHits % stage.no_shoot_targets;
+                for (let i = 0; i < stage.no_shoot_targets; i++) {
+                  targets.push({
+                    target_type: 'no_shoot',
+                    alpha: 0, charlie: 0, delta: 0, miss: 0,
+                    no_shoot_hits: nsPerTarget + (nsRemaining > 0 ? 1 : 0),
+                    steel_hit: null,
+                  });
+                  if (nsRemaining > 0) nsRemaining--;
+                }
+              }
+
+              for (let i = 0; i < steelCount; i++) {
+                targets.push({
+                  target_type: 'steel',
+                  alpha: 0, charlie: 0, delta: 0, miss: 0,
+                  no_shoot_hits: 0,
+                  steel_hit: true,
+                });
+              }
+
+              const scoreData = {
+                source: 'winmss',
+                aggregated: {
+                  alpha, charlie, delta, miss,
+                  no_shoot: noShootHits,
+                  procedural,
+                  steel_count: steelCount,
+                },
+              };
+
+              const existingScore = await sql`
+                SELECT id FROM stage_scores
+                WHERE stage_id = ${stage.id} AND registration_id = ${registrationId}
               `;
+
+              if (existingScore.length > 0) {
+                await sql`
+                  UPDATE stage_scores SET
+                    time = ${time},
+                    procedural_count = ${procedural},
+                    raw_points = ${calcResult.raw_points},
+                    penalty_points = ${calcResult.penalty_points},
+                    net_points = ${calcResult.net_points},
+                    hit_factor = ${calcResult.hit_factor},
+                    is_dnf = ${isDnf},
+                    score_data = ${JSON.stringify(scoreData)}::jsonb
+                  WHERE id = ${existingScore[0].id}
+                `;
+                await sql`DELETE FROM target_scores WHERE stage_score_id = ${existingScore[0].id}`;
+
+                for (let i = 0; i < targets.length; i++) {
+                  const t = targets[i];
+                  await sql`
+                    INSERT INTO target_scores (stage_score_id, target_index, target_type,
+                      alpha, charlie, delta, miss, no_shoot_hits, steel_hit)
+                    VALUES (${existingScore[0].id}, ${i + 1}, ${t.target_type},
+                      ${t.alpha}, ${t.charlie}, ${t.delta}, ${t.miss},
+                      ${t.no_shoot_hits}, ${t.steel_hit})
+                  `;
+                }
+              } else {
+                const [score] = await sql`
+                  INSERT INTO stage_scores (match_id, stage_id, registration_id, time,
+                    procedural_count, raw_points, penalty_points, net_points, hit_factor, is_dnf, score_data)
+                  VALUES (${matchId}, ${stage.id}, ${registrationId}, ${time},
+                    ${procedural}, ${calcResult.raw_points}, ${calcResult.penalty_points},
+                    ${calcResult.net_points}, ${calcResult.hit_factor}, ${isDnf}, ${JSON.stringify(scoreData)}::jsonb)
+                  RETURNING id
+                `;
+
+                for (let i = 0; i < targets.length; i++) {
+                  const t = targets[i];
+                  await sql`
+                    INSERT INTO target_scores (stage_score_id, target_index, target_type,
+                      alpha, charlie, delta, miss, no_shoot_hits, steel_hit)
+                    VALUES (${score.id}, ${i + 1}, ${t.target_type},
+                      ${t.alpha}, ${t.charlie}, ${t.delta}, ${t.miss},
+                      ${t.no_shoot_hits}, ${t.steel_hit})
+                  `;
+                }
+              }
+
+              result.scores.created++;
+            } catch (err: any) {
+              result.scores.errors.push(`Score import error: ${err.message}`);
             }
           }
 
-          // DQ shooters: zero stage_points and stage_percent
-          for (const s of stageScores) {
-            if (dqRegIds.has(s.registration_id)) {
-              await sql`
-                UPDATE stage_scores SET stage_percent = 0, stage_points = 0 WHERE id = ${s.id}
-              `;
-            }
+          if (scoreSkippedNoReg > 0) {
+            result.warnings.push(`${scoreSkippedNoReg} scores skipped — could not match member ID to registration`);
+          }
+          if (scoreSkippedNoStage > 0) {
+            result.warnings.push(`${scoreSkippedNoStage} scores skipped — could not match stage number`);
           }
 
-          // DNF shooters: zero stage_points and stage_percent
-          for (const s of stageScores) {
-            if (s.is_dnf) {
-              await sql`
-                UPDATE stage_scores SET stage_percent = 0, stage_points = 0 WHERE id = ${s.id}
+          // ── 9. Recalculate stage rankings ────────────────────────────
+          for (const stage of dbStages) {
+            try {
+              const stageScores = await sql`
+                SELECT ss.id, ss.time, ss.net_points, ss.registration_id, ss.is_dnf,
+                  COALESCE(mr.division, s.division) as division,
+                  mr.power_factor as reg_pf, s.power_factor as shooter_pf
+                FROM stage_scores ss
+                JOIN match_registrations mr ON mr.id = ss.registration_id
+                JOIN shooters s ON s.id = mr.shooter_id
+                WHERE ss.stage_id = ${stage.id}
               `;
+
+              if (stageScores.length === 0) continue;
+
+              const maxPoints = Number(stage.max_points) || stage.paper_targets * stage.hits_per_paper * 5 + stage.steel_targets * 5;
+
+              const divisionGroups = new Map<string, any[]>();
+              for (const s of stageScores) {
+                if (s.is_dnf || dqRegIds.has(s.registration_id)) continue;
+                const div = (s as any).division || 'unknown';
+                if (!divisionGroups.has(div)) divisionGroups.set(div, []);
+                divisionGroups.get(div)!.push(s);
+              }
+
+              for (const [division, divScores] of divisionGroups) {
+                let bestHF = 0;
+                for (const s of divScores) {
+                  const hf = Number(s.time) > 0 ? Number(s.net_points) / Number(s.time) : 0;
+                  if (hf > bestHF) bestHF = hf;
+                }
+
+                for (const s of divScores) {
+                  const hf = Number(s.time) > 0 ? Number(s.net_points) / Number(s.time) : 0;
+                  const stagePercent = bestHF > 0 ? (hf / bestHF) * 100 : 0;
+                  const stagePoints = (stagePercent / 100) * maxPoints;
+
+                  await sql`
+                    UPDATE stage_scores SET
+                      stage_percent = ${Math.round(stagePercent * 10000) / 10000},
+                      stage_points = ${Math.round(stagePoints * 100) / 100}
+                    WHERE id = ${s.id}
+                  `;
+                }
+              }
+
+              for (const s of stageScores) {
+                if (dqRegIds.has(s.registration_id) || s.is_dnf) {
+                  await sql`
+                    UPDATE stage_scores SET stage_percent = 0, stage_points = 0 WHERE id = ${s.id}
+                  `;
+                }
+              }
+            } catch (err: any) {
+              result.warnings.push(`Failed to recalculate stage ${stage.stage_number}: ${err.message}`);
             }
           }
-        } catch (err: any) {
-          result.warnings.push(`Failed to recalculate stage ${stage.stage_number}: ${err.message}`);
-        }
-      }
+        } // end if scoreTableName
+      } // end if competitorTableName
     } // End of match loop
 
     // ── 10. Update shooter defaults from most recent registration ──────
@@ -913,7 +878,7 @@ winmssImportRoutes.post('/winmss', async (c) => {
 
     // Add summary counts to errors for skipped scores
     console.log(`[WinMSS Import] Complete: ${result.matches.length} matches, ${result.stages.length} stages, ${result.shooters.created}/${result.shooters.skipped} shooters, ${result.registrations.created}/${result.registrations.skipped} regs, ${result.scores.created} scores`);
-    console.log(`[WinMSS Import] Warnings: ${result.warnings.length}, Errors: ${result.scores.errors.length}`);
+    console.log(`[WinMSS Import] Warnings: ${result.warnings.length}, Errors: ${result.scores.errors.length}, Shooter errors: ${result.shooters.errors.length}`);
 
     return c.json(result);
   } catch (err: any) {

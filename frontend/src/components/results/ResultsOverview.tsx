@@ -158,10 +158,17 @@ export default function ResultsOverview() {
 
         <TabItem title={t('results.byCategory')}>
           <h2 className="print-only hidden text-lg font-bold mb-2">{t('results.byCategory')}</h2>
-          {Object.entries(categoryResults).map(([cat, results]) => (
-            <div key={cat} className="mb-4 division-results-section">
-              <h3 className="font-semibold mb-2 dark:text-white">{categoryLabel(cat)}</h3>
-              <ResultsTable results={results as any[]} columns={['position', 'shooter', 'division', 'matchPercent', 'matchPoints']} />
+          {Object.entries(categoryResults).map(([cat, divisions]) => (
+            <div key={cat} className="mb-6 division-results-section">
+              <h3 className="font-semibold text-lg mb-2 dark:text-white">{categoryLabel(cat)}</h3>
+              {Object.entries(divisions as Record<string, any[]>)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([division, results]) => (
+                  <div key={division} className="mb-4 ml-2">
+                    <h4 className="font-medium text-sm text-gray-600 dark:text-gray-400 mb-1">{divisionLabel(division)}</h4>
+                    <ResultsTable results={results as any[]} columns={['position', 'shooter', 'matchPercent', 'matchPoints']} />
+                  </div>
+                ))}
             </div>
           ))}
           <DqTable dqShooters={dqCategories} />
@@ -169,10 +176,17 @@ export default function ResultsOverview() {
 
         <TabItem title={t('results.byTag')}>
           <h2 className="print-only hidden text-lg font-bold mb-2">{t('results.byTag')}</h2>
-          {Object.entries(tagResults).map(([tag, results]) => (
-            <div key={tag} className="mb-4 division-results-section">
-              <h3 className="font-semibold mb-2 dark:text-white">{t('results.tag', { tag })}</h3>
-              <ResultsTable results={results as any[]} columns={['position', 'shooter', 'division', 'matchPercent', 'matchPoints']} />
+          {Object.entries(tagResults).map(([tag, divisions]) => (
+            <div key={tag} className="mb-6 division-results-section">
+              <h3 className="font-semibold text-lg mb-2 dark:text-white">{t('results.tag', { tag })}</h3>
+              {Object.entries(divisions as Record<string, any[]>)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([division, results]) => (
+                  <div key={division} className="mb-4 ml-2">
+                    <h4 className="font-medium text-sm text-gray-600 dark:text-gray-400 mb-1">{divisionLabel(division)}</h4>
+                    <ResultsTable results={results as any[]} columns={['position', 'shooter', 'matchPercent', 'matchPoints']} />
+                  </div>
+                ))}
             </div>
           ))}
           {Object.keys(tagResults).length === 0 && <p className="text-gray-500 text-center">{t('results.noTags')}</p>}

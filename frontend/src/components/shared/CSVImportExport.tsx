@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import CSVImportModal from './CSVImportModal';
+import { TbFileImport } from "react-icons/tb";
 
 interface Props {
   type: 'shooters' | 'registrations' | 'scores';
@@ -16,7 +17,7 @@ export default function CSVImportExport({ type, matchId }: Props) {
 
   return (
     <>
-      <Button size="xs" color="blue" onClick={() => setShow(true)}>{label}</Button>
+      <Button size="sm" color="light" onClick={() => setShow(true)}><TbFileImport className="mr-2 size-4" />{label}</Button>
       <CSVImportModal show={show} onClose={() => setShow(false)} type={type} matchId={matchId} />
     </>
   );

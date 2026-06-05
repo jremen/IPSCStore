@@ -4,13 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { useScoringStore } from '../../stores/scoringStore';
 import { divisionLabel } from '../../utils/constants';
 
-/** Searchable shooter dropdown — reads registrations and currentRegistrationId from store directly */
+/** Searchable shooter dropdown — reads registrations, currentRegistrationId, and squadFilter from store directly */
 export default function ShooterDropdown({ onSelect }: { onSelect: (regId: string) => void }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { registrations, currentRegistrationId } = useScoringStore();
+  const { registrations, currentRegistrationId, squadFilter } = useScoringStore();
   const { t } = useTranslation();
 
   const currentShooter = registrations.find(r => r.id === currentRegistrationId);
@@ -31,14 +31,19 @@ export default function ShooterDropdown({ onSelect }: { onSelect: (regId: string
     if (open && inputRef.current) inputRef.current.focus();
   }, [open]);
 
+  // Apply squad filter first, then search filter
+  const squadFiltered = squadFilter !== null
+    ? registrations.filter(r => r.squad === squadFilter)
+    : registrations;
+
   const filtered = search
-    ? registrations.filter(r =>
+    ? squadFiltered.filter(r =>
         `${r.first_name} ${r.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
         r.effective_division.toLowerCase().includes(search.toLowerCase()) ||
         r.effective_category.toLowerCase().includes(search.toLowerCase()) ||
         (r.squad && String(r.squad).includes(search))
       )
-    : registrations;
+    : squadFiltered;
 
   const handleSelect = (regId: string) => {
     onSelect(regId);

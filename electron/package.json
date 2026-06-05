@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "IPSC/USPSA Scoring Desktop Application",
+  "author": "IPSCScore",
   "main": "dist/main.js",
   "scripts": {
     "dev": "tsc && electron .",
@@ -18,7 +19,7 @@
     "electron-store": "^10.0.0"
   },
   "devDependencies": {
-    "electron": "^34.0.0",
+    "electron": "34.0.0",
     "electron-builder": "^25.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",

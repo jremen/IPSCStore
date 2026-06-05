@@ -24,6 +24,41 @@
     "yes": "Áno",
     "no": "Nie"
   },
+  "bulkActions": {
+    "selectedCount": "{{count}} vybraných",
+    "editSelected": "Upraviť vybrané",
+    "deleteSelected": "Odstrániť vybrané",
+    "removeSelected": "Odstrániť z preteku",
+    "clearSelection": "Zrušiť",
+    "selectAll": "Vybrať všetky",
+    "deselectAll": "Zrušiť výber"
+  },
+  "bulkDelete": {
+    "title": "Odstrániť strelcov",
+    "confirm": "Naozaj chcete odstrániť {{count}} strelca/strelcov?",
+    "conflictWarning": "Strelci prihlásení v pretekoch nemôžu byť odstránení.",
+    "success": "{{count}} strelcov úspešne odstránených.",
+    "partialSuccess": "{{deleted}} odstránených, {{failed}} sa nepodarilo odstrániť.",
+    "cannotBeUndone": "Túto akciu nie je možné vrátiť späť.",
+    "andMore": "...a {{count}} ďalších"
+  },
+  "bulkEdit": {
+    "title": "Upraviť {{count}} {{entity}}",
+    "applyChanges": "Uložiť zmeny",
+    "selectFields": "Vyberte polia na úpravu:",
+    "changeField": "Zmeniť {{field}}",
+    "success": "{{count}} {{entity}} úspešne aktualizovaných.",
+    "partialSuccess": "{{updated}} aktualizovaných, {{failed}} sa nepodarilo aktualizovať.",
+    "shooters": "strelcov",
+    "registrations": "prihlášok"
+  },
+  "bulkRemove": {
+    "title": "Odstrániť z preteku",
+    "confirm": "Naozaj chcete odstrániť {{count}} prihlášku/prihlášok z tohto preteku?",
+    "success": "{{count}} prihlášok odstránených.",
+    "partialSuccess": "{{removed}} odstránených, {{failed}} sa nepodarilo odstrániť.",
+    "cannotBeUndone": "Túto akciu nie je možné vrátiť späť."
+  },
   "auth": {
     "title": "🎯 IPSCScore",
     "subtitle": "Vyberte situáciu a zadajte heslo, ktoré vám poskytol rozhodca",
@@ -38,7 +73,7 @@
     "sessionExpired": "Relácia vypršala. Prihláste sa znova."
   },
   "tabs": {
-    "matches": "Závody",
+    "matches": "Súťaže",
     "stages": "Situácie",
     "shooters": "Strelci",
     "registration": "Registrácia",
@@ -46,7 +81,9 @@
     "results": "Výsledky"
   },
   "header": {
-    "title": "IPSCScore"
+    "title": "IPSCScore",
+    "copyUrl": "Kopírovať URL do schránky",
+    "copied": "Skopírované!"
   },
   "matches": {
     "title": "Súťaže",
@@ -147,9 +184,9 @@
     "remove": "Odstrániť",
     "empty": "Žiadni registrovaní strelci.",
     "noMatch": "Najskôr vyberte súťaž.",
-    "squad": "Čata",
-    "squadPlaceholder": "Číslo čaty",
-    "squadOptional": "Čata (voliteľné)",
+    "squad": "Squad",
+    "squadPlaceholder": "Číslo squadu",
+    "squadOptional": "Squad (voliteľné)",
     "search": "Hľadať strelcov...",
     "searchEmpty": "Žiadni strelci nenájdení. Vytvorte nového.",
     "addTitle": "Pridať strelca do súťaže",
@@ -176,6 +213,8 @@
     "searchShooter": "Hľadať strelcov...",
     "noShootersFound": "Žiadni strelci nenájdení",
     "stage": "Situácia {{number}}",
+    "allSquads": "Všetky",
+    "squadN": "Skupina {{number}}",
     "saved": "Skóre uložené",
     "fixErrors": "Opravte chyby pred uložením",
     "time": "⏱ ČAS (sekundy)",
@@ -271,7 +310,7 @@
     "importedCount": "Importovaných {{count}} záznamov",
     "winMss": {
       "title": "Importovať WinMSS databázu",
-      "button": "📂 Importovať WinMSS",
+      "button": "Importovať WinMSS",
       "dropHere": "Vložte .mdb súbor sem",
       "dragDropMdb": "Potiahnite a vložte WinMSS .mdb súbor sem",
       "orBrowse": "alebo kliknite pre výber — akceptuje .mdb a .accdb súbory",
@@ -320,5 +359,21 @@
     "paperTargets": "Papierové terče",
     "steelTargets": "Kovové terče",
     "noShoots": "No-Shoot terče"
+  },
+  "database": {
+    "title": "Databáza",
+    "description": "Exportovať alebo importovať zálohu celej databázy. Import nahradí všetky existujúce dáta.",
+    "export": "Exportovať zálohu (.sql)",
+    "exporting": "Exportujem...",
+    "exportSuccess": "Záloha bola stiahnutá.",
+    "exportError": "Export zálohy zlyhal.",
+    "import": "Importovať zálohu (.sql)",
+    "importing": "Obnovujem...",
+    "importSuccess": "Databáza bola obnovená. Obnovujem stránku...",
+    "importError": "Obnova databázy zlyhala.",
+    "importConfirm": "Nahradiť všetky dáta?",
+    "importWarning": "Týmto sa nahradia VŠETKY existujúce dáta zálohou. Túto akciu nie je možné vrátiť späť.",
+    "file": "Súbor:",
+    "confirmButton": "Nahradiť všetky dáta"
   }
 }

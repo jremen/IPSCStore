@@ -11,6 +11,7 @@ import { buildEmptyScore } from '../../utils/buildEmptyScore';
 import type { Stage } from '../../types/stage';
 import ScoringSheet from './ScoringSheet';
 import ShooterDropdown from './ShooterDropdown';
+import SquadFilterBar from './SquadFilterBar';
 
 interface ScoringNavProps {
   /** If set, restrict the view to only this stage (for remote scorers) */
@@ -130,6 +131,7 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
       {/* Shooter selector with searchable dropdown */}
       {activeStageId && (
         <div className="bg-white dark:bg-gray-800 p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 no-print">
+          <SquadFilterBar />
           <div className="flex items-center justify-between mb-2 gap-1">
             <button onClick={prevShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg disabled:opacity-30 min-h-[44px] min-w-[44px] flex items-center justify-center">◀</button>
             <ShooterDropdown onSelect={handleSelectShooter} />

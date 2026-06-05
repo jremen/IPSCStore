@@ -44,7 +44,7 @@ export default function MatchList() {
             <Button size="sm" color="red" onClick={() => setShowDeleteAll(true)}><TbTrash /> {t('matches.deleteAll')}</Button>
           )}
           <WinMSSImport />
-          <Button size="sm" color="blue" onClick={() => setShowCreate(true)}>{t('matches.newMatch')}</Button>
+          <Button size="sm" color="green" onClick={() => setShowCreate(true)}>{t('matches.newMatch')}</Button>
         </div>
       </div>
 

@@ -16,6 +16,8 @@ interface ShooterActions {
   createShooter: (data: CreateShooterInput) => Promise<Shooter>;
   updateShooter: (id: string, data: Partial<CreateShooterInput>) => Promise<void>;
   deleteShooter: (id: string) => Promise<void>;
+  bulkUpdateShooters: (shooterIds: string[], updates: { division?: string; category?: string; power_factor?: string }) => Promise<void>;
+  bulkDeleteShooters: (shooterIds: string[]) => Promise<void>;
   fetchTags: () => Promise<void>;
   setSearchQuery: (query: string) => void;
 }
@@ -56,6 +58,21 @@ export const useShooterStore = create<ShooterState & ShooterActions>((set) => ({
     set((state) => ({
       shooters: state.shooters.filter((s) => s.id !== id),
       total: state.total - 1,
+    }));
+  },
+
+  bulkUpdateShooters: async (shooterIds, updates) => {
+    await api.bulkUpdateShooters(shooterIds, updates);
+    // Refresh from server to get properly typed data
+    const result = await api.getShooters();
+    set({ shooters: result.shooters, total: result.total });
+  },
+
+  bulkDeleteShooters: async (shooterIds) => {
+    await api.bulkDeleteShooters(shooterIds);
+    set((state) => ({
+      shooters: state.shooters.filter((s) => !shooterIds.includes(s.id)),
+      total: state.total - shooterIds.length,
     }));
   },
 

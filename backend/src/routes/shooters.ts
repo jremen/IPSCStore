@@ -6,7 +6,8 @@ export const shooterRoutes = new Hono();
 // List/search shooters
 shooterRoutes.get('/', async (c) => {
   const search = c.req.query('search') || '';
-  const limit = parseInt(c.req.query('limit') || '50', 10);
+  const limitParam = c.req.query('limit');
+  const limit = limitParam ? parseInt(limitParam, 10) : 0;
   const offset = parseInt(c.req.query('offset') || '0', 10);
 
   let shooters;
@@ -14,21 +15,35 @@ shooterRoutes.get('/', async (c) => {
 
   if (search) {
     const pattern = `%${search}%`;
-    shooters = await sql`
-      SELECT * FROM shooters
-      WHERE first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern}
-      ORDER BY last_name, first_name
-      LIMIT ${limit} OFFSET ${offset}
-    `;
+    if (limit > 0) {
+      shooters = await sql`
+        SELECT * FROM shooters
+        WHERE first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern}
+        ORDER BY last_name, first_name
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+    } else {
+      shooters = await sql`
+        SELECT * FROM shooters
+        WHERE first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern}
+        ORDER BY last_name, first_name
+      `;
+    }
     const [count] = await sql`
       SELECT COUNT(*) as count FROM shooters
       WHERE first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern}
     `;
     total = Number(count.count);
   } else {
-    shooters = await sql`
-      SELECT * FROM shooters ORDER BY last_name, first_name LIMIT ${limit} OFFSET ${offset}
-    `;
+    if (limit > 0) {
+      shooters = await sql`
+        SELECT * FROM shooters ORDER BY last_name, first_name LIMIT ${limit} OFFSET ${offset}
+      `;
+    } else {
+      shooters = await sql`
+        SELECT * FROM shooters ORDER BY last_name, first_name
+      `;
+    }
     const [count] = await sql`SELECT COUNT(*) as count FROM shooters`;
     total = Number(count.count);
   }
@@ -59,6 +74,71 @@ shooterRoutes.post('/', async (c) => {
     RETURNING *
   `;
   return c.json(shooter, 201);
+});
+
+// Bulk update shooters
+shooterRoutes.put('/bulk', async (c) => {
+  const { shooterIds, updates } = await c.req.json();
+  if (!Array.isArray(shooterIds) || shooterIds.length === 0) {
+    return c.json({ error: 'shooterIds must be a non-empty array' }, 400);
+  }
+
+  const setClauses: string[] = [];
+  if (updates.division) setClauses.push(`division = '${updates.division}'`);
+  if (updates.category) setClauses.push(`category = '${updates.category}'`);
+  if (updates.power_factor) setClauses.push(`power_factor = '${updates.power_factor}'`);
+
+  if (setClauses.length === 0) {
+    return c.json({ error: 'No valid fields to update' }, 400);
+  }
+
+  const updated = await sql`
+    UPDATE shooters SET ${sql.unsafe(setClauses.join(', '))}, updated_at = NOW()
+    WHERE id = ANY(${shooterIds}::uuid[])
+    RETURNING id, first_name, last_name
+  `;
+
+  const failedIds = shooterIds.filter((id: string) => !updated.find((u: any) => u.id === id));
+  const failed = failedIds.map((id: string) => ({ id, name: '', reason: 'Update failed' }));
+
+  return c.json({ updated: updated.length, failed });
+});
+
+// Bulk delete shooters
+shooterRoutes.delete('/bulk', async (c) => {
+  const { shooterIds } = await c.req.json();
+  if (!Array.isArray(shooterIds) || shooterIds.length === 0) {
+    return c.json({ error: 'shooterIds must be a non-empty array' }, 400);
+  }
+
+  // Check which shooters are registered in matches (cannot delete)
+  const registered = await sql`
+    SELECT DISTINCT shooter_id FROM match_registrations WHERE shooter_id = ANY(${shooterIds}::uuid[])
+  `;
+  const registeredIds = new Set(registered.map((r: any) => r.shooter_id));
+
+  const deletableIds = shooterIds.filter((id: string) => !registeredIds.has(id));
+  const failedIds = shooterIds.filter((id: string) => !deletableIds.includes(id));
+
+  let deleted = 0;
+  if (deletableIds.length > 0) {
+    const result = await sql`
+      DELETE FROM shooters WHERE id = ANY(${deletableIds}::uuid[]) RETURNING id, first_name, last_name
+    `;
+    deleted = result.length;
+  }
+
+  // Get names for failed deletions
+  const failedShooters = await sql`
+    SELECT id, first_name, last_name FROM shooters WHERE id = ANY(${failedIds}::uuid[])
+  `;
+  const failed = failedShooters.map((s: any) => ({
+    id: s.id,
+    name: `${s.first_name} ${s.last_name}`,
+    reason: 'Shooter is registered in one or more matches',
+  }));
+
+  return c.json({ deleted, failed });
 });
 
 // Get shooter detail

@@ -24,6 +24,41 @@
     "yes": "Yes",
     "no": "No"
   },
+  "bulkActions": {
+    "selectedCount": "{{count}} selected",
+    "editSelected": "Edit Selected",
+    "deleteSelected": "Delete Selected",
+    "removeSelected": "Remove Selected",
+    "clearSelection": "Clear",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All"
+  },
+  "bulkDelete": {
+    "title": "Delete Shooters",
+    "confirm": "Are you sure you want to delete {{count}} shooter(s)?",
+    "conflictWarning": "Shooters registered in matches cannot be deleted.",
+    "success": "{{count}} shooter(s) deleted successfully.",
+    "partialSuccess": "{{deleted}} deleted, {{failed}} could not be deleted.",
+    "cannotBeUndone": "This action cannot be undone.",
+    "andMore": "...and {{count}} more"
+  },
+  "bulkEdit": {
+    "title": "Edit {{count}} {{entity}}",
+    "applyChanges": "Apply Changes",
+    "selectFields": "Select fields to change:",
+    "changeField": "Change {{field}}",
+    "success": "{{count}} {{entity}} updated successfully.",
+    "partialSuccess": "{{updated}} updated, {{failed}} could not be updated.",
+    "shooters": "shooters",
+    "registrations": "registrations"
+  },
+  "bulkRemove": {
+    "title": "Remove from Match",
+    "confirm": "Are you sure you want to remove {{count}} registration(s) from this match?",
+    "success": "{{count}} registration(s) removed.",
+    "partialSuccess": "{{removed}} removed, {{failed}} could not be removed.",
+    "cannotBeUndone": "This action cannot be undone."
+  },
   "auth": {
     "title": "🎯 IPSC Score",
     "subtitle": "Select a stage and enter the password provided by the range master",
@@ -46,7 +81,9 @@
     "results": "Results"
   },
   "header": {
-    "title": "IPSC SCORE"
+    "title": "IPSC SCORE",
+    "copyUrl": "Copy URL to clipboard",
+    "copied": "Copied!"
   },
   "matches": {
     "title": "Matches",
@@ -176,6 +213,8 @@
     "searchShooter": "Search shooters...",
     "noShootersFound": "No shooters found",
     "stage": "Stage {{number}}",
+    "allSquads": "All",
+    "squadN": "Squad {{number}}",
     "saved": "Score saved",
     "fixErrors": "Fix errors before saving",
     "time": "⏱ TIME (seconds)",
@@ -320,5 +359,25 @@
     "paperTargets": "Paper Targets",
     "steelTargets": "Steel Targets",
     "noShoots": "No-Shoots"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language"
+  },
+  "database": {
+    "title": "Database",
+    "description": "Export or import a full database backup. Import will replace all existing data.",
+    "export": "Export Backup (.sql)",
+    "exporting": "Exporting...",
+    "exportSuccess": "Backup downloaded successfully.",
+    "exportError": "Backup export failed.",
+    "import": "Import Backup (.sql)",
+    "importing": "Restoring...",
+    "importSuccess": "Database restored successfully. Reloading...",
+    "importError": "Database restore failed.",
+    "importConfirm": "Replace All Data?",
+    "importWarning": "This will replace ALL existing data with the backup. This action cannot be undone.",
+    "file": "File:",
+    "confirmButton": "Replace All Data"
   }
 }

@@ -93,6 +93,9 @@ export const customTheme: DeepPartial<FlowbiteTheme> = createTheme({
     },
     body: {
       base: twMerge(theme.modal.body.base, "overflow-visible"),
+    },
+    footer: {
+      base: twMerge(theme.modal.footer.base, "justify-end"),
     }
   },
   progress: {

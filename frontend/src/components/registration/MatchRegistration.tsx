@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Button, Badge, Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell } from 'flowbite-react';
+import { Button, Badge, Checkbox, Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
+import { useSelection } from '../../hooks/useSelection';
 import { api } from '../../services/api';
 import { divisionLabel, categoryLabel, powerFactorLabel } from '../../utils/constants';
 import CSVImportExport from '../shared/CSVImportExport';
+import BulkActionToolbar from '../shared/BulkActionToolbar';
+import SelectAllCheckbox from '../shared/SelectAllCheckbox';
 import AddShooterModal from './AddShooterModal';
 import CreateShooterModal from './CreateShooterModal';
 import EditRegistrationModal from './EditRegistrationModal';
+import BulkEditRegistrationsModal from './BulkEditRegistrationsModal';
+import BulkRemoveRegistrationsModal from './BulkRemoveRegistrationsModal';
 
 export default function MatchRegistration() {
   const { activeMatchId, addToast } = useUIStore();
@@ -16,6 +21,11 @@ export default function MatchRegistration() {
   const [showAdd, setShowAdd] = useState(false);
   const [showInlineCreate, setShowInlineCreate] = useState(false);
   const [editReg, setEditReg] = useState<any>(null);
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const [showBulkRemove, setShowBulkRemove] = useState(false);
+
+  const regIds = registrations.map((r) => r.id);
+  const selection = useSelection(regIds);
 
   useEffect(() => {
     if (activeMatchId) loadRegistrations();
@@ -34,9 +44,17 @@ export default function MatchRegistration() {
     loadRegistrations();
   };
 
+  const handleBulkAction = () => {
+    selection.clearSelection();
+    loadRegistrations();
+  };
+
   if (!activeMatchId) {
     return <p className="p-4 text-gray-500 text-center">{t('registration.noMatch')}</p>;
   }
+
+  const selectedNames = selection.selectedArray
+    .map((id) => { const r = registrations.find((reg) => reg.id === id); return r ? `${r.first_name} ${r.last_name}` : id; });
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
@@ -44,15 +62,33 @@ export default function MatchRegistration() {
         <h2 className="text-xl font-bold dark:text-white">{t('registration.title')} ({registrations.length})</h2>
         <div className="flex gap-2">
           <CSVImportExport type="registrations" matchId={activeMatchId} />
+          <Button size="sm" color="green" onClick={() => setShowInlineCreate(true)}>{t('registration.createNew')}</Button>
           <Button size="sm" color="blue" onClick={() => setShowAdd(true)}>{t('registration.addShooter')}</Button>
-          <Button size="sm" color="light" onClick={() => setShowInlineCreate(true)}>{t('registration.createNew')}</Button>
         </div>
       </div>
+
+      <BulkActionToolbar
+        selectedCount={selection.selectedCount}
+        onEdit={() => setShowBulkEdit(true)}
+        onDelete={() => setShowBulkRemove(true)}
+        onClearSelection={selection.clearSelection}
+        editLabel={t('bulkActions.editSelected')}
+        deleteLabel={t('bulkActions.removeSelected')}
+      />
 
       {registrations.length > 0 ? (
         <div className="overflow-x-auto shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
           <Table striped theme={{root: {shadow: "hidden"}}}>
             <TableHead>
+              <TableHeadCell className="w-10">
+                <SelectAllCheckbox
+                  allSelected={selection.allSelected}
+                  someSelected={selection.someSelected}
+                  onToggle={selection.allSelected ? selection.deselectAll : selection.selectAll}
+                  selectedCount={selection.selectedCount}
+                  totalCount={registrations.length}
+                />
+              </TableHeadCell>
               <TableHeadCell>#</TableHeadCell>
               <TableHeadCell>{t('common.name')}</TableHeadCell>
               <TableHeadCell>{t('registration.division')}</TableHeadCell>
@@ -64,7 +100,10 @@ export default function MatchRegistration() {
             </TableHead>
             <TableBody>
               {registrations.map((r, idx) => (
-                <TableRow key={r.id} className={r.is_dq ? 'bg-red-50 dark:bg-red-900/20' : ''}>
+                <TableRow key={r.id} className={r.is_dq ? 'bg-red-50 dark:bg-red-900/20' : selection.isSelected(r.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}>
+                  <TableCell>
+                    <Checkbox checked={selection.isSelected(r.id)} onChange={() => selection.toggle(r.id)} />
+                  </TableCell>
                   <TableCell className="font-mono text-gray-500">{idx + 1}</TableCell>
                   <TableCell className="font-medium dark:text-white whitespace-nowrap">
                     {r.first_name} {r.last_name}
@@ -104,6 +143,22 @@ export default function MatchRegistration() {
       <AddShooterModal show={showAdd} onClose={() => setShowAdd(false)} matchId={activeMatchId} onAdded={loadRegistrations} />
       <CreateShooterModal show={showInlineCreate} onClose={() => setShowInlineCreate(false)} matchId={activeMatchId} onCreated={loadRegistrations} />
       <EditRegistrationModal show={!!editReg} onClose={() => setEditReg(null)} registration={editReg} matchId={activeMatchId} onSaved={loadRegistrations} />
+      <BulkEditRegistrationsModal
+        show={showBulkEdit}
+        onClose={() => setShowBulkEdit(false)}
+        selectedIds={selection.selectedArray}
+        selectedNames={selectedNames}
+        matchId={activeMatchId}
+        onSaved={handleBulkAction}
+      />
+      <BulkRemoveRegistrationsModal
+        show={showBulkRemove}
+        onClose={() => setShowBulkRemove(false)}
+        registrationIds={selection.selectedArray}
+        registrationNames={selectedNames}
+        matchId={activeMatchId}
+        onRemoved={handleBulkAction}
+      />
     </div>
   );
 }

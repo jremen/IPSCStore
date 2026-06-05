@@ -146,6 +146,18 @@ export const api = {
   createShooter: (data: any) => request<any>('/api/shooters', { method: 'POST', body: JSON.stringify(data) }),
   updateShooter: (id: string, data: any) => request<any>(`/api/shooters/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteShooter: (id: string) => request<any>(`/api/shooters/${id}`, { method: 'DELETE' }),
+
+  // Bulk shooter operations
+  bulkUpdateShooters: (shooterIds: string[], updates: { division?: string; category?: string; power_factor?: string }) =>
+    request<{ updated: number; failed: Array<{ id: string; reason: string }> }>('/api/shooters/bulk', { method: 'PUT', body: JSON.stringify({ shooterIds, updates }) }),
+  bulkDeleteShooters: (shooterIds: string[]) =>
+    request<{ deleted: number; failed: Array<{ id: string; name: string; reason: string }> }>('/api/shooters/bulk', { method: 'DELETE', body: JSON.stringify({ shooterIds }) }),
+
+  // Bulk registration operations
+  bulkUpdateRegistrations: (matchId: string, registrationIds: string[], updates: { division?: string; category?: string; power_factor?: string; squad?: number | null }) =>
+    request<{ updated: number; failed: Array<{ id: string; name: string; reason: string }> }>(`/api/matches/${matchId}/registrations/bulk`, { method: 'PUT', body: JSON.stringify({ registrationIds, updates }) }),
+  bulkRemoveRegistrations: (matchId: string, registrationIds: string[]) =>
+    request<{ removed: number; failed: Array<{ id: string; name: string; reason: string }> }>(`/api/matches/${matchId}/registrations/bulk`, { method: 'DELETE', body: JSON.stringify({ registrationIds }) }),
   getTags: () => request<string[]>('/api/shooters/tags'),
 
   // Registrations
@@ -242,5 +254,29 @@ export const api = {
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
         return data;
       });
+  },
+
+  // Database Backup & Restore
+  exportBackup: async (): Promise<Blob> => {
+    const headers: Record<string, string> = {};
+    const token = getAuthToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/api/backup`, { method: 'POST', headers });
+    if (!res.ok) throw new Error('Backup failed');
+    return res.blob();
+  },
+
+  importBackup: async (file: File): Promise<{ success: boolean; message: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const headers: Record<string, string> = {};
+    const token = getAuthToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/api/restore`, { method: 'POST', body: form, headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
   },
 };

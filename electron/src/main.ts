@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog } from 'electron';
+import { app, BrowserWindow, Menu, dialog, utilityProcess } from 'electron';
 import path from 'path';
 import os from 'os';
 import fs from 'fs/promises';
@@ -7,7 +7,7 @@ import { PgManager } from './pg-manager.js';
 
 let mainWindow: BrowserWindow | null = null;
 let pgManager: PgManager | null = null;
-let backendProcess: ChildProcess | null = null;
+let backendProcess: ChildProcess | Electron.UtilityProcess | null = null;
 
 /**
  * Resolve the path to the backend dist directory.
@@ -51,9 +51,25 @@ function getLanIp(): string {
 }
 
 /**
+ * Kill the backend process, regardless of its type.
+ */
+function killBackend(): void {
+  if (backendProcess) {
+    if ('kill' in backendProcess) {
+      (backendProcess as any).kill();
+    }
+    backendProcess = null;
+  }
+}
+
+/**
  * Start the backend server as a child process.
- * Uses `node` to run the backend entry point, which avoids
- * ESM/CJS compatibility issues in Electron's main process.
+ *
+ * In production: uses Electron's utilityProcess.fork() which spawns a
+ * Node.js subprocess using Electron's built-in V8 engine — no system
+ * `node` binary is needed.
+ *
+ * In development: spawns a separate `node` process for convenience.
  */
 function startBackend(port: number): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -74,45 +90,76 @@ function startBackend(port: number): Promise<void> {
     console.log(`[Main] Starting backend server from ${entryPoint}`);
     console.log(`[Main] Frontend dist path: ${frontendDistPath}`);
 
-    backendProcess = spawn('node', [entryPoint], {
-      env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    const isDev = process.env.ELECTRON_DEV === 'true';
 
     let started = false;
 
-    backendProcess.stdout?.on('data', (data: Buffer) => {
-      const output = data.toString().trim();
-      console.log(`[Backend] ${output}`);
+    if (isDev) {
+      // Development: use system node via child_process.spawn
+      const child = spawn('node', [entryPoint], {
+        env,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }) as ChildProcess;
+      backendProcess = child;
 
-      // Wait for the server to be ready
-      if (!started && (output.includes('Server running') || output.includes('listening'))) {
-        started = true;
-        resolve();
-      }
-    });
+      child.stdout?.on('data', (data: Buffer) => {
+        const output = data.toString().trim();
+        console.log(`[Backend] ${output}`);
+        if (!started && (output.includes('Server running') || output.includes('listening'))) {
+          started = true;
+          resolve();
+        }
+      });
 
-    backendProcess.stderr?.on('data', (data: Buffer) => {
-      const output = data.toString().trim();
-      console.error(`[Backend] ${output}`);
-    });
+      child.stderr?.on('data', (data: Buffer) => {
+        console.error(`[Backend] ${data.toString().trim()}`);
+      });
 
-    backendProcess.on('error', (err) => {
-      console.error('[Main] Backend process error:', err);
-      if (!started) {
-        reject(err);
-      }
-    });
+      child.on('error', (err: Error) => {
+        console.error('[Main] Backend process error:', err);
+        if (!started) reject(err);
+      });
 
-    backendProcess.on('exit', (code, signal) => {
-      console.log(`[Main] Backend process exited with code ${code}, signal ${signal}`);
-      backendProcess = null;
-    });
+      child.on('exit', (code: number | null) => {
+        console.log(`[Main] Backend process exited with code ${code}`);
+        backendProcess = null;
+      });
+    } else {
+      // Production: use Electron's utilityProcess.fork()
+      // This spawns a Node.js subprocess using Electron's built-in engine,
+      // so we don't depend on a system `node` binary.
+      // Set NODE_PATH so the backend can find its dependencies.
+      const backendNodeModules = path.join(process.resourcesPath, 'backend-node-modules');
+      env.NODE_PATH = backendNodeModules;
 
-    // Timeout: if server doesn't start within 15 seconds, reject
+      const child = utilityProcess.fork(entryPoint, [], {
+        env,
+        stdio: 'pipe',
+      });
+      backendProcess = child;
+
+      child.stdout?.on('data', (data: Buffer) => {
+        const output = data.toString().trim();
+        console.log(`[Backend] ${output}`);
+        if (!started && (output.includes('Server running') || output.includes('listening'))) {
+          started = true;
+          resolve();
+        }
+      });
+
+      child.stderr?.on('data', (data: Buffer) => {
+        console.error(`[Backend] ${data.toString().trim()}`);
+      });
+
+      child.on('exit', (code: number) => {
+        console.log(`[Main] Backend process exited with code ${code}`);
+        backendProcess = null;
+      });
+    }
+
+    // Timeout: if server doesn't start within 15 seconds, check health endpoint
     setTimeout(() => {
       if (!started) {
-        // Check if the health endpoint is responding
         const http = require('http');
         http.get(`http://localhost:${port}/api/health`, (res: any) => {
           if (res.statusCode === 200) {
@@ -280,10 +327,7 @@ app.on('before-quit', () => {
   console.log('[Main] Shutting down...');
 
   // Kill the backend process
-  if (backendProcess) {
-    backendProcess.kill('SIGTERM');
-    backendProcess = null;
-  }
+  killBackend();
 
   // Stop PostgreSQL
   if (pgManager) {

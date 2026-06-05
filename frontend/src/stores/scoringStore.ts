@@ -11,6 +11,7 @@ interface ScoringState {
   saving: boolean;
   loading: boolean;
   error: string | null;
+  squadFilter: number | null; // null = show all squads
 }
 
 interface ScoringActions {
@@ -22,6 +23,11 @@ interface ScoringActions {
   setScore: (score: ScoreInput) => void;
   nextShooter: () => void;
   prevShooter: () => void;
+  setSquadFilter: (squad: number | null) => void;
+  /** Get registrations filtered by the current squad filter */
+  filteredRegistrations: () => RegistrationWithShooter[];
+  /** Get sorted list of unique squad numbers from current registrations */
+  availableSquads: () => number[];
 }
 
 export const useScoringStore = create<ScoringState & ScoringActions>((set, get) => ({
@@ -32,6 +38,7 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   saving: false,
   loading: false,
   error: null,
+  squadFilter: null,
 
   fetchRegistrations: async (matchId) => {
     set({ loading: true, error: null });
@@ -135,19 +142,54 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
 
   setScore: (score) => set({ currentScore: score }),
 
+  filteredRegistrations: () => {
+    const { registrations, squadFilter } = get();
+    if (squadFilter === null) return registrations;
+    return registrations.filter(r => r.squad === squadFilter);
+  },
+
+  availableSquads: () => {
+    const { registrations } = get();
+    const squads = new Set<number>();
+    registrations.forEach(r => { if (r.squad !== null && r.squad !== undefined) squads.add(r.squad); });
+    return Array.from(squads).sort((a, b) => a - b);
+  },
+
   nextShooter: () => {
-    const { registrations, currentRegistrationId } = get();
-    const idx = registrations.findIndex((r) => r.id === currentRegistrationId);
-    if (idx < registrations.length - 1) {
-      set({ currentRegistrationId: registrations[idx + 1].id, alerts: [] });
+    const { registrations, currentRegistrationId, squadFilter } = get();
+    const filtered = squadFilter !== null
+      ? registrations.filter(r => r.squad === squadFilter)
+      : registrations;
+    const idx = filtered.findIndex((r) => r.id === currentRegistrationId);
+    if (idx < filtered.length - 1) {
+      set({ currentRegistrationId: filtered[idx + 1].id, alerts: [] });
     }
   },
 
   prevShooter: () => {
-    const { registrations, currentRegistrationId } = get();
-    const idx = registrations.findIndex((r) => r.id === currentRegistrationId);
+    const { registrations, currentRegistrationId, squadFilter } = get();
+    const filtered = squadFilter !== null
+      ? registrations.filter(r => r.squad === squadFilter)
+      : registrations;
+    const idx = filtered.findIndex((r) => r.id === currentRegistrationId);
     if (idx > 0) {
-      set({ currentRegistrationId: registrations[idx - 1].id, alerts: [] });
+      set({ currentRegistrationId: filtered[idx - 1].id, alerts: [] });
     }
+  },
+
+  setSquadFilter: (squad) => {
+    const { registrations, currentRegistrationId } = get();
+    let newRegId = currentRegistrationId;
+
+    if (squad !== null && currentRegistrationId) {
+      const currentReg = registrations.find(r => r.id === currentRegistrationId);
+      if (!currentReg || currentReg.squad !== squad) {
+        // Current shooter is not in the new squad — select first shooter in that squad
+        const firstInSquad = registrations.find(r => r.squad === squad);
+        newRegId = firstInSquad?.id ?? null;
+      }
+    }
+
+    set({ squadFilter: squad, currentRegistrationId: newRegId, alerts: [] });
   },
 }));

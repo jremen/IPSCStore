@@ -1,3 +1,4 @@
+import os from 'os';
 import { Hono } from 'hono';
 import { corsMiddleware } from './middleware/cors.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -13,6 +14,8 @@ import { uploadRoutes } from './routes/uploads.js';
 import { importRoutes } from './routes/import.js';
 import { winmssImportRoutes } from './routes/winmssImport.js';
 import { authRoutes } from './routes/auth.js';
+import { backupRoutes } from './routes/backup.js';
+import { env } from './env.js';
 
 const app = new Hono();
 
@@ -24,6 +27,29 @@ app.onError(errorHandler);
 // Health check
 app.get('/api/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// LAN info — returns server's LAN IP and port for mobile device access
+app.get('/api/lan-info', (c) => {
+  const interfaces = os.networkInterfaces();
+  let lanIp = '';
+  let fallbackIp = '';
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name] || []) {
+      if (!iface.internal && iface.family === 'IPv4') {
+        const addr = iface.address;
+        // Prefer non-docker, non-vpn, non-bridge interfaces
+        const isContainer = name.startsWith('docker') || name.startsWith('br-') || name.startsWith('veth') || name.startsWith('vnic');
+        if (!isContainer && !addr.startsWith('172.')) {
+          lanIp = addr;
+          break;
+        }
+        if (!fallbackIp) fallbackIp = addr;
+      }
+    }
+    if (lanIp) break;
+  }
+  return c.json({ ip: lanIp || fallbackIp || '127.0.0.1', port: env.PORT });
 });
 
 // Routes
@@ -42,6 +68,7 @@ app.route('/api', scoringRoutes);
 
 app.route('/api', resultsRoutes);
 app.route('/api', uploadRoutes);
+app.route('/api', backupRoutes);
 app.route('/api/import', importRoutes);
 app.route('/api/import', winmssImportRoutes);
 

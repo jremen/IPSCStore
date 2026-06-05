@@ -68,9 +68,9 @@ interface ResultsState {
   divisionResults: Record<string, OverallResult[]>;
   dqDivisions: DqShooter[];
   stageResults: StageResultGroup[];
-  categoryResults: Record<string, OverallResult[]>;
+  categoryResults: Record<string, Record<string, OverallResult[]>>;
   dqCategories: DqShooter[];
-  tagResults: Record<string, OverallResult[]>;
+  tagResults: Record<string, Record<string, OverallResult[]>>;
   dqTags: DqShooter[];
   loading: boolean;
   error: string | null;

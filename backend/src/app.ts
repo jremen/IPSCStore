@@ -1,5 +1,8 @@
 import os from 'os';
+import fs from 'fs';
+import path from 'path';
 import { Hono } from 'hono';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { corsMiddleware } from './middleware/cors.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
@@ -74,17 +77,44 @@ app.route('/api/import', winmssImportRoutes);
 
 /**
  * Enable production static file serving for the frontend.
- * Called by the Electron main process after setting NODE_ENV=production.
+ * Called by the Electron main process after setting FRONTEND_DIST_PATH.
  * In Docker/dev mode, the Vite dev server handles this.
  */
-export async function enableStaticServing(frontendDistPath: string) {
-  const { serveStatic } = await import('@hono/node-server/serve-static');
+export function enableStaticServing(frontendDistPath: string) {
+  console.log(`[Static] Setting up frontend serving from: ${frontendDistPath}`);
 
-  // Serve built frontend assets
+  // Validate that the frontend dist directory exists
+  if (!fs.existsSync(frontendDistPath)) {
+    console.error(`[Static] ERROR: Frontend dist path does not exist: ${frontendDistPath}`);
+    return;
+  }
+
+  const indexPath = path.join(frontendDistPath, 'index.html');
+  if (!fs.existsSync(indexPath)) {
+    console.error(`[Static] ERROR: index.html not found at: ${indexPath}`);
+    return;
+  }
+
+  console.log(`[Static] Found index.html at: ${indexPath}`);
+
+  // Serve built frontend assets (JS, CSS, images, fonts, etc.)
   app.use('/*', serveStatic({ root: frontendDistPath }));
 
-  // SPA fallback: serve index.html for any non-API, non-file route
-  app.get('*', serveStatic({ root: frontendDistPath, path: 'index.html' }));
+  // SPA fallback: serve index.html for any non-API, non-file route.
+  // Uses direct fs.readFile instead of serveStatic to avoid path resolution issues.
+  app.get('*', async (c) => {
+    // Don't serve index.html for API routes
+    if (c.req.path.startsWith('/api/')) {
+      return c.notFound();
+    }
+    try {
+      const html = fs.readFileSync(indexPath, 'utf-8');
+      return c.html(html);
+    } catch (err) {
+      console.error('[Static] Failed to read index.html:', err);
+      return c.text('Frontend not found', 500);
+    }
+  });
 }
 
 export { app };

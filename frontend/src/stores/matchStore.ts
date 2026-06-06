@@ -16,6 +16,8 @@ interface MatchActions {
   updateMatch: (id: string, data: Partial<CreateMatchInput>) => Promise<void>;
   deleteMatch: (id: string) => Promise<void>;
   setCurrentMatch: (id: string | null) => Promise<void>;
+  markCurrent: (id: string) => Promise<void>;
+  unmarkCurrent: () => Promise<void>;
 }
 
 export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
@@ -72,5 +74,25 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
     } else {
       set({ currentMatch: null });
     }
+  },
+
+  markCurrent: async (id) => {
+    const updated = await api.setCurrentMatch(id);
+    set((state) => ({
+      matches: state.matches.map((m) => ({
+        ...m,
+        is_current: m.id === id ? true : false,
+      })),
+    }));
+  },
+
+  unmarkCurrent: async () => {
+    await api.unsetCurrentMatch();
+    set((state) => ({
+      matches: state.matches.map((m) => ({
+        ...m,
+        is_current: false,
+      })),
+    }));
   },
 }));

@@ -1,6 +1,6 @@
-import { Checkbox, Select } from 'flowbite-react';
+import { Checkbox, Select, ToggleSwitch } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
-import { CATEGORIES, DIVISIONS, POWER_FACTORS } from '../../utils/constants';
+import { CATEGORIES, POWER_FACTORS, getDivisionsForOrganization, getGroupedDivisions } from '../../utils/constants';
 
 export interface BulkEditForm {
   changeDivision: boolean;
@@ -17,12 +17,16 @@ interface BulkEditFormFieldsProps {
   form: BulkEditForm;
   onChange: (form: BulkEditForm) => void;
   showSquad?: boolean;
+  /** Organization to filter divisions by (e.g. 'IPSC', 'USPSA') */
+  organization?: string;
 }
 
 /** Shared form for bulk editing shooters or registrations.
  *  Each field has a "Change this field?" checkbox — only checked fields are included in the update. */
-export default function BulkEditFormFields({ form, onChange, showSquad = false }: BulkEditFormFieldsProps) {
+export default function BulkEditFormFields({ form, onChange, showSquad = false, organization }: BulkEditFormFieldsProps) {
   const { t } = useTranslation();
+  const divisions = getDivisionsForOrganization(organization);
+  const groupedDivisions = organization ? null : getGroupedDivisions();
 
   const update = (patch: Partial<BulkEditForm>) => onChange({ ...form, ...patch });
 
@@ -30,14 +34,12 @@ export default function BulkEditFormFields({ form, onChange, showSquad = false }
     <div className="space-y-4">
       {/* Division */}
       <div className="flex items-center gap-3">
-        <Checkbox
+        <ToggleSwitch
           checked={form.changeDivision}
-          onChange={(e) => update({ changeDivision: e.target.checked, division: e.target.checked ? form.division || DIVISIONS[0].value : '' })}
+          onChange={(checked) => update({ changeDivision: checked, division: checked ? form.division || divisions[0].value : '' })}
+          label={t('bulkEdit.changeField', { field: t('scoring.division') })}
         />
         <div className="flex-1">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('bulkEdit.changeField', { field: t('scoring.division') })}
-          </label>
           {form.changeDivision && (
             <Select
               sizing="sm"
@@ -45,9 +47,13 @@ export default function BulkEditFormFields({ form, onChange, showSquad = false }
               onChange={(e) => update({ division: e.target.value })}
               className="mt-1"
             >
-              {DIVISIONS.map((d) => (
-                <option key={d.value} value={d.value}>{d.label}</option>
-              ))}
+              {groupedDivisions
+                ? groupedDivisions.map((g) => (
+                  <optgroup key={g.group} label={g.group}>
+                    {g.divisions.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                  </optgroup>
+                ))
+                : divisions.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
             </Select>
           )}
         </div>
@@ -55,14 +61,12 @@ export default function BulkEditFormFields({ form, onChange, showSquad = false }
 
       {/* Category */}
       <div className="flex items-center gap-3">
-        <Checkbox
+        <ToggleSwitch
           checked={form.changeCategory}
-          onChange={(e) => update({ changeCategory: e.target.checked, category: e.target.checked ? form.category || CATEGORIES[0].value : '' })}
+          onChange={(checked) => update({ changeCategory: checked, category: checked ? form.category || CATEGORIES[0].value : '' })}
+          label={t('bulkEdit.changeField', { field: t('scoring.category') })}
         />
         <div className="flex-1">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('bulkEdit.changeField', { field: t('scoring.category') })}
-          </label>
           {form.changeCategory && (
             <Select
               sizing="sm"
@@ -80,14 +84,12 @@ export default function BulkEditFormFields({ form, onChange, showSquad = false }
 
       {/* Power Factor */}
       <div className="flex items-center gap-3">
-        <Checkbox
+        <ToggleSwitch
           checked={form.changePowerFactor}
-          onChange={(e) => update({ changePowerFactor: e.target.checked, powerFactor: e.target.checked ? form.powerFactor || POWER_FACTORS[0].value : '' })}
+          onChange={(checked) => update({ changePowerFactor: checked, powerFactor: checked ? form.powerFactor || POWER_FACTORS[0].value : '' })}
+          label={t('bulkEdit.changeField', { field: t('scoring.powerFactor') })}
         />
         <div className="flex-1">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('bulkEdit.changeField', { field: t('scoring.powerFactor') })}
-          </label>
           {form.changePowerFactor && (
             <Select
               sizing="sm"

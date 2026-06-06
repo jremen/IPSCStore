@@ -92,10 +92,10 @@ export default function BulkEditShootersModal({ show, onClose, selectedIds, sele
           <Button color="gray" onClick={handleClose}>{t('common.close')}</Button>
         ) : (
           <>
+            <Button color="gray" onClick={handleClose}>{t('common.cancel')}</Button>
             <Button color="blue" onClick={handleSave} disabled={loading || !hasChanges}>
               {loading ? t('common.loading') : t('bulkEdit.applyChanges')}
             </Button>
-            <Button color="gray" onClick={handleClose}>{t('common.cancel')}</Button>
           </>
         )}
       </ModalFooter>

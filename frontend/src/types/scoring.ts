@@ -105,6 +105,16 @@ export interface RegistrationWithShooter {
   effective_power_factor: PowerFactor;
 }
 
+export interface ScoringProgressEntry {
+  stage_id: string;
+  registration_id: string;
+  squad: number | null;
+}
+
+export interface ScoringProgress {
+  scored: ScoringProgressEntry[];
+}
+
 export interface ScoreInput {
   time: number | null;
   targets: TargetScore[];

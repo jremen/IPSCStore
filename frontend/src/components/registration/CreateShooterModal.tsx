@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
+import { useMatchStore } from '../../stores/matchStore';
 import { api } from '../../services/api';
 import ShooterFormFields, { type ShooterFormData } from '../shared/ShooterFormFields';
 import type { Category, Division, PowerFactor } from '../../types/shooter';
@@ -15,7 +16,9 @@ interface CreateShooterModalProps {
 
 export default function CreateShooterModal({ show, onClose, matchId, onCreated }: CreateShooterModalProps) {
   const { addToast } = useUIStore();
+  const { matches } = useMatchStore();
   const { t } = useTranslation();
+  const matchOrganization = matches.find((m: any) => m.id === matchId)?.organization;
   const [squad, setSquad] = useState('');
   const [form, setForm] = useState<ShooterFormData>({
     first_name: '', last_name: '', category: 'regular', tag: null,
@@ -43,13 +46,13 @@ export default function CreateShooterModal({ show, onClose, matchId, onCreated }
     <Modal show={show} onClose={onClose} size="lg">
       <ModalHeader>{t('registration.createTitle')}</ModalHeader>
       <ModalBody>
-        <ShooterFormFields form={form} onChange={setForm} showSquad squad={squad} onSquadChange={setSquad} />
+        <ShooterFormFields form={form} onChange={setForm} showSquad squad={squad} onSquadChange={setSquad} organization={matchOrganization} />
       </ModalBody>
       <ModalFooter>
+        <Button color="gray" onClick={onClose}>{t('common.cancel')}</Button>
         <Button color="blue" onClick={handleCreate} disabled={!form.first_name || !form.last_name || !form.region}>
           {t('registration.createAndRegister')}
         </Button>
-        <Button color="gray" onClick={onClose}>{t('common.cancel')}</Button>
       </ModalFooter>
     </Modal>
   );

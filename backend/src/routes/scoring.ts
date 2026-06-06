@@ -9,6 +9,26 @@ import {
 
 export const scoringRoutes = new Hono();
 
+// Get scoring progress for a match — which shooters have been scored on which stages
+scoringRoutes.get('/matches/:matchId/scoring-progress', async (c) => {
+  const matchId = c.req.param('matchId');
+
+  const scored = await sql`
+    SELECT ss.stage_id, ss.registration_id, mr.squad
+    FROM stage_scores ss
+    JOIN match_registrations mr ON mr.id = ss.registration_id
+    WHERE ss.match_id = ${matchId}
+  `;
+
+  return c.json({
+    scored: scored.map(s => ({
+      stage_id: s.stage_id,
+      registration_id: s.registration_id,
+      squad: s.squad,
+    })),
+  });
+});
+
 // Get all scores for a stage
 scoringRoutes.get('/matches/:matchId/stages/:stageId/scores', async (c) => {
   const { matchId, stageId } = c.req.param();

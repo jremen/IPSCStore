@@ -16,9 +16,18 @@ export const backupRoutes = new Hono();
  * Uses pg_dump with --clean --if-exists for a full restore-capable backup.
  */
 backupRoutes.post('/backup', async (c) => {
-  const pgDumpPath = getPgDumpPath();
+  let pgDumpPath: string;
+  let dbParams: Record<string, string>;
+
+  try {
+    pgDumpPath = getPgDumpPath();
+    dbParams = parseDatabaseUrl(env.DATABASE_URL);
+  } catch (err: any) {
+    console.error('[Backup] Setup error:', err);
+    return c.json({ error: `Backup setup failed: ${err.message}` }, 500);
+  }
+
   const tmpFile = path.join(os.tmpdir(), `ipscscore-backup-${Date.now()}.sql`);
-  const dbParams = parseDatabaseUrl(env.DATABASE_URL);
 
   try {
     await execFileAsync(pgDumpPath, [
@@ -59,9 +68,18 @@ backupRoutes.post('/restore', async (c) => {
     return c.json({ error: 'No file uploaded' }, 400);
   }
 
-  const psqlPath = getPsqlPath();
+  let psqlPath: string;
+  let dbParams: Record<string, string>;
+
+  try {
+    psqlPath = getPsqlPath();
+    dbParams = parseDatabaseUrl(env.DATABASE_URL);
+  } catch (err: any) {
+    console.error('[Restore] Setup error:', err);
+    return c.json({ error: `Restore setup failed: ${err.message}` }, 500);
+  }
+
   const tmpFile = path.join(os.tmpdir(), `ipscscore-restore-${Date.now()}.sql`);
-  const dbParams = parseDatabaseUrl(env.DATABASE_URL);
 
   try {
     // Write uploaded file to temp location

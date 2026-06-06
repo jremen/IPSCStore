@@ -3,6 +3,7 @@ import { Badge, TextInput } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useScoringStore } from '../../stores/scoringStore';
 import { divisionLabel } from '../../utils/constants';
+import { useScoringProgress } from '../../hooks/useScoringProgress';
 
 /** Searchable shooter dropdown — reads registrations, currentRegistrationId, and squadFilter from store directly */
 export default function ShooterDropdown({ onSelect }: { onSelect: (regId: string) => void }) {
@@ -11,6 +12,7 @@ export default function ShooterDropdown({ onSelect }: { onSelect: (regId: string
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { registrations, currentRegistrationId, squadFilter } = useScoringStore();
+  const { scoredIds } = useScoringProgress();
   const { t } = useTranslation();
 
   const currentShooter = registrations.find(r => r.id === currentRegistrationId);
@@ -93,7 +95,12 @@ export default function ShooterDropdown({ onSelect }: { onSelect: (regId: string
                     r.id === currentRegistrationId ? 'bg-blue-50 dark:bg-blue-900/30' : ''
                   }`}
                 >
-                  <span className="dark:text-white">{r.first_name} {r.last_name}</span>
+                  <span className="dark:text-white flex items-center gap-1.5">
+                    {scoredIds.has(r.id) && (
+                      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[10px] leading-none shrink-0">✓</span>
+                    )}
+                    {r.first_name} {r.last_name}
+                  </span>
                   <div className="flex gap-1 shrink-0 ml-2">
                     <Badge size="sm" color="blue">{divisionLabel(r.effective_division)}</Badge>
                     {r.squad && <Badge size="sm" color="purple">S{r.squad}</Badge>}

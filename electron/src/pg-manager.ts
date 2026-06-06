@@ -208,6 +208,85 @@ export class PgManager {
     console.log('[PgManager] PostgreSQL initialized successfully');
   }
 
+  /**
+   * Import seed data into the database.
+   * Called after the backend runs migrations (which create the tables).
+   * Only runs on first launch — tracked by a `.seeded` marker file.
+   */
+  async importSeedData(): Promise<void> {
+    const seededMarker = path.join(this.config.dataDir, '.seeded');
+
+    // Check if seed data was already imported
+    try {
+      await fs.access(seededMarker);
+      console.log('[PgManager] Seed data already imported, skipping');
+      return;
+    } catch {
+      // Not seeded yet — proceed
+    }
+
+    // Find the seed data file
+    const resourcesPath = (process as any).resourcesPath;
+    const seedDataPath = resourcesPath
+      ? path.join(resourcesPath, 'seed-data.dump')
+      : '';
+
+    if (!seedDataPath || !await this.fileExists(seedDataPath)) {
+      console.log('[PgManager] No seed data file found, skipping import');
+      return;
+    }
+
+    console.log(`[PgManager] Importing seed data from: ${seedDataPath}`);
+
+    // Check that pg_restore exists
+    if (!await this.binExists('pg_restore')) {
+      console.warn('[PgManager] pg_restore not found, cannot import seed data');
+      return;
+    }
+
+    const pgRestore = this.getBin('pg_restore');
+
+    try {
+      const { stderr } = await execAsync(
+        `"${pgRestore}" --data-only --no-owner --no-privileges --no-comments ` +
+        `-h ${this.config.host} -p ${this.config.port} -U ${this.config.user} ` +
+        `-d ${this.config.database} "${seedDataPath}"`,
+        { timeout: 120000 }
+      );
+
+      if (stderr && !stderr.includes('WARNING')) {
+        console.warn('[PgManager] pg_restore warnings:', stderr);
+      }
+
+      // Mark as seeded
+      await fs.writeFile(seededMarker, new Date().toISOString());
+
+      console.log('[PgManager] Seed data imported successfully');
+    } catch (err: any) {
+      // pg_restore exits with code 1 for warnings, which execAsync treats as error
+      // Check if it was actually successful by looking at the error message
+      const output = err?.stdout || err?.stderr || String(err);
+      if (output.includes('ERROR')) {
+        console.error('[PgManager] Failed to import seed data:', err);
+      } else {
+        // Likely just warnings — mark as seeded anyway
+        console.warn('[PgManager] pg_restore completed with warnings:', output);
+        await fs.writeFile(seededMarker, new Date().toISOString());
+        console.log('[PgManager] Seed data imported (with warnings)');
+      }
+    }
+  }
+
+  /** Check if a file exists */
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /** Start PostgreSQL */
   async start(): Promise<void> {
     console.log('[PgManager] Starting PostgreSQL...');

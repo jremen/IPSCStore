@@ -9,6 +9,7 @@ export interface Match {
   date: string;
   organization: Organization;
   firearm_type: FirearmType;
+  is_current: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -32,12 +32,12 @@ export default function MatchDetail() {
       {/* Match Summary */}
       <Card className="mb-4">
         <h3 className="font-semibold mb-2 dark:text-white">{t('matchDetail.summary')}</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
-          <div><div className="text-2xl font-bold text-blue-600">{summary.total_shots}</div><div className="text-xs text-gray-500">{t('matchDetail.totalShots')}</div></div>
-          <div><div className="text-2xl font-bold text-green-600">{summary.total_points}</div><div className="text-xs text-gray-500">{t('matchDetail.maxPoints')}</div></div>
-          <div><div className="text-2xl font-bold text-orange-600">{summary.total_paper}</div><div className="text-xs text-gray-500">{t('matchDetail.paperTargets')}</div></div>
-          <div><div className="text-2xl font-bold text-gray-600">{summary.total_steel}</div><div className="text-xs text-gray-500">{t('matchDetail.steelTargets')}</div></div>
-          <div><div className="text-2xl font-bold text-red-600">{summary.total_no_shoot}</div><div className="text-xs text-gray-500">{t('matchDetail.noShoots')}</div></div>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 dark:text-white text-xs text-center">
+          <div><div className="text-2xl font-bold text-blue-600">{summary.total_shots}</div><div>{t('matchDetail.totalShots')}</div></div>
+          <div><div className="text-2xl font-bold text-green-600">{summary.total_points}</div><div>{t('matchDetail.maxPoints')}</div></div>
+          <div><div className="text-2xl font-bold text-orange-600">{summary.total_paper}</div><div>{t('matchDetail.paperTargets')}</div></div>
+          <div><div className="text-2xl font-bold text-purple-600">{summary.total_steel}</div><div>{t('matchDetail.steelTargets')}</div></div>
+          <div><div className="text-2xl font-bold text-red-600">{summary.total_no_shoot}</div><div>{t('matchDetail.noShoots')}</div></div>
         </div>
       </Card>
 
@@ -52,8 +52,8 @@ export default function MatchDetail() {
                 <span className="font-medium dark:text-white">{stage.name}</span>
                 <Badge color="indigo" className="ml-2">{stage.scoring_type}</Badge>
               </div>
-              <div className="text-sm text-gray-500">
-                {stage.paper_targets}P / {stage.steel_targets}S / {stage.no_shoot_targets}NS • {stage.min_rounds} rnds • {stage.max_points} pts
+              <div className="text-sm dark:text-white">
+                {stage.paper_targets}&nbsp;P / {stage.steel_targets}&nbsp;S / {stage.no_shoot_targets}&nbsp;NS • {stage.min_rounds} rnds • {stage.max_points} pts
               </div>
             </div>
           </Card>

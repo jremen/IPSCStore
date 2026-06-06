@@ -62,7 +62,7 @@ export default function MatchRegistration() {
         <h2 className="text-xl font-bold dark:text-white">{t('registration.title')} ({registrations.length})</h2>
         <div className="flex gap-2">
           <CSVImportExport type="registrations" matchId={activeMatchId} />
-          <Button size="sm" color="green" onClick={() => setShowInlineCreate(true)}>{t('registration.createNew')}</Button>
+          <Button size="sm" color="green" onClick={() => setShowInlineCreate(true)}>{t('shooters.newShooter')}</Button>
           <Button size="sm" color="blue" onClick={() => setShowAdd(true)}>{t('registration.addShooter')}</Button>
         </div>
       </div>
@@ -91,11 +91,11 @@ export default function MatchRegistration() {
               </TableHeadCell>
               <TableHeadCell>#</TableHeadCell>
               <TableHeadCell>{t('common.name')}</TableHeadCell>
-              <TableHeadCell>{t('registration.division')}</TableHeadCell>
+              <TableHeadCell>{t('shooters.division')}</TableHeadCell>
               <TableHeadCell>{t('shooters.category')}</TableHeadCell>
               <TableHeadCell>PF</TableHeadCell>
               <TableHeadCell>{t('registration.squad')}</TableHeadCell>
-              <TableHeadCell>{t('common.name')}</TableHeadCell>
+              <TableHeadCell />
               <TableHeadCell>{t('common.actions')}</TableHeadCell>
             </TableHead>
             <TableBody>
@@ -140,7 +140,7 @@ export default function MatchRegistration() {
         <p className="text-center text-gray-500 mt-8">{t('registration.empty')}</p>
       )}
 
-      <AddShooterModal show={showAdd} onClose={() => setShowAdd(false)} matchId={activeMatchId} onAdded={loadRegistrations} />
+      <AddShooterModal show={showAdd} onClose={() => setShowAdd(false)} matchId={activeMatchId} registeredShooterIds={registrations.map((r) => r.shooter_id)} onAdded={loadRegistrations} />
       <CreateShooterModal show={showInlineCreate} onClose={() => setShowInlineCreate(false)} matchId={activeMatchId} onCreated={loadRegistrations} />
       <EditRegistrationModal show={!!editReg} onClose={() => setEditReg(null)} registration={editReg} matchId={activeMatchId} onSaved={loadRegistrations} />
       <BulkEditRegistrationsModal

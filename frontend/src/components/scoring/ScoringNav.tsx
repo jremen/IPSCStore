@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Button, Badge } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
@@ -21,19 +21,24 @@ interface ScoringNavProps {
 export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
   const { activeMatchId, addToast } = useUIStore();
   const { registrations, fetchRegistrations, currentRegistrationId, selectShooter,
-          currentScore, setScore, saveScore, validateScore, alerts, nextShooter, prevShooter } = useScoringStore();
+          currentScore, setScore, saveScore, validateScore, alerts, nextShooter, prevShooter,
+          activeStageId, setActiveStageId, fetchScoringProgress } = useScoringStore();
   const { stages, fetchStages } = useStageStore();
+  const { authenticatedMatchId } = useAuthStore();
   const { t } = useTranslation();
-  const [activeStageId, setActiveStageId] = useState<string | null>(null);
+
+  // For remote scorers: fall back to authenticatedMatchId when activeMatchId isn't set yet
+  const effectiveMatchId = activeMatchId || (restrictedStageId ? authenticatedMatchId : null);
 
   const currentShooter = registrations.find(r => r.id === currentRegistrationId);
 
   useEffect(() => {
-    if (activeMatchId) {
-      fetchRegistrations(activeMatchId);
-      fetchStages(activeMatchId);
+    if (effectiveMatchId) {
+      fetchRegistrations(effectiveMatchId);
+      fetchStages(effectiveMatchId);
+      fetchScoringProgress(effectiveMatchId);
     }
-  }, [activeMatchId]);
+  }, [effectiveMatchId]);
 
   useEffect(() => {
     if (stages.length > 0 && !activeStageId) {
@@ -72,13 +77,13 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
 
   const handleSelectShooter = async (regId: string) => {
     selectShooter(regId);
-    if (activeMatchId && activeStageId) {
-      await loadScoreForShooter(activeMatchId, activeStageId, regId);
+    if (effectiveMatchId && activeStageId) {
+      await loadScoreForShooter(effectiveMatchId, activeStageId, regId);
     }
   };
 
   const handleSave = async () => {
-    if (!activeMatchId || !activeStageId || !currentRegistrationId || !currentScore) return;
+    if (!effectiveMatchId || !activeStageId || !currentRegistrationId || !currentScore) return;
     const stage = stages.find((s) => s.id === activeStageId);
     if (!stage) return;
 
@@ -89,8 +94,10 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
     }
 
     try {
-      await saveScore(activeMatchId, activeStageId, currentRegistrationId, currentScore);
+      await saveScore(effectiveMatchId, activeStageId, currentRegistrationId, currentScore);
       addToast(t('scoring.saved'), 'success');
+      // Refresh scoring progress after save to update indicators
+      if (effectiveMatchId) fetchScoringProgress(effectiveMatchId);
     } catch (err: any) {
       addToast(err.message, 'error');
     }
@@ -98,13 +105,13 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
 
   const handleStageChange = (stageId: string) => {
     setActiveStageId(stageId);
-    if (activeMatchId && currentRegistrationId) {
+    if (effectiveMatchId && currentRegistrationId) {
       selectShooter(currentRegistrationId);
-      loadScoreForShooter(activeMatchId, stageId, currentRegistrationId);
+      loadScoreForShooter(effectiveMatchId, stageId, currentRegistrationId);
     }
   };
 
-  if (!activeMatchId) {
+  if (!effectiveMatchId) {
     return <p className="p-4 text-gray-500 text-center">{t('scoring.noMatch')}</p>;
   }
 

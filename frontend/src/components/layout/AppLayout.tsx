@@ -12,13 +12,22 @@ import Results from '../results/ResultsOverview';
 import StageLoginPage from '../auth/StageLoginPage';
 
 export default function AppLayout() {
-  const { activeTab, setActiveTab } = useUIStore();
-  const { isAuthenticated, isAdmin, authenticatedStageId, restoreSession } = useAuthStore();
+  const { activeTab, setActiveTab, setActiveMatch } = useUIStore();
+  const { isAuthenticated, isAdmin, authenticatedStageId, authenticatedMatchId, restoreSession } = useAuthStore();
 
   // Restore auth session on mount
   useEffect(() => {
     restoreSession();
   }, [restoreSession]);
+
+  // For remote scorers: set the active match ID so scoring UI works without manual selection
+  useEffect(() => {
+    if (isAuthenticated && !isAdmin && authenticatedMatchId) {
+      setActiveMatch(authenticatedMatchId);
+    } else if (!isAuthenticated) {
+      setActiveMatch(null);
+    }
+  }, [isAuthenticated, isAdmin, authenticatedMatchId, setActiveMatch]);
 
   // Not authenticated and not admin → show login page
   if (!isAuthenticated) {

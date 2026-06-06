@@ -85,6 +85,7 @@ function startBackend(port: number): Promise<void> {
       UPLOAD_DIR: path.join(app.getPath('userData'), 'uploads'),
       DATABASE_URL: process.env.DATABASE_URL || '',
       FRONTEND_DIST_PATH: frontendDistPath,
+      MIGRATIONS_DIR: path.join(backendDistPath, 'db', 'migrations'),
     };
 
     console.log(`[Main] Starting backend server from ${entryPoint}`);
@@ -128,9 +129,8 @@ function startBackend(port: number): Promise<void> {
       // Production: use Electron's utilityProcess.fork()
       // This spawns a Node.js subprocess using Electron's built-in engine,
       // so we don't depend on a system `node` binary.
-      // Set NODE_PATH so the backend can find its dependencies.
-      const backendNodeModules = path.join(process.resourcesPath, 'backend-node-modules');
-      env.NODE_PATH = backendNodeModules;
+      // Note: NODE_PATH doesn't work with ESM imports, so we don't set it.
+      // The backend is bundled with esbuild and has all deps inlined.
 
       const child = utilityProcess.fork(entryPoint, [], {
         env,
@@ -287,6 +287,16 @@ async function main(): Promise<void> {
     dialog.showErrorBox('Startup Error', `Failed to start the backend server: ${err}`);
     app.quit();
     return;
+  }
+
+  // Import seed data on first launch (after migrations have created the tables)
+  if (pgManager) {
+    try {
+      await pgManager.importSeedData();
+    } catch (err) {
+      console.error('[Main] Failed to import seed data:', err);
+      // Non-fatal — the app works with an empty database
+    }
   }
 
   // Create the browser window

@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, TextInput, Select, Label } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
+import { useMatchStore } from '../../stores/matchStore';
 import { api } from '../../services/api';
-import { CATEGORIES, DIVISIONS, POWER_FACTORS } from '../../utils/constants';
+import { CATEGORIES, POWER_FACTORS, getDivisionsForOrganization } from '../../utils/constants';
 
 interface EditRegistrationModalProps {
   show: boolean;
@@ -15,7 +16,10 @@ interface EditRegistrationModalProps {
 
 export default function EditRegistrationModal({ show, onClose, registration, matchId, onSaved }: EditRegistrationModalProps) {
   const { addToast } = useUIStore();
+  const { matches } = useMatchStore();
   const { t } = useTranslation();
+  const matchOrganization = matches.find((m: any) => m.id === matchId)?.organization;
+  const divisions = getDivisionsForOrganization(matchOrganization);
   const [form, setForm] = useState({ squad: '', division: '', category: '', power_factor: '' });
 
   // Sync form when registration changes or modal opens
@@ -56,7 +60,7 @@ export default function EditRegistrationModal({ show, onClose, registration, mat
             <Label>{t('registration.divisionOverride')}</Label>
             <Select value={form.division} onChange={(e) => setForm({ ...form, division: e.target.value })}>
               <option value="">{t('registration.defaultOption')}</option>
-              {DIVISIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+              {divisions.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
             </Select>
           </div>
           <div>
@@ -76,8 +80,8 @@ export default function EditRegistrationModal({ show, onClose, registration, mat
         </div>
       </ModalBody>
       <ModalFooter>
-        <Button color="blue" onClick={handleSave}>{t('common.saveChanges')}</Button>
         <Button color="gray" onClick={onClose}>{t('common.cancel')}</Button>
+        <Button color="blue" onClick={handleSave}>{t('common.saveChanges')}</Button>
       </ModalFooter>
     </Modal>
   );

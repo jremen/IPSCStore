@@ -12,8 +12,8 @@ import CreateMatchModal from './CreateMatchModal';
 import { TbTrash } from 'react-icons/tb';
 
 export default function MatchList() {
-  const { matches, loading, fetchMatches } = useMatchStore();
-  const { activeMatchId, setActiveMatch } = useUIStore();
+  const { matches, loading, fetchMatches, markCurrent, unmarkCurrent } = useMatchStore();
+  const { activeMatchId, setActiveMatch, addToast } = useUIStore();
   const { t } = useTranslation();
   const [showCreate, setShowCreate] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -36,7 +36,7 @@ export default function MatchList() {
   if (activeMatchId) return <MatchDetail />;
 
   return (
-    <div className="p-4 max-w-6xl mx-auto">
+    <div className="p-4 mx-auto">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-xl font-bold dark:text-white">{t('matches.count', { count: matches.length })}</h2>
         <div className="flex gap-2">
@@ -58,15 +58,15 @@ export default function MatchList() {
       {loading && <p className="text-gray-500">{t('common.loading')}</p>}
 
       {filteredMatches.length > 0 ? (
-        <div className="overflow-x-auto shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
-          <Table striped hoverable>
+        <div className="overflow-x-auto w-full rounded-lg border border-gray-200 dark:border-gray-700">
+          <Table striped hoverable className="">
             <TableHead>
               <TableHeadCell>{t('matches.name')}</TableHeadCell>
               <TableHeadCell>{t('matches.date')}</TableHeadCell>
               <TableHeadCell>{t('matches.organization')}</TableHeadCell>
               <TableHeadCell>{t('matches.firearm')}</TableHeadCell>
               <TableHeadCell>{t('matches.shooters')}</TableHeadCell>
-              <TableHeadCell className="w-16"></TableHeadCell>
+              <TableHeadCell></TableHeadCell>
             </TableHead>
             <TableBody>
               {filteredMatches.map((m: any) => (
@@ -81,13 +81,31 @@ export default function MatchList() {
                   </TableCell>
                   <TableCell className="text-gray-500">{m.shooter_count ?? '—'}</TableCell>
                   <TableCell>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(m.id); }}
-                      className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity text-sm p-1"
-                      title={t('matches.deleteMatch')}
-                    >
-                      🗑
-                    </button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="xs"
+                        color={m.is_current ? "success" : "gray"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (m.is_current) {
+                            unmarkCurrent();
+                            addToast(t('matches.unsetAsCurrent'), 'success');
+                          } else {
+                            markCurrent(m.id);
+                            addToast(t('matches.setAsCurrentDone'), 'success');
+                          }
+                        }}
+                      >
+                        {m.is_current ? '● ' + t('matches.current') : t('matches.setAsCurrent')}
+                      </Button>
+                      <Button
+                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(m.id); }}
+                        size="xs"
+                        color="red"
+                      >
+                        {t('matches.deleteMatch')}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

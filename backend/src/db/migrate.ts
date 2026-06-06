@@ -12,9 +12,12 @@ export async function runMigrations() {
     )
   `;
 
-  // Support both ESM (import.meta.dirname) and CJS (__dirname) contexts
-  const dirName = typeof __dirname !== 'undefined' ? __dirname : import.meta.dirname;
-  const migrationsDir = join(dirName, 'migrations');
+  // Support both ESM (import.meta.dirname) and CJS (__dirname) contexts.
+  // In bundled Electron mode, MIGRATIONS_DIR env var overrides the path.
+  const migrationsDir = process.env.MIGRATIONS_DIR || (() => {
+    const dirName = typeof __dirname !== 'undefined' ? __dirname : import.meta.dirname;
+    return join(dirName, 'migrations');
+  })();
   let files: string[];
   try {
     files = readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();

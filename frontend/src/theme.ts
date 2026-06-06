@@ -45,6 +45,7 @@ export const customTheme: DeepPartial<FlowbiteTheme> = createTheme({
     },
   },
   button: {
+    base: twMerge(theme.button.base, "cursor-pointer"),
     size: {
       xs: "px-2 py-1 text-xs",
     },

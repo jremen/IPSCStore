@@ -15,6 +15,11 @@ export default function App() {
     i18n.changeLanguage(language);
   }, [language, i18n]);
 
+  // Update <html lang> attribute to match the current language
+  useEffect(() => {
+    document.documentElement.lang = i18n.language;
+  }, [i18n.language]);
+
   return (
     <ThemeProvider theme={customTheme}>
       <ThemeInit />

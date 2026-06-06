@@ -118,7 +118,7 @@ export default function ShooterDatabase() {
                 <TableCell>{s.tag || '—'}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
-                    <Button size="xs" color="light" onClick={() => setEditShooter(s)}>{t('common.edit')}</Button>
+                    <Button size="xs" color="blue" onClick={() => setEditShooter(s)}>{t('common.edit')}</Button>
                     <Button size="xs" color="red" onClick={() => handleDelete(s.id)}>{t('common.delete')}</Button>
                   </div>
                 </TableCell>

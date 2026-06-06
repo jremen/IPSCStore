@@ -1,5 +1,6 @@
 {
   "common": {
+    "add": "Add",
     "loading": "Loading...",
     "save": "Save",
     "cancel": "Cancel",
@@ -70,7 +71,8 @@
     "connecting": "Connecting...",
     "noStages": "No stages have passwords set. Ask the range master to configure stage passwords.",
     "incorrectPassword": "Incorrect password.",
-    "sessionExpired": "Session expired. Please log in again."
+    "sessionExpired": "Session expired. Please log in again.",
+    "logout": "Logout"
   },
   "tabs": {
     "matches": "Matches",
@@ -107,7 +109,11 @@
     "deleteAllWarning": "This will remove all stages, registrations, scores, and shooters' match data.",
     "deleteAllButton": "Delete All {{count}} Matches",
     "searchMatches": "Search matches...",
-    "count": "Matches ({{count}})"
+    "count": "Matches ({{count}})",
+    "current": "Current",
+    "setAsCurrent": "Set as Current",
+    "setAsCurrentDone": "Match set as current",
+    "unsetAsCurrent": "Unset as current"
   },
   "stages": {
     "title": "Stages",
@@ -255,7 +261,11 @@
     "raw": "Raw",
     "pen": "Pen",
     "net": "Net",
-    "hf": "HF"
+    "hf": "HF",
+    "scored": "✓ Scored",
+    "division": "Division",
+    "category": "Category",
+    "powerFactor": "Power Factor"
   },
   "results": {
     "title": "Results",
@@ -310,7 +320,7 @@
     "importedCount": "Imported {{count}} records",
     "winMss": {
       "title": "Import WinMSS Database",
-      "button": "📂 Import WinMSS",
+      "button": "Import WinMSS",
       "dropHere": "Drop the .mdb file here",
       "dragDropMdb": "Drag & drop a WinMSS .mdb file here",
       "orBrowse": "or click to browse — accepts .mdb and .accdb files",
@@ -359,10 +369,6 @@
     "paperTargets": "Paper Targets",
     "steelTargets": "Steel Targets",
     "noShoots": "No-Shoots"
-  },
-  "settings": {
-    "title": "Settings",
-    "language": "Language"
   },
   "database": {
     "title": "Database",

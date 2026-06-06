@@ -7,15 +7,21 @@ export const CATEGORIES = [
 ] as const;
 
 export const DIVISIONS = [
-  // IPSC/USPSA
-  { value: 'standard', label: 'Standard', group: 'IPSC/USPSA' },
-  { value: 'open', label: 'Open', group: 'IPSC/USPSA' },
-  { value: 'production', label: 'Production', group: 'IPSC/USPSA' },
-  { value: 'production_optics', label: 'Production Optics', group: 'IPSC/USPSA' },
-  { value: 'classic', label: 'Classic', group: 'IPSC/USPSA' },
-  { value: 'revolver', label: 'Revolver', group: 'IPSC/USPSA' },
-  { value: 'pcc_optics', label: 'PCC Optics', group: 'IPSC/USPSA' },
-  { value: 'pcc_iron', label: 'PCC Iron', group: 'IPSC/USPSA' },
+  // IPSC
+  { value: 'standard', label: 'Standard', group: 'IPSC' },
+  { value: 'open', label: 'Open', group: 'IPSC' },
+  { value: 'production', label: 'Production', group: 'IPSC' },
+  { value: 'production_optics', label: 'Production Optics', group: 'IPSC' },
+  { value: 'optics', label: 'Optics', group: 'IPSC' },
+  { value: 'classic', label: 'Classic', group: 'IPSC' },
+  { value: 'revolver', label: 'Revolver', group: 'IPSC' },
+  { value: 'pcc_optics', label: 'PCC Optics', group: 'IPSC' },
+  { value: 'pcc_iron', label: 'PCC Iron', group: 'IPSC' },
+  // USPSA
+  { value: 'limited', label: 'Limited', group: 'USPSA' },
+  { value: 'limited_optics', label: 'Limited Optics', group: 'USPSA' },
+  { value: 'carry_optics', label: 'Carry Optics', group: 'USPSA' },
+  { value: 'single_stack', label: 'Single Stack', group: 'USPSA' },
   // IDPA
   { value: 'ssp', label: 'SSP', group: 'IDPA' },
   { value: 'esp', label: 'ESP', group: 'IDPA' },
@@ -38,6 +44,48 @@ export const DIVISIONS = [
   { value: 'conventional', label: 'Conventional', group: 'Bullseye' },
   { value: 'international', label: 'International', group: 'Bullseye' },
 ] as const;
+
+/** Map organization to its applicable division values */
+export const ORGANIZATION_DIVISIONS: Record<string, string[]> = {
+  IPSC: ['standard', 'open', 'production', 'production_optics', 'optics', 'classic', 'revolver', 'pcc_optics', 'pcc_iron'],
+  USPSA: ['open', 'limited', 'limited_optics', 'carry_optics', 'production', 'single_stack', 'revolver', 'pcc_optics', 'pcc_iron'],
+  IDPA: ['ssp', 'esp', 'cdp', 'ccp', 'bug', 'revolver_idpa'],
+  '3GUN': ['tactical', 'open_3gun', 'heavy'],
+  PRS: ['open_prs', 'production_prs'],
+  NRL22: ['any', 'irons', 'open_22'],
+  NRA: ['conventional', 'international'],
+  USA_ARCHERY: [],
+};
+
+/** Get divisions filtered by organization. Returns all if org is undefined. */
+export function getDivisionsForOrganization(org: string | undefined) {
+  if (!org) return DIVISIONS;
+  const allowed = ORGANIZATION_DIVISIONS[org];
+  if (!allowed) return DIVISIONS;
+  return DIVISIONS.filter(d => allowed.includes(d.value));
+}
+
+/** Get divisions grouped by organization for optgroup rendering.
+ *  Used when no single organization is selected — groups duplicates like
+ *  "Open (IPSC)" vs "Open (3-Gun)" under labeled headings. */
+export function getGroupedDivisions(): { group: string; divisions: typeof DIVISIONS[number][] }[] {
+  const groups: Record<string, typeof DIVISIONS[number][]> = {};
+  for (const d of DIVISIONS) {
+    const g = d.group;
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(d);
+  }
+  // Return in a stable order matching DIVISIONS definition
+  const seen = new Set<string>();
+  const result: { group: string; divisions: typeof DIVISIONS[number][] }[] = [];
+  for (const d of DIVISIONS) {
+    if (!seen.has(d.group)) {
+      seen.add(d.group);
+      result.push({ group: d.group, divisions: groups[d.group] });
+    }
+  }
+  return result;
+}
 
 export const POWER_FACTORS = [
   { value: 'minor', label: 'Minor' },

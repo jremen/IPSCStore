@@ -1,5 +1,6 @@
 {
   "common": {
+    "add": "Pridať",
     "loading": "Načítavam...",
     "save": "Uložiť",
     "cancel": "Zrušiť",
@@ -70,7 +71,8 @@
     "connecting": "Pripájam...",
     "noStages": "Žiadne situácie nemajú nastavené heslo. Požiadajte rozhodcu o nastavenie hesiel.",
     "incorrectPassword": "Nesprávne heslo.",
-    "sessionExpired": "Relácia vypršala. Prihláste sa znova."
+    "sessionExpired": "Relácia vypršala. Prihláste sa znova.",
+    "logout": "Odhlásiť"
   },
   "tabs": {
     "matches": "Súťaže",
@@ -107,7 +109,11 @@
     "deleteAllWarning": "Tým sa odstránia všetky situácie, registrácie, skóre a údaje strelcov o súťažiach.",
     "deleteAllButton": "Odstrániť všetky {{count}} súťaže",
     "searchMatches": "Hľadať súťaže...",
-    "count": "Súťaže ({{count}})"
+    "count": "Súťaže ({{count}})",
+    "current": "Aktuálna",
+    "setAsCurrent": "Nastaviť ako aktuálnu",
+    "setAsCurrentDone": "Súťaž nastavená ako aktuálna",
+    "unsetAsCurrent": "Zrušiť aktuálnu"
   },
   "stages": {
     "title": "Situácie",
@@ -214,7 +220,7 @@
     "noShootersFound": "Žiadni strelci nenájdení",
     "stage": "Situácia {{number}}",
     "allSquads": "Všetky",
-    "squadN": "Skupina {{number}}",
+    "squadN": "Squad {{number}}",
     "saved": "Skóre uložené",
     "fixErrors": "Opravte chyby pred uložením",
     "time": "⏱ ČAS (sekundy)",
@@ -255,7 +261,11 @@
     "raw": "Surové",
     "pen": "Pokuta",
     "net": "Čisté",
-    "hf": "HF"
+    "hf": "HF",
+    "scored": "✓ Bodovaný",
+    "division": "Divíziu",
+    "category": "Kategóriu",
+    "powerFactor": "Faktor"
   },
   "results": {
     "title": "Výsledky",

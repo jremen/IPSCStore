@@ -1,6 +1,6 @@
 import { TextInput, Select, Label } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
-import { CATEGORIES, DIVISIONS, POWER_FACTORS } from '../../utils/constants';
+import { CATEGORIES, POWER_FACTORS, getDivisionsForOrganization, getGroupedDivisions } from '../../utils/constants';
 import type { Category, Division, PowerFactor } from '../../types/shooter';
 
 export interface ShooterFormData {
@@ -21,11 +21,15 @@ interface ShooterFormFieldsProps {
   showSquad?: boolean;
   squad?: string;
   onSquadChange?: (squad: string) => void;
+  /** Organization to filter divisions by (e.g. 'IPSC', 'USPSA') */
+  organization?: string;
 }
 
 /** Shared shooter form fields — used by both MatchRegistration and ShooterDatabase */
-export default function ShooterFormFields({ form, onChange, showTagAndEmail = true, showSquad = false, squad, onSquadChange }: ShooterFormFieldsProps) {
+export default function ShooterFormFields({ form, onChange, showTagAndEmail = true, showSquad = false, squad, onSquadChange, organization }: ShooterFormFieldsProps) {
   const { t } = useTranslation();
+  const divisions = getDivisionsForOrganization(organization);
+  const groupedDivisions = organization ? null : getGroupedDivisions();
 
   return (
     <div className="flex flex-col gap-4">
@@ -49,7 +53,13 @@ export default function ShooterFormFields({ form, onChange, showTagAndEmail = tr
         <div>
           <Label>{t('shooters.division')}</Label>
           <Select value={form.division} onChange={(e) => onChange({ ...form, division: e.target.value as Division })}>
-            {DIVISIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+            {groupedDivisions
+              ? groupedDivisions.map((g) => (
+                <optgroup key={g.group} className="dark:text-white" label={g.group}>
+                  {g.divisions.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                </optgroup>
+              ))
+              : divisions.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
           </Select>
         </div>
       </div>

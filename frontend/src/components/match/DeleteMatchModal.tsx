@@ -19,15 +19,15 @@ export default function DeleteMatchModal({ show, onClose, matchId }: DeleteMatch
   };
 
   return (
-    <Modal show={show} onClose={onClose} size="md">
+    <Modal show={show} onClose={onClose} size="md" className="dark:text-white">
       <ModalHeader>{t('matches.deleteMatch')}</ModalHeader>
       <ModalBody>
         <p>{t('matches.deleteMatchConfirm')}</p>
         <p className="text-sm text-red-600 mt-2 font-medium">{t('common.cannotBeUndone')}</p>
       </ModalBody>
       <ModalFooter>
-        <Button color="failure" onClick={handleDelete}>{t('common.delete')}</Button>
         <Button color="gray" onClick={onClose}>{t('common.cancel')}</Button>
+        <Button color="red" onClick={handleDelete}>{t('common.delete')}</Button>
       </ModalFooter>
     </Modal>
   );

@@ -87,7 +87,7 @@ export function parseDatabaseUrl(dbUrl: string): {
     PGHOST: url.hostname || 'localhost',
     PGPORT: url.port || '5432',
     PGUSER: url.username || 'ipscscore',
-    PGPASSWORD: decodeURIComponent(url.password || ''),
+    PGPASSWORD: url.password || '',
     PGDATABASE: url.pathname.slice(1) || 'ipscscore',
   };
 }

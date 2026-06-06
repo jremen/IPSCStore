@@ -114,7 +114,7 @@ if [ -n "$EDB_OS" ]; then
 
     # Copy essential binaries
     mkdir -p "$PG_BIN_DIR"
-    for bin in initdb pg_ctl postgres createdb psql pg_dump; do
+    for bin in initdb pg_ctl postgres createdb psql pg_dump pg_restore; do
       BIN_EXT=""
       if [ "$PLATFORM" = "win-x64" ]; then
         BIN_EXT=".exe"
@@ -186,7 +186,7 @@ if [ "$EDB_SUCCESS" = false ] && [[ "$PLATFORM" == mac-* ]]; then
     echo "Copying PostgreSQL binaries from Homebrew..."
     mkdir -p "$PG_BIN_DIR"
 
-    for bin in initdb pg_ctl postgres createdb psql pg_dump; do
+    for bin in initdb pg_ctl postgres createdb psql pg_dump pg_restore; do
       if [ -f "$BREW_PG_BIN/$bin" ]; then
         cp "$BREW_PG_BIN/$bin" "$PG_BIN_DIR/"
         echo "  Copied: $bin"
@@ -278,7 +278,7 @@ if [ "$EDB_SUCCESS" = false ]; then
   echo "Found extracted directory: $EXTRACTED_DIR"
 
   mkdir -p "$PG_BIN_DIR"
-  for bin in initdb pg_ctl postgres createdb psql; do
+  for bin in initdb pg_ctl postgres createdb psql pg_restore; do
     BIN_EXT=""
     if [ "$PLATFORM" = "win-x64" ]; then
       BIN_EXT=".exe"

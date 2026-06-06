@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
-import type { ScoringAlert, TargetScore, ScoreInput, RegistrationWithShooter } from '../types/scoring';
+import type { ScoringAlert, TargetScore, ScoreInput, RegistrationWithShooter, ScoringProgress } from '../types/scoring';
 import type { Stage } from '../types/stage';
 
 interface ScoringState {
@@ -12,6 +12,8 @@ interface ScoringState {
   loading: boolean;
   error: string | null;
   squadFilter: number | null; // null = show all squads
+  activeStageId: string | null;
+  scoringProgress: ScoringProgress | null;
 }
 
 interface ScoringActions {
@@ -24,10 +26,14 @@ interface ScoringActions {
   nextShooter: () => void;
   prevShooter: () => void;
   setSquadFilter: (squad: number | null) => void;
+  setActiveStageId: (stageId: string | null) => void;
+  fetchScoringProgress: (matchId: string) => Promise<void>;
   /** Get registrations filtered by the current squad filter */
   filteredRegistrations: () => RegistrationWithShooter[];
   /** Get sorted list of unique squad numbers from current registrations */
   availableSquads: () => number[];
+  /** Get set of registration IDs that have been scored on the current stage */
+  scoredIds: () => Set<string>;
 }
 
 export const useScoringStore = create<ScoringState & ScoringActions>((set, get) => ({
@@ -39,6 +45,8 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   loading: false,
   error: null,
   squadFilter: null,
+  activeStageId: null,
+  scoringProgress: null,
 
   fetchRegistrations: async (matchId) => {
     set({ loading: true, error: null });
@@ -191,5 +199,29 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
     }
 
     set({ squadFilter: squad, currentRegistrationId: newRegId, alerts: [] });
+  },
+
+  setActiveStageId: (stageId) => {
+    set({ activeStageId: stageId });
+  },
+
+  fetchScoringProgress: async (matchId) => {
+    try {
+      const progress = await api.getScoringProgress(matchId);
+      set({ scoringProgress: progress });
+    } catch (err: any) {
+      // Non-critical: scoring progress is purely visual
+      console.error('Failed to fetch scoring progress:', err.message);
+    }
+  },
+
+  scoredIds: () => {
+    const { scoringProgress, activeStageId } = get();
+    if (!scoringProgress || !activeStageId) return new Set<string>();
+    return new Set(
+      scoringProgress.scored
+        .filter(e => e.stage_id === activeStageId)
+        .map(e => e.registration_id)
+    );
   },
 }));

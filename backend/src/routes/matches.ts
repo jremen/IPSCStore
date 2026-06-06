@@ -6,11 +6,12 @@ export const matchRoutes = new Hono();
 // List matches
 matchRoutes.get('/', async (c) => {
   const matches = await sql`
-    SELECT id, name, date, organization, firearm_type, created_at
-    FROM matches
-    ORDER BY date DESC
+    SELECT m.id, m.name, m.date, m.organization, m.firearm_type, m.is_current, m.created_at,
+           (SELECT COUNT(*) FROM match_registrations mr WHERE mr.match_id = m.id) AS shooter_count
+    FROM matches m
+    ORDER BY m.date DESC
   `;
-  return c.json(matches);
+  return c.json(matches.map(m => ({ ...m, shooter_count: Number(m.shooter_count) })));
 });
 
 // Create match
@@ -93,4 +94,41 @@ matchRoutes.delete('/:id', async (c) => {
   const result = await sql`DELETE FROM matches WHERE id = ${id} RETURNING id`;
   if (result.length === 0) return c.json({ error: 'Match not found' }, 404);
   return c.json({ deleted: true });
+});
+
+// Get the current match
+matchRoutes.get('/current', async (c) => {
+  const [match] = await sql`
+    SELECT id, name, date, organization, firearm_type, is_current
+    FROM matches
+    WHERE is_current = true
+    LIMIT 1
+  `;
+  if (!match) return c.json(null);
+  return c.json(match);
+});
+
+// Set a match as current (unsets any previous current match)
+matchRoutes.put('/:id/set-current', async (c) => {
+  const id = c.req.param('id');
+
+  // Verify match exists
+  const [existing] = await sql`SELECT id FROM matches WHERE id = ${id}`;
+  if (!existing) return c.json({ error: 'Match not found' }, 404);
+
+  // Unset any current match, then set the new one
+  await sql`UPDATE matches SET is_current = false WHERE is_current = true`;
+  await sql`UPDATE matches SET is_current = true, updated_at = NOW() WHERE id = ${id}`;
+
+  const [match] = await sql`
+    SELECT id, name, date, organization, firearm_type, is_current
+    FROM matches WHERE id = ${id}
+  `;
+  return c.json(match);
+});
+
+// Unset the current match
+matchRoutes.put('/unset-current', async (c) => {
+  await sql`UPDATE matches SET is_current = false WHERE is_current = true`;
+  return c.json({ success: true });
 });

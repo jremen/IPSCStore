@@ -1,3 +1,5 @@
+import type { ScoringProgress } from '../types/scoring';
+
 // Use empty string so all API calls go to same origin — Vite dev proxy forwards /api/* to backend
 // In production, serve frontend from backend or set VITE_API_URL to the backend URL
 function getApiBase(): string {
@@ -121,6 +123,9 @@ export const api = {
   // Matches
   getMatches: () => request<any[]>('/api/matches'),
   getMatch: (id: string) => request<any>(`/api/matches/${id}`),
+  getCurrentMatch: () => request<any | null>('/api/matches/current'),
+  setCurrentMatch: (id: string) => request<any>(`/api/matches/${id}/set-current`, { method: 'PUT' }),
+  unsetCurrentMatch: () => request<any>('/api/matches/unset-current', { method: 'PUT' }),
   createMatch: (data: any) => request<any>('/api/matches', { method: 'POST', body: JSON.stringify(data) }),
   updateMatch: (id: string, data: any) => request<any>(`/api/matches/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteMatch: (id: string) => request<any>(`/api/matches/${id}`, { method: 'DELETE' }),
@@ -171,6 +176,7 @@ export const api = {
   undqShooter: (matchId: string, id: string) => request<any>(`/api/matches/${matchId}/registrations/${id}/undq`, { method: 'PUT' }),
 
   // Scoring
+  getScoringProgress: (matchId: string) => request<ScoringProgress>(`/api/matches/${matchId}/scoring-progress`),
   getStageScores: (matchId: string, stageId: string) => request<any[]>(`/api/matches/${matchId}/stages/${stageId}/scores`),
   getShooterScore: (matchId: string, stageId: string, registrationId: string) =>
     request<any>(`/api/matches/${matchId}/stages/${stageId}/scores/${registrationId}`),
@@ -257,14 +263,7 @@ export const api = {
   },
 
   // Database Backup & Restore
-  exportBackup: async (): Promise<Blob> => {
-    const headers: Record<string, string> = {};
-    const token = getAuthToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(`${API_BASE}/api/backup`, { method: 'POST', headers });
-    if (!res.ok) throw new Error('Backup failed');
-    return res.blob();
-  },
+  exportBackup: (): Promise<Blob> => requestBlob('/api/backup', { method: 'POST' }),
 
   importBackup: async (file: File): Promise<{ success: boolean; message: string }> => {
     const form = new FormData();

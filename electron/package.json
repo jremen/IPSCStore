@@ -9,9 +9,11 @@
     "dev": "tsc && electron .",
     "dev:watch": "tsc --watch & electron .",
     "build": "tsc",
-    "build:mac": "tsc && electron-builder --mac",
-    "build:win": "tsc && electron-builder --win",
-    "build:linux": "tsc && electron-builder --linux",
+    "bundle-backend": "node scripts/bundle-backend.mjs",
+    "export-seed-data": "bash scripts/export-seed-data.sh",
+    "build:mac": "tsc && npm run bundle-backend && electron-builder --mac",
+    "build:win": "tsc && npm run bundle-backend && electron-builder --win",
+    "build:linux": "tsc && npm run bundle-backend && electron-builder --linux",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -21,6 +23,7 @@
   "devDependencies": {
     "electron": "34.0.0",
     "electron-builder": "^25.0.0",
+    "esbuild": "^0.25.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "@types/node": "^22.0.0"

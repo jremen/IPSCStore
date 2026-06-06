@@ -15,18 +15,16 @@ extraResources:
     to: frontend-dist
     filter:
       - "**/*"
-  - from: ../backend/dist
+  - from: dist-backend
     to: backend-dist
-    filter:
-      - "**/*"
-  - from: ../backend/node_modules
-    to: backend-node-modules
     filter:
       - "**/*"
   - from: resources/pg
     to: pg
     filter:
       - "**/*"
+  - from: resources/seed-data.dump
+    to: seed-data.dump
 
 mac:
   target: dmg

@@ -62,10 +62,10 @@ export default function ShooterFormModal({ show, onClose, editShooter }: Shooter
         <ShooterFormFields form={form} onChange={setForm} />
       </ModalBody>
       <ModalFooter>
+        <Button color="gray" onClick={onClose}>{t('common.cancel')}</Button>
         <Button color="blue" onClick={isEdit ? handleEdit : handleCreate} disabled={!form.first_name || !form.last_name || !form.region}>
           {isEdit ? t('common.saveChanges') : t('shooters.createTitle')}
         </Button>
-        <Button color="gray" onClick={onClose}>{t('common.cancel')}</Button>
       </ModalFooter>
     </Modal>
   );

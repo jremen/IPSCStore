@@ -27,8 +27,8 @@ export default function DeleteAllMatchesModal({ show, onClose }: DeleteAllMatche
         <p className="text-sm text-red-600 mt-2 font-medium">{t('common.cannotBeUndone')}</p>
       </ModalBody>
       <ModalFooter>
-        <Button color="red" onClick={handleDeleteAll}>{t('matches.deleteAllButton', { count: matches.length })}</Button>
         <Button color="gray" onClick={onClose}>{t('common.cancel')}</Button>
+        <Button color="red" onClick={handleDeleteAll}>{t('matches.deleteAllButton', { count: matches.length })}</Button>
       </ModalFooter>
     </Modal>
   );

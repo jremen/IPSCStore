@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Alert } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
+import { useMatchStore } from '../../stores/matchStore';
 import BulkEditFormFields, { type BulkEditForm } from '../shared/BulkEditFormFields';
 
 interface BulkEditRegistrationsModalProps {
@@ -15,6 +16,8 @@ interface BulkEditRegistrationsModalProps {
 
 export default function BulkEditRegistrationsModal({ show, onClose, selectedIds, selectedNames, matchId, onSaved }: BulkEditRegistrationsModalProps) {
   const { t } = useTranslation();
+  const { matches } = useMatchStore();
+  const matchOrganization = matches.find((m: any) => m.id === matchId)?.organization;
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ updated: number; failed: Array<{ id: string; name: string; reason: string }> } | null>(null);
   const [form, setForm] = useState<BulkEditForm>({
@@ -82,7 +85,7 @@ export default function BulkEditRegistrationsModal({ show, onClose, selectedIds,
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {t('bulkEdit.selectFields')}
             </p>
-            <BulkEditFormFields form={form} onChange={setForm} showSquad />
+            <BulkEditFormFields form={form} onChange={setForm} showSquad organization={matchOrganization} />
           </div>
         )}
       </ModalBody>

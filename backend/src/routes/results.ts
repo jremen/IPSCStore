@@ -13,8 +13,9 @@ function formatDate(dateInput: string | Date): string {
 // Human-readable labels for divisions and categories
 const DIVISION_LABELS: Record<string, string> = {
   standard: 'Standard', open: 'Open', production: 'Production',
-  production_optics: 'Production Optics', classic: 'Classic', revolver: 'Revolver',
+  production_optics: 'Production Optics', optics: 'Optics', classic: 'Classic', revolver: 'Revolver',
   pcc_optics: 'PCC Optics', pcc_iron: 'PCC Iron',
+  limited: 'Limited', limited_optics: 'Limited Optics', carry_optics: 'Carry Optics', single_stack: 'Single Stack',
   ssp: 'SSP', esp: 'ESP', cdp: 'CDP', ccp: 'CCP', bug: 'BUG', revolver_idpa: 'Revolver',
   tactical: 'Tactical', open_3gun: 'Open', heavy: 'Heavy',
   open_prs: 'Open', production_prs: 'Production',

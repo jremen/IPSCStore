@@ -63,10 +63,22 @@ authRoutes.post('/stage-login', async (c) => {
 /**
  * GET /api/auth/stages
  * Get list of stages that have passwords set (for the login dropdown).
- * Optionally filter by matchId query param.
+ * If matchId query param is provided, filter to that match.
+ * If no matchId, auto-filter to the current match.
+ * If no current match, return all stages.
  */
 authRoutes.get('/stages', async (c) => {
-  const matchId = c.req.query('matchId');
+  let matchId = c.req.query('matchId');
+
+  // If no matchId specified, try to use the current match
+  if (!matchId) {
+    const [currentMatch] = await sql`
+      SELECT id FROM matches WHERE is_current = true LIMIT 1
+    `;
+    if (currentMatch) {
+      matchId = currentMatch.id;
+    }
+  }
 
   let stages;
   if (matchId) {

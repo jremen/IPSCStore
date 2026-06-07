@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, TextInput, Label, Badge } from 'flowbite-react';
+import { InputField } from '../shared/InputField';
 import { useTranslation } from 'react-i18next';
 import { useShooterStore } from '../../stores/shooterStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -55,7 +56,7 @@ export default function AddShooterModal({ show, onClose, matchId, registeredShoo
       <ModalBody>
         <div className="mb-3">
           <Label>{t('registration.squadOptional')}</Label>
-          <TextInput type="number" value={squad} onChange={(e) => setSquad(e.target.value)} placeholder={t('registration.squadPlaceholder')} />
+          <InputField type="number" step="1" min="0" value={squad} onChange={setSquad} placeholder={t('registration.squadPlaceholder')} />
         </div>
         <TextInput placeholder={t('registration.search')} value={search} onChange={(e) => setSearch(e.target.value)} className="mb-3" />
         <div className="max-h-64 overflow-y-auto space-y-1">

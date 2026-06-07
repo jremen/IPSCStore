@@ -1,5 +1,6 @@
 import { Badge } from 'flowbite-react';
 import type { TargetScore } from '../../../types/scoring';
+import { useTranslation } from "react-i18next";
 
 interface SteelTargetsSectionProps {
   steelTargets: TargetScore[];
@@ -8,15 +9,17 @@ interface SteelTargetsSectionProps {
 }
 
 export default function SteelTargetsSection({ steelTargets, steelMisses, onSteelMissChange }: SteelTargetsSectionProps) {
+  const {t} = useTranslation();
+
   return (
     <div className="p-3 border-b border-gray-100 dark:border-gray-700">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide">🔔 Steel</span>
+        <span className="text-lg font-bold text-gray-600 dark:text-white uppercase tracking-wide">{t('scoring.steelTargets')}</span>
         <Badge size="sm" color="gray">{steelTargets.length}</Badge>
       </div>
-      <div className="flex items-center justify-center gap-4">
+      <div className="flex items-center gap-4">
         <div className="text-center">
-          <span className="text-xs text-gray-400 block">Misses</span>
+          <span className="text-xs dark:text-white block">{t('scoring.misses')}</span>
           <div className="flex items-center gap-0.5 mt-1">
             <button
               className="penalty-stepper rounded text-lg font-bold bg-gray-200 dark:bg-gray-600 active:bg-gray-300"
@@ -30,14 +33,14 @@ export default function SteelTargetsSection({ steelTargets, steelMisses, onSteel
           </div>
         </div>
         <div className="text-center">
-          <span className="text-xs text-gray-400 block">Hits</span>
+          <span className="text-xs dark:text-white block">{t('scoring.hits')}</span>
           <span className="text-2xl font-mono font-bold text-green-600 dark:text-green-400">{steelTargets.length - steelMisses}</span>
           <span className="text-lg font-mono text-gray-400"> / {steelTargets.length}</span>
         </div>
       </div>
       <div className="flex justify-center gap-3 mt-2">
-        <Badge color="success" size="sm">{steelTargets.length - steelMisses} hit</Badge>
-        <Badge color="failure" size="sm">{steelMisses} miss</Badge>
+        <Badge color="success" size="sm">{steelTargets.length - steelMisses} {t('scoring.hits')}</Badge>
+        <Badge color="failure" size="sm">{steelMisses} {t('scoring.miss')}</Badge>
       </div>
     </div>
   );

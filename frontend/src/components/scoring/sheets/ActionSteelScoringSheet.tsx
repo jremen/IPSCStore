@@ -1,4 +1,5 @@
-import { Badge, Label, TextInput } from 'flowbite-react';
+import { Badge, Label } from 'flowbite-react';
+import { InputField } from '../../shared/InputField';
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useScoreDataUpdater } from '../../../hooks/useScoreDataUpdater';
 import { calculateActionSteelPreview } from '../../../utils/scoring';
@@ -79,7 +80,7 @@ export default function ActionSteelScoringSheet({ stage, score }: Props) {
                 <span className="text-sm font-bold text-blue-600 dark:text-blue-400">String {idx + 1}</span>
                 <div className="flex items-center gap-2">
                   <Label className="text-xs">Time (s)</Label>
-                  <TextInput type="number" step="0.01" min="0" sizing="md" className="w-28 sm:w-32" value={time || ''} onChange={(e) => handleStringTime(idx, e.target.value)} />
+                  <InputField type="number" step="0.01" min="0" sizing="md" decimal value={time || ''} onChange={(v) => handleStringTime(idx, v)} />
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 justify-center">

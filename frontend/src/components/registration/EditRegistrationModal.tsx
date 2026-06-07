@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, TextInput, Select, Label } from 'flowbite-react';
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Select, Label } from 'flowbite-react';
+import { InputField } from '../shared/InputField';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { useMatchStore } from '../../stores/matchStore';
@@ -48,13 +49,13 @@ export default function EditRegistrationModal({ show, onClose, registration, mat
   };
 
   return (
-    <Modal show={show} onClose={onClose} size="md">
+    <Modal show={show} onClose={onClose} size="xl">
       <ModalHeader>{t('registration.editTitle', { name: registration ? `${registration.first_name} ${registration.last_name}` : '' })}</ModalHeader>
       <ModalBody>
         <div className="flex flex-col gap-3">
           <div>
             <Label>{t('registration.squad')}</Label>
-            <TextInput type="number" value={form.squad} onChange={(e) => setForm({ ...form, squad: e.target.value })} placeholder={t('registration.leaveBlankDefault')} />
+            <InputField type="number" step="1" min="0" value={form.squad} onChange={(v) => setForm({ ...form, squad: v })} placeholder={t('registration.leaveBlankDefault')} />
           </div>
           <div>
             <Label>{t('registration.divisionOverride')}</Label>

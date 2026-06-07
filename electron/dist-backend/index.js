@@ -5590,11 +5590,12 @@ function isTrustedIp(ip) {
 var matchRoutes = new Hono2();
 matchRoutes.get("/", async (c) => {
   const matches = await sql`
-    SELECT id, name, date, organization, firearm_type, is_current, created_at
-    FROM matches
-    ORDER BY date DESC
+    SELECT m.id, m.name, m.date, m.organization, m.firearm_type, m.is_current, m.created_at,
+           (SELECT COUNT(*) FROM match_registrations mr WHERE mr.match_id = m.id) AS shooter_count
+    FROM matches m
+    ORDER BY m.date DESC
   `;
-  return c.json(matches);
+  return c.json(matches.map((m) => ({ ...m, shooter_count: Number(m.shooter_count) })));
 });
 matchRoutes.post("/", async (c) => {
   const body = await c.req.json();

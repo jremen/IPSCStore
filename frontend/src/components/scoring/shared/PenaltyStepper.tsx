@@ -28,7 +28,7 @@ export default function PenaltyStepper({
   const c = colorClasses[color];
 
   return (
-    <div className={`flex items-center justify-center ${s.wrapper}`}>
+    <div className={`flex items-center ${s.wrapper}`}>
       <button
         className={`penalty-stepper rounded ${s.button} font-bold bg-gray-200 dark:bg-gray-600 active:bg-gray-300`}
         onClick={onDecrement}

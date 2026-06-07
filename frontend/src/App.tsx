@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { ThemeProvider } from 'flowbite-react';
+import React, { useEffect } from 'react';
+import { ThemeConfig, ThemeProvider } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import AppLayout from './components/layout/AppLayout';
 import { useUIStore } from './stores/uiStore';
@@ -21,9 +21,12 @@ export default function App() {
   }, [i18n.language]);
 
   return (
-    <ThemeProvider theme={customTheme}>
-      <ThemeInit />
-      <AppLayout />
-    </ThemeProvider>
+    <React.StrictMode>
+      <ThemeConfig mode="auto" />
+      <ThemeProvider theme={customTheme}>
+        <ThemeInit />
+        <AppLayout />
+      </ThemeProvider>
+    </React.StrictMode>
   );
 }

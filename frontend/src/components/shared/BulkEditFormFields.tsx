@@ -1,4 +1,5 @@
 import { Checkbox, Select, ToggleSwitch } from 'flowbite-react';
+import { InputField } from './InputField';
 import { useTranslation } from 'react-i18next';
 import { CATEGORIES, POWER_FACTORS, getDivisionsForOrganization, getGroupedDivisions } from '../../utils/constants';
 
@@ -117,12 +118,13 @@ export default function BulkEditFormFields({ form, onChange, showSquad = false, 
               {t('bulkEdit.changeField', { field: t('registration.squad') })}
             </label>
             {form.changeSquad && (
-              <input
+              <InputField
                 type="number"
+                step="1"
                 min="0"
+                sizing="sm"
                 value={form.squad}
-                onChange={(e) => update({ squad: e.target.value })}
-                className="mt-1 block w-24 rounded-lg border border-gray-300 bg-gray-50 p-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                onChange={(v) => update({ squad: v })}
                 placeholder="Squad #"
               />
             )}

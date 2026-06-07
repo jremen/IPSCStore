@@ -118,7 +118,7 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
   const currentStage = stages.find((s) => s.id === activeStageId);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full 2xl:gap-12">
       {/* Stage selector tabs — hidden for restricted (remote) scorers */}
       {!restrictedStageId && (
       <div className="flex overflow-x-auto border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-1 no-print" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -126,7 +126,7 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
           <button
             key={stage.id}
             onClick={() => handleStageChange(stage.id)}
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors min-h-[44px] flex items-center
+            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors min-h-11 flex items-center
               ${activeStageId === stage.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
           >
             {t('scoring.stage', { number: stage.stage_number })}
@@ -140,9 +140,9 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
         <div className="bg-white dark:bg-gray-800 p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 no-print">
           <SquadFilterBar />
           <div className="flex items-center justify-between mb-2 gap-1">
-            <button onClick={prevShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg disabled:opacity-30 min-h-[44px] min-w-[44px] flex items-center justify-center">◀</button>
+            <button onClick={prevShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg disabled:opacity-30 min-h-11 min-w-11 flex items-center justify-center">◀</button>
             <ShooterDropdown onSelect={handleSelectShooter} />
-            <button onClick={nextShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg disabled:opacity-30 min-h-[44px] min-w-[44px] flex items-center justify-center">▶</button>
+            <button onClick={nextShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg disabled:opacity-30 min-h-11 min-w-11 flex items-center justify-center">▶</button>
           </div>
           {currentShooter && (
             <div className="flex gap-1 justify-center flex-wrap">
@@ -168,12 +168,12 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
 
       {/* Sticky bottom bar — 44px touch targets, safe-area for notched devices */}
       {activeStageId && currentRegistrationId && (
-        <div className="scoring-bottom-bar bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-3 flex justify-between items-center no-print">
-          <Button color="gray" onClick={() => prevShooter()} className="min-h-[44px]">{t('common.prev')}</Button>
-          <Button color="blue" onClick={handleSave} disabled={!currentScore} className="min-h-[44px]">
-            💾 {t('common.save')}
+        <div className="sticky bottom-0 z-10 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-3 flex justify-between items-center no-print">
+          <Button color="gray" onClick={() => prevShooter()} className="min-h-11">{t('common.prev')}</Button>
+          <Button color="blue" onClick={handleSave} disabled={!currentScore} className="min-h-11">
+            {t('common.save')}
           </Button>
-          <Button color="gray" onClick={() => nextShooter()} className="min-h-[44px]">{t('common.next')}</Button>
+          <Button color="gray" onClick={() => nextShooter()} className="min-h-11">{t('common.next')}</Button>
         </div>
       )}
     </div>

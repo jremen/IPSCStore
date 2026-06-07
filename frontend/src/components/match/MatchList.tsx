@@ -61,12 +61,14 @@ export default function MatchList() {
         <div className="overflow-x-auto w-full rounded-lg border border-gray-200 dark:border-gray-700">
           <Table striped hoverable className="">
             <TableHead>
-              <TableHeadCell>{t('matches.name')}</TableHeadCell>
-              <TableHeadCell>{t('matches.date')}</TableHeadCell>
-              <TableHeadCell>{t('matches.organization')}</TableHeadCell>
-              <TableHeadCell>{t('matches.firearm')}</TableHeadCell>
-              <TableHeadCell>{t('matches.shooters')}</TableHeadCell>
-              <TableHeadCell></TableHeadCell>
+              <TableRow>
+                <TableHeadCell>{t('matches.name')}</TableHeadCell>
+                <TableHeadCell>{t('matches.date')}</TableHeadCell>
+                <TableHeadCell>{t('matches.organization')}</TableHeadCell>
+                <TableHeadCell>{t('matches.firearm')}</TableHeadCell>
+                <TableHeadCell>{t('matches.shooters')}</TableHeadCell>
+                <TableHeadCell></TableHeadCell>
+              </TableRow>
             </TableHead>
             <TableBody>
               {filteredMatches.map((m: any) => (
@@ -84,7 +86,7 @@ export default function MatchList() {
                     <div className="flex gap-2">
                       <Button
                         size="xs"
-                        color={m.is_current ? "success" : "gray"}
+                        color={m.is_current ? "green" : "gray"}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (m.is_current) {

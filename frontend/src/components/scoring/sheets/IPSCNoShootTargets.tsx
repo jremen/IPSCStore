@@ -1,13 +1,16 @@
+import { useTranslation } from "react-i18next";
+
 interface NoShootSectionProps {
   noShootHits: number;
   onNoShootChange: (newHits: number) => void;
 }
 
 export default function NoShootSection({ noShootHits, onNoShootChange }: NoShootSectionProps) {
+  const {t} = useTranslation();
   return (
     <div className="p-3 border-b border-gray-100 dark:border-gray-700">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wide">🚫 No-Shoot</span>
+        <span className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wide">{t('scoring.noShootTargets')}</span>
       </div>
       <div className="flex items-center justify-center gap-4">
         <button
@@ -16,7 +19,7 @@ export default function NoShootSection({ noShootHits, onNoShootChange }: NoShoot
         >−</button>
         <div className="text-center min-w-[60px]">
           <span className="text-2xl font-mono font-bold text-red-600 dark:text-red-400">{noShootHits}</span>
-          <p className="text-xs text-gray-400">N/S hits (−10 each)</p>
+          <p className="text-xs text-gray-400">{t('scoring.nsHits')}</p>
         </div>
         <button
           className="penalty-stepper rounded text-lg font-bold bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 active:bg-red-200"

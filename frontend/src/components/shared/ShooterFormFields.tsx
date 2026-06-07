@@ -1,4 +1,5 @@
 import { TextInput, Select, Label } from 'flowbite-react';
+import { InputField } from './InputField';
 import { useTranslation } from 'react-i18next';
 import { CATEGORIES, POWER_FACTORS, getDivisionsForOrganization, getGroupedDivisions } from '../../utils/constants';
 import type { Category, Division, PowerFactor } from '../../types/shooter';
@@ -90,7 +91,7 @@ export default function ShooterFormFields({ form, onChange, showTagAndEmail = tr
       {showSquad && onSquadChange && (
         <div>
           <Label>{t('registration.squad')}</Label>
-          <TextInput type="number" value={squad || ''} onChange={(e) => onSquadChange(e.target.value)} placeholder={t('registration.squadPlaceholder')} />
+          <InputField type="number" step="1" min="0" value={squad || ''} onChange={onSquadChange} placeholder={t('registration.squadPlaceholder')} />
         </div>
       )}
     </div>

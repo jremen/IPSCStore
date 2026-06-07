@@ -15,13 +15,15 @@ export default function ResultsTable({ results, columns, showDqBadge = true }: R
   return (
     <Table striped>
       <TableHead>
-        {columns.includes('position') && <TableHeadCell>{t('results.position')}</TableHeadCell>}
-        {columns.includes('shooter') && <TableHeadCell>{t('results.shooter')}</TableHeadCell>}
-        {columns.includes('division') && <TableHeadCell>{t('results.division')}</TableHeadCell>}
-        {columns.includes('matchPercent') && <TableHeadCell>{t('results.matchPercent')}</TableHeadCell>}
-        {columns.includes('matchPoints') && <TableHeadCell>{t('results.points')}</TableHeadCell>}
-        {columns.includes('stagePercent') && <TableHeadCell>{t('results.stagePercent')}</TableHeadCell>}
-        {columns.includes('stagePoints') && <TableHeadCell>{t('results.points')}</TableHeadCell>}
+        <TableRow>
+          {columns.includes('position') && <TableHeadCell>{t('results.position')}</TableHeadCell>}
+          {columns.includes('shooter') && <TableHeadCell>{t('results.shooter')}</TableHeadCell>}
+          {columns.includes('division') && <TableHeadCell>{t('results.division')}</TableHeadCell>}
+          {columns.includes('matchPercent') && <TableHeadCell>{t('results.matchPercent')}</TableHeadCell>}
+          {columns.includes('matchPoints') && <TableHeadCell>{t('results.points')}</TableHeadCell>}
+          {columns.includes('stagePercent') && <TableHeadCell>{t('results.stagePercent')}</TableHeadCell>}
+          {columns.includes('stagePoints') && <TableHeadCell>{t('results.points')}</TableHeadCell>}
+        </TableRow>
       </TableHead>
       <TableBody>
         {results.map((r) => (

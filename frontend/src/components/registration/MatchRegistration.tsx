@@ -80,23 +80,25 @@ export default function MatchRegistration() {
         <div className="overflow-x-auto shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">
           <Table striped theme={{root: {shadow: "hidden"}}}>
             <TableHead>
-              <TableHeadCell className="w-10">
-                <SelectAllCheckbox
-                  allSelected={selection.allSelected}
-                  someSelected={selection.someSelected}
-                  onToggle={selection.allSelected ? selection.deselectAll : selection.selectAll}
-                  selectedCount={selection.selectedCount}
-                  totalCount={registrations.length}
-                />
-              </TableHeadCell>
-              <TableHeadCell>#</TableHeadCell>
-              <TableHeadCell>{t('common.name')}</TableHeadCell>
-              <TableHeadCell>{t('shooters.division')}</TableHeadCell>
-              <TableHeadCell>{t('shooters.category')}</TableHeadCell>
-              <TableHeadCell>PF</TableHeadCell>
-              <TableHeadCell>{t('registration.squad')}</TableHeadCell>
-              <TableHeadCell />
-              <TableHeadCell>{t('common.actions')}</TableHeadCell>
+              <TableRow>
+                <TableHeadCell className="w-10">
+                  <SelectAllCheckbox
+                    allSelected={selection.allSelected}
+                    someSelected={selection.someSelected}
+                    onToggle={selection.allSelected ? selection.deselectAll : selection.selectAll}
+                    selectedCount={selection.selectedCount}
+                    totalCount={registrations.length}
+                  />
+                </TableHeadCell>
+                <TableHeadCell>#</TableHeadCell>
+                <TableHeadCell>{t('common.name')}</TableHeadCell>
+                <TableHeadCell>{t('shooters.division')}</TableHeadCell>
+                <TableHeadCell>{t('shooters.category')}</TableHeadCell>
+                <TableHeadCell>PF</TableHeadCell>
+                <TableHeadCell>{t('registration.squad')}</TableHeadCell>
+                <TableHeadCell />
+                <TableHeadCell>{t('common.actions')}</TableHeadCell>
+              </TableRow>
             </TableHead>
             <TableBody>
               {registrations.map((r, idx) => (

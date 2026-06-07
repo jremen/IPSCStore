@@ -1,6 +1,7 @@
 import { Badge } from 'flowbite-react';
 import HitCell from '../shared/HitCell';
 import type { TargetScore } from '../../../types/scoring';
+import { useTranslation } from "react-i18next";
 
 interface PaperTargetsTableProps {
   paperTargets: TargetScore[];
@@ -25,22 +26,23 @@ export default function PaperTargetsTable({
   onNSClick,
   onResetTarget,
 }: PaperTargetsTableProps) {
+  const {t} = useTranslation();
   return (
-    <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+    <div className="p-3 border-b border-gray-100 dark:border-gray-700 dark:text-white">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">🎯 Paper Targets</span>
+        <span className="text-lg font-bold text-blue-600 dark:text-white uppercase tracking-wide">{t('scoring.paperTargets')}</span>
         <Badge size="sm" color="blue">{paperTargets.length}</Badge>
       </div>
       <div className="overflow-x-auto -mx-1 sm:mx-0">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-center">
-              <th className="px-1 sm:px-2 py-1 text-xs font-bold text-gray-500 w-8">#</th>
-              <th className="px-1 sm:px-2 py-1 text-xs font-bold text-green-600">A</th>
-              <th className="px-1 sm:px-2 py-1 text-xs font-bold text-yellow-600">C</th>
-              <th className="px-1 sm:px-2 py-1 text-xs font-bold text-orange-600">D</th>
-              <th className="px-1 sm:px-2 py-1 text-xs font-bold text-red-600">M</th>
-              <th className={`px-1 sm:px-2 py-1 text-xs font-bold text-red-500 ${hasNoShootTargets ? '' : 'opacity-40'}`}>NS</th>
+              <th className="px-1 sm:px-2 py-1 text-lg font-bold text-gray-500 w-8">#</th>
+              <th className="px-1 sm:px-2 py-1 text-lg font-bold dark:text-white">A</th>
+              <th className="px-1 sm:px-2 py-1 text-lg font-bold dark:text-white">C</th>
+              <th className="px-1 sm:px-2 py-1 text-lg font-bold dark:text-white">D</th>
+              <th className="px-1 sm:px-2 py-1 text-lg font-bold text-red-600 dark:text-white">M</th>
+              <th className={`px-1 sm:px-2 py-1 text-lg font-bold text-red-500 dark:text-white ${hasNoShootTargets ? '' : 'opacity-40'}`}>NS</th>
             </tr>
           </thead>
           <tbody>
@@ -55,7 +57,7 @@ export default function PaperTargetsTable({
                 >
                   <td className="py-1.5">
                     <button
-                      className="font-mono text-sm font-bold text-gray-500 hover:text-red-500 dark:hover:text-red-400 cursor-pointer transition-colors"
+                      className="font-mono text-sm font-bold text-gray-500 hover:text-red-500 dark:text-white dark:hover:text-red-400 cursor-pointer transition-colors"
                       onClick={() => onResetTarget(target.target_index)}
                       title="Click to reset row"
                     >

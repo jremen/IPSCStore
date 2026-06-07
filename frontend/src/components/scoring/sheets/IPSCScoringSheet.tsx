@@ -1,4 +1,6 @@
-import { Label, TextInput, Alert } from 'flowbite-react';
+import { Label, Alert } from 'flowbite-react';
+import { useTranslation } from 'react-i18next';
+import { InputField } from '../../shared/InputField';
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useIPSCScoring } from '../../../hooks/useIPSCScoring';
 import { useDeviceContext } from '../../../hooks/useDeviceContext';
@@ -10,6 +12,7 @@ import DesktopSteelTargets from './DesktopSteelTargets';
 import NoShootSection from './IPSCNoShootTargets';
 import type { Stage } from '../../../types/stage';
 import type { ScoreInput } from '../../../types/scoring';
+import { twMerge } from "tailwind-merge";
 
 interface Props {
   stage: Stage;
@@ -17,6 +20,7 @@ interface Props {
 }
 
 export default function IPSCScoringSheet({ stage, score }: Props) {
+  const { t } = useTranslation();
   const { isDesktop } = useDeviceContext();
   const { alerts } = useScoringStore();
   const shooter = useScoringStore(
@@ -32,35 +36,37 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
     showExtraPenalties, hasSidebar, hpp,
   } = useIPSCScoring(stage, score);
 
-  return (
-    <div className="p-2 sm:p-4 max-w-3xl mx-auto">
-      {/* TIME INPUT — ALWAYS VISIBLE AT TOP */}
-      <div className="my-3">
-        <Label className="text-sm font-bold mb-1 block">⏱ TIME (seconds)</Label>
-        <TextInput
+  const TimeBlock = ({className}:{className:string}) => <div className={twMerge("my-3", className)}>
+        <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
+        <InputField
           type="number"
           step="0.01"
           min="0"
           sizing="lg"
+          decimal
           value={score.time ?? ''}
-          onChange={(e) => handleTimeChange(e.target.value)}
+          onChange={handleTimeChange}
           disabled={stage.scoring_type === 'fixed_time'}
-          className="text-center text-2xl font-mono"
+          className="text-center text-4xl! py-1! font-semibold"
         />
         {stage.scoring_type === 'fixed_time' && stage.par_time && (
           <p className="text-xs text-gray-500 mt-1 text-center">Par time: {stage.par_time}s</p>
         )}
       </div>
 
+  return (
+    <div className="p-2 sm:p-4 max-lg:max-w-3xl mx-auto lg:grid grid-cols-2 gap-6">
+      {/* TIME INPUT — ALWAYS VISIBLE AT TOP */}
+      
+      <TimeBlock className="lg:hidden" />
       {/* SCORING SHEET — two-column on desktop when sidebar exists */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-3 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 max-lg:mb-3 shadow-sm overflow-hidden -order-1">
         <ScoringSheetHeader
-          title="📋 SCORING SHEET"
           subtitle={`${stage.paper_targets} paper × ${hpp} hits • ${stage.steel_targets} steel • ${stage.no_shoot_targets} no-shoot`}
           onReset={handleResetAll}
         />
         {isDesktop ? (
-          <p className="text-[10px] text-gray-400 px-3 -mt-1 mb-1">Enter hit counts directly or use the table below for review</p>
+          <p className="text-[10px] text-gray-400 px-3 -mt-1 mb-1">{t('scoring.desktopInstruction')}</p>
         ) : (
           <p className="text-[10px] text-gray-400 px-3 -mt-1 mb-1">Tap +1 • Long-press/right-click −1 • Tap # to reset</p>
         )}
@@ -154,13 +160,17 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
       )}
 
       {/* DNF + DQ toggles */}
-      <div className="flex items-center gap-4 mb-3 flex-wrap">
-        <DnfToggle isDnf={score.is_dnf} onToggle={handleDnfToggle} />
-        <DqSection shooter={shooter} />
-      </div>
+      <div className="lg:flex flex-col justify-between">
+        <TimeBlock className="max-lg:hidden" />
 
-      {/* Live Score Preview */}
-      <ScorePreviewCard preview={preview} />
+        <div className="flex items-center gap-4 mb-3 flex-wrap">
+          <DnfToggle isDnf={score.is_dnf} onToggle={handleDnfToggle} />
+          <DqSection shooter={shooter} />
+        </div>
+
+        {/* Live Score Preview */}
+        <ScorePreviewCard preview={preview} />
+      </div>
     </div>
   );
 }

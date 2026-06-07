@@ -87,22 +87,24 @@ export default function ShooterDatabase() {
       <div className="overflow-x-auto">
         <Table striped>
           <TableHead>
-            <TableHeadCell className="w-10">
-              <SelectAllCheckbox
-                allSelected={selection.allSelected}
-                someSelected={selection.someSelected}
-                onToggle={selection.allSelected ? selection.deselectAll : selection.selectAll}
-                selectedCount={selection.selectedCount}
-                totalCount={shooters.length}
-              />
-            </TableHeadCell>
-            <TableHeadCell>{t('common.name')}</TableHeadCell>
-            <TableHeadCell>{t('shooters.category')}</TableHeadCell>
-            <TableHeadCell>{t('shooters.division')}</TableHeadCell>
-            <TableHeadCell>PF</TableHeadCell>
-            <TableHeadCell>{t('shooters.region')}</TableHeadCell>
-            <TableHeadCell>{t('shooters.tag')}</TableHeadCell>
-            <TableHeadCell>{t('common.actions')}</TableHeadCell>
+            <TableRow>
+              <TableHeadCell className="w-10">
+                <SelectAllCheckbox
+                  allSelected={selection.allSelected}
+                  someSelected={selection.someSelected}
+                  onToggle={selection.allSelected ? selection.deselectAll : selection.selectAll}
+                  selectedCount={selection.selectedCount}
+                  totalCount={shooters.length}
+                />
+              </TableHeadCell>
+              <TableHeadCell>{t('common.name')}</TableHeadCell>
+              <TableHeadCell>{t('shooters.category')}</TableHeadCell>
+              <TableHeadCell>{t('shooters.division')}</TableHeadCell>
+              <TableHeadCell>PF</TableHeadCell>
+              <TableHeadCell>{t('shooters.region')}</TableHeadCell>
+              <TableHeadCell>{t('shooters.tag')}</TableHeadCell>
+              <TableHeadCell>{t('common.actions')}</TableHeadCell>
+            </TableRow>
           </TableHead>
           <TableBody>
             {shooters.map((s) => (

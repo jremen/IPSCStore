@@ -17,7 +17,7 @@ export default function DqConfirmModal({ show, onClose, shooterName, dqReason, o
     <Modal show={show} onClose={onClose} size="sm">
       <ModalHeader>⚠️ {t('scoring.dqTitle')}</ModalHeader>
       <ModalBody>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+        <p className="text-sm text-gray-600 dark:text-gray-200 mb-3">
           {t('scoring.dqDescription', { name: shooterName })}
         </p>
         <div>

@@ -2,6 +2,8 @@
 @import "flowbite-react/plugin/tailwindcss";
 @source "../.flowbite-react/class-list.json";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Print styles */
 @media print {
   .no-print { display: none !important; }
@@ -51,22 +53,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-/* Sticky bottom bar for scoring — safe-area for notched devices */
-.scoring-bottom-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 10;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-/* Scoring sheet scrollable area — safe-area for top notch */
-.scoring-scroll {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 80px; /* space for sticky bottom bar */
 }
 
 /* Target hit cell — 44px touch target with visual feedback */

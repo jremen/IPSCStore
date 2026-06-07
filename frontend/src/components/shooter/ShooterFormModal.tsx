@@ -56,7 +56,7 @@ export default function ShooterFormModal({ show, onClose, editShooter }: Shooter
   const title = isEdit ? t('shooters.editTitle') : t('shooters.createTitle');
 
   return (
-    <Modal show={show} onClose={onClose} size="lg">
+    <Modal show={show} onClose={onClose} size="xl">
       <ModalHeader>{title}</ModalHeader>
       <ModalBody>
         <ShooterFormFields form={form} onChange={setForm} />

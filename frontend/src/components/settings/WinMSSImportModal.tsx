@@ -248,9 +248,11 @@ export default function WinMSSImportModal({ show, onClose }: { show: boolean; on
 
             <Table striped>
               <TableHead>
-                <TableHeadCell>{t('import.winMss.categoryCol')}</TableHeadCell>
-                <TableHeadCell>{t('import.winMss.createdCol')}</TableHeadCell>
-                <TableHeadCell>{t('import.winMss.skippedCol')}</TableHeadCell>
+                <TableRow>
+                  <TableHeadCell>{t('import.winMss.categoryCol')}</TableHeadCell>
+                  <TableHeadCell>{t('import.winMss.createdCol')}</TableHeadCell>
+                  <TableHeadCell>{t('import.winMss.skippedCol')}</TableHeadCell>
+                </TableRow>
               </TableHead>
               <TableBody>
                 <TableRow>

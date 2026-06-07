@@ -32,8 +32,8 @@ export default function ProceduralsSection({
   return (
     <div className="p-3 border-b border-gray-100 dark:border-gray-700">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide">⚠️ {t('scoring.procedurals')}</span>
-        <span className="text-xs text-gray-400">{t('scoring.proceduralsDesc')}</span>
+        <span className="font-bold dark:text-white uppercase tracking-wide">{t('scoring.procedurals')}</span>
+        <span className="text-xs dark:text-white">{t('scoring.proceduralsDesc')}</span>
       </div>
       <PenaltyStepper value={proceduralCount} onDecrement={() => onProceduralChange(-1)} onIncrement={() => onProceduralChange(1)} color="orange" size="lg" />
 
@@ -52,7 +52,7 @@ export default function ProceduralsSection({
               ...(isFixedTime ? [{ label: t('scoring.overtime'), key: 'overtime_shot_count' as const, desc: t('scoring.overtimeDesc'), value: overtimeShotCount }] : []),
             ].map(({ label, key, desc, value }) => (
               <div key={key}>
-                <Label className="text-xs">{label} <span className="text-gray-400">{desc}</span></Label>
+                <Label className="text-xs dark:text-white">{label} {desc}</Label>
                 <PenaltyStepper
                   value={value}
                   onDecrement={() => onPenaltyFieldChange(key, -1)}

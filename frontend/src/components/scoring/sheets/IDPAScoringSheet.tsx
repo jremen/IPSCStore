@@ -1,5 +1,6 @@
 import { useMemo, useCallback } from 'react';
-import { Alert, Badge, Label, TextInput } from 'flowbite-react';
+import { Alert, Badge, Label } from 'flowbite-react';
+import { InputField } from '../../shared/InputField';
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useScoreDataUpdater } from '../../../hooks/useScoreDataUpdater';
 import { calculateIDPAPreview } from '../../../utils/scoring';
@@ -133,7 +134,7 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
       {/* TIME INPUT */}
       <div className="bg-blue-50 dark:bg-gray-800 rounded-lg p-3 mb-3 border-2 border-blue-200 dark:border-blue-800">
         <Label className="text-sm font-bold mb-1 block">⏱ TIME (seconds)</Label>
-        <TextInput type="number" step="0.01" min="0" sizing="lg" value={score.time ?? ''} onChange={(e) => handleTimeChange(e.target.value)} className="text-center text-2xl font-mono" />
+        <InputField type="number" step="0.01" min="0" sizing="lg" decimal value={score.time ?? ''} onChange={handleTimeChange} className="text-center text-2xl font-mono" />
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-3 shadow-sm">

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useStageStore } from '../../stores/stageStore';
 import { useUIStore } from '../../stores/uiStore';
 import { SCORING_TYPES } from '../../utils/constants';
+import { InputField } from '../shared/InputField';
 import type { ScoringType, StageConfig } from '../../types/stage';
 import type { Stage } from '../../types/stage';
 
@@ -106,7 +107,7 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
   const handleSubmit = isEdit ? handleEdit : handleCreate;
 
   return (
-    <Modal show={show} onClose={onClose} size="lg">
+    <Modal show={show} onClose={onClose} size="xl">
       <ModalHeader>{title}</ModalHeader>
       <ModalBody>
         <div className="flex flex-col gap-4">
@@ -123,66 +124,39 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
 
           {visibleFields.paperTargets && (
             <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label>{t('stages.paperTargets')}</Label>
-                <TextInput type="number" min={0} value={form.paper_targets} onChange={(e) => setForm({ ...form, paper_targets: parseInt(e.target.value) || 0 })} />
-              </div>
-              <div>
-                <Label>{t('stages.steelTargets')}</Label>
-                <TextInput type="number" min={0} value={form.steel_targets} onChange={(e) => setForm({ ...form, steel_targets: parseInt(e.target.value) || 0 })} />
-              </div>
-              <div>
-                <Label>{t('stages.noShootTargets')}</Label>
-                <TextInput type="number" min={0} value={form.no_shoot_targets} onChange={(e) => setForm({ ...form, no_shoot_targets: parseInt(e.target.value) || 0 })} />
-              </div>
+              <InputField label={t('stages.paperTargets')} type="number" step="1" min="0" value={form.paper_targets} onChange={(v) => setForm({ ...form, paper_targets: parseInt(v) || 0 })} />
+              <InputField label={t('stages.steelTargets')} type="number" step="1" min="0" value={form.steel_targets} onChange={(v) => setForm({ ...form, steel_targets: parseInt(v) || 0 })} />
+              <InputField label={t('stages.noShootTargets')} type="number" step="1" min="0" value={form.no_shoot_targets} onChange={(v) => setForm({ ...form, no_shoot_targets: parseInt(v) || 0 })} />
             </div>
           )}
 
           {(visibleFields.hitsPerPaper || visibleFields.parTime) && (
             <div className="grid grid-cols-2 gap-3">
               {visibleFields.hitsPerPaper && (
-                <div>
-                  <Label>{t('stages.hitsPerPaper')}</Label>
-                  <TextInput type="number" min={1} value={form.hits_per_paper} onChange={(e) => setForm({ ...form, hits_per_paper: parseInt(e.target.value) || 2 })} />
-                </div>
+                <InputField label={t('stages.hitsPerPaper')} type="number" step="1" min="1" value={form.hits_per_paper} onChange={(v) => setForm({ ...form, hits_per_paper: parseInt(v) || 2 })} />
               )}
               {visibleFields.parTime && (
-                <div>
-                  <Label>{t('stages.parTime')}</Label>
-                  <TextInput type="number" step="0.01" value={form.par_time ?? ''} onChange={(e) => setForm({ ...form, par_time: e.target.value ? parseFloat(e.target.value) : null })} disabled={form.scoring_type !== 'fixed_time'} />
-                </div>
+                <InputField label={t('stages.parTime')} type="number" step="0.01" min="0" decimal value={form.par_time ?? ''} onChange={(v) => setForm({ ...form, par_time: v ? parseFloat(v) : null })} disabled={form.scoring_type !== 'fixed_time'} />
               )}
               <div>
                 <Label>{t('stages.password')}</Label>
                 <TextInput type="text" placeholder={t('stages.passwordPlaceholder')} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-                <p className="text-xs text-gray-500 mt-1">{t('stages.passwordHelp')}</p>
+                <p className="text-xs text-gray-500 dark:text-white mt-1">{t('stages.passwordHelp')}</p>
               </div>
             </div>
           )}
 
           {visibleFields.config && form.scoring_type === 'action_steel' && (
             <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label>{t('stages.configNumberOfStrings')}</Label>
-                <TextInput type="number" min={1} value={form.config.number_of_strings ?? 5} onChange={(e) => setForm({ ...form, config: { ...form.config, number_of_strings: parseInt(e.target.value) || 5 } })} />
-              </div>
-              <div>
-                <Label>{t('stages.configTargetsPerString')}</Label>
-                <TextInput type="number" min={1} value={form.config.targets_per_string ?? 5} onChange={(e) => setForm({ ...form, config: { ...form.config, targets_per_string: parseInt(e.target.value) || 5 } })} />
-              </div>
-              <div>
-                <Label>{t('stages.configDropWorst')}</Label>
-                <TextInput type="number" min={0} value={form.config.drop_worst ?? 1} onChange={(e) => setForm({ ...form, config: { ...form.config, drop_worst: parseInt(e.target.value) || 1 } })} />
-              </div>
+              <InputField label={t('stages.configNumberOfStrings')} type="number" step="1" min="1" value={form.config.number_of_strings ?? 5} onChange={(v) => setForm({ ...form, config: { ...form.config, number_of_strings: parseInt(v) || 5 } })} />
+              <InputField label={t('stages.configTargetsPerString')} type="number" step="1" min="1" value={form.config.targets_per_string ?? 5} onChange={(v) => setForm({ ...form, config: { ...form.config, targets_per_string: parseInt(v) || 5 } })} />
+              <InputField label={t('stages.configDropWorst')} type="number" step="1" min="0" value={form.config.drop_worst ?? 1} onChange={(v) => setForm({ ...form, config: { ...form.config, drop_worst: parseInt(v) || 1 } })} />
             </div>
           )}
 
           {visibleFields.config && form.scoring_type === 'multi_gun' && (
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>{t('stages.configNumTargets')}</Label>
-                <TextInput type="number" min={1} value={form.config.num_targets ?? 8} onChange={(e) => setForm({ ...form, config: { ...form.config, num_targets: parseInt(e.target.value) || 8 } })} />
-              </div>
+              <InputField label={t('stages.configNumTargets')} type="number" step="1" min="1" value={form.config.num_targets ?? 8} onChange={(v) => setForm({ ...form, config: { ...form.config, num_targets: parseInt(v) || 8 } })} />
               <div>
                 <Label>{t('stages.configHasNoShoots')}</Label>
                 <Select value={form.config.has_no_shoot ? 'true' : 'false'} onChange={(e) => setForm({ ...form, config: { ...form.config, has_no_shoot: e.target.value === 'true' } })}>
@@ -203,15 +177,9 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
                 </Select>
               </div>
               {form.config.variant === 'f_class' ? (
-                <div>
-                  <Label>{t('stages.configShotsPerString')}</Label>
-                  <TextInput type="number" min={1} value={form.config.shots_per_string ?? 20} onChange={(e) => setForm({ ...form, config: { ...form.config, shots_per_string: parseInt(e.target.value) || 20 } })} />
-                </div>
+                <InputField label={t('stages.configShotsPerString')} type="number" step="1" min="1" value={form.config.shots_per_string ?? 20} onChange={(v) => setForm({ ...form, config: { ...form.config, shots_per_string: parseInt(v) || 20 } })} />
               ) : (
-                <div>
-                  <Label>{t('stages.configNumTargets')}</Label>
-                  <TextInput type="number" min={1} value={form.config.num_targets ?? 10} onChange={(e) => setForm({ ...form, config: { ...form.config, num_targets: parseInt(e.target.value) || 10 } })} />
-                </div>
+                <InputField label={t('stages.configNumTargets')} type="number" step="1" min="1" value={form.config.num_targets ?? 10} onChange={(v) => setForm({ ...form, config: { ...form.config, num_targets: parseInt(v) || 10 } })} />
               )}
             </div>
           )}
@@ -226,30 +194,18 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
                   <option value="rapid">{t('stages.configRapidFire')}</option>
                 </Select>
               </div>
-              <div>
-                <Label>{t('stages.configShotsPerString')}</Label>
-                <TextInput type="number" min={1} value={form.config.shots_per_string ?? 10} onChange={(e) => setForm({ ...form, config: { ...form.config, shots_per_string: parseInt(e.target.value) || 10 } })} />
-              </div>
+              <InputField label={t('stages.configShotsPerString')} type="number" step="1" min="1" value={form.config.shots_per_string ?? 10} onChange={(v) => setForm({ ...form, config: { ...form.config, shots_per_string: parseInt(v) || 10 } })} />
             </div>
           )}
 
           {visibleFields.config && form.scoring_type === 'archery' && (
-            <div>
-              <Label>{t('stages.configArrowsPerEnd')}</Label>
-              <TextInput type="number" min={1} value={form.config.arrows_per_end ?? 6} onChange={(e) => setForm({ ...form, config: { ...form.config, arrows_per_end: parseInt(e.target.value) || 6 } })} />
-            </div>
+            <InputField label={t('stages.configArrowsPerEnd')} type="number" step="1" min="1" value={form.config.arrows_per_end ?? 6} onChange={(v) => setForm({ ...form, config: { ...form.config, arrows_per_end: parseInt(v) || 6 } })} />
           )}
 
           {visibleFields.config && form.scoring_type === 'nrl22' && (
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>{t('stages.configNumTargets')}</Label>
-                <TextInput type="number" min={1} value={form.config.num_targets ?? 10} onChange={(e) => setForm({ ...form, config: { ...form.config, num_targets: parseInt(e.target.value) || 10 } })} />
-              </div>
-              <div>
-                <Label>{t('stages.configPointValue')}</Label>
-                <TextInput type="number" min={1} value={form.config.point_value ?? 10} onChange={(e) => setForm({ ...form, config: { ...form.config, point_value: parseInt(e.target.value) || 10 } })} />
-              </div>
+              <InputField label={t('stages.configNumTargets')} type="number" step="1" min="1" value={form.config.num_targets ?? 10} onChange={(v) => setForm({ ...form, config: { ...form.config, num_targets: parseInt(v) || 10 } })} />
+              <InputField label={t('stages.configPointValue')} type="number" step="1" min="1" value={form.config.point_value ?? 10} onChange={(v) => setForm({ ...form, config: { ...form.config, point_value: parseInt(v) || 10 } })} />
             </div>
           )}
         </div>

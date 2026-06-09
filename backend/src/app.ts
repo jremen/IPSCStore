@@ -7,6 +7,7 @@ import { corsMiddleware } from './middleware/cors.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { authMiddleware, stageAccessMiddleware } from './middleware/auth.js';
+import { scoreLockMiddleware } from './middleware/scoreLock.js';
 import { matchRoutes } from './routes/matches.js';
 import { stageRoutes } from './routes/stages.js';
 import { shooterRoutes } from './routes/shooters.js';
@@ -20,12 +21,37 @@ import { authRoutes } from './routes/auth.js';
 import { backupRoutes } from './routes/backup.js';
 import { env } from './env.js';
 
-const app = new Hono();
+const app = new Hono<{
+  Variables: {
+    domainMode: string;
+  };
+}>();
 
 // Middleware
 app.use('*', corsMiddleware);
 app.use('*', requestLogger);
 app.onError(errorHandler);
+
+/**
+ * Determine the domain mode based on the Host header.
+ * - vysledky.local → 'results' (public results view, no login)
+ * - hodnotenie.local → 'scoring' (stage login for range masters)
+ * - anything else → 'admin' (default, shows admin login on local network)
+ */
+function getDomainMode(host: string | undefined): 'results' | 'scoring' | 'admin' {
+  if (!host) return 'admin';
+  const hostname = host.split(':')[0].toLowerCase().trim();
+  if (hostname === 'vysledky.local') return 'results';
+  if (hostname === 'hodnotenie.local') return 'scoring';
+  return 'admin';
+}
+
+// Set domain mode from Host header for all requests
+app.use('*', async (c, next) => {
+  const host = c.req.header('host');
+  c.set('domainMode', getDomainMode(host));
+  await next();
+});
 
 // Health check
 app.get('/api/health', (c) => {
@@ -67,6 +93,7 @@ app.route('/api/auth', authRoutes);
 // Scoring routes — protected by stage auth for remote users
 app.use('/api/matches/:matchId/stages/:stageId/scores/*', authMiddleware);
 app.use('/api/matches/:matchId/stages/:stageId/scores/*', stageAccessMiddleware);
+app.use('/api/matches/:matchId/stages/:stageId/scores/*', scoreLockMiddleware);
 app.route('/api', scoringRoutes);
 
 app.route('/api', resultsRoutes);
@@ -97,24 +124,49 @@ export function enableStaticServing(frontendDistPath: string) {
 
   console.log(`[Static] Found index.html at: ${indexPath}`);
 
-  // Serve built frontend assets (JS, CSS, images, fonts, etc.)
-  app.use('/*', serveStatic({ root: frontendDistPath }));
+  // Cache the index.html content (without domain mode injection) to avoid reading from disk on every request.
+  // We inject domain mode per-request by modifying the cached template.
+  const htmlTemplate = fs.readFileSync(indexPath, 'utf-8');
 
-  // SPA fallback: serve index.html for any non-API, non-file route.
-  // Uses direct fs.readFile instead of serveStatic to avoid path resolution issues.
-  app.get('*', async (c) => {
-    // Don't serve index.html for API routes
-    if (c.req.path.startsWith('/api/')) {
-      return c.notFound();
+  // SPA fallback middleware: serve index.html for non-API, non-asset routes.
+  // This MUST run before serveStatic so that the root path "/" and SPA routes
+  // get domain mode injection. If the request has a file extension and the file
+  // exists, we skip this handler and let serveStatic handle it.
+  app.use('*', async (c, next) => {
+    const urlPath = c.req.path;
+
+    // Don't intercept API routes
+    if (urlPath.startsWith('/api/')) {
+      return next();
     }
+
+    // If the path has a file extension, it's likely a static asset request.
+    // Let serveStatic handle it by calling next().
+    if (urlPath !== '/' && urlPath.includes('.')) {
+      return next();
+    }
+
+    // This is an SPA route (root path or client-side route) — serve index.html
+    // with domain mode injection.
     try {
-      const html = fs.readFileSync(indexPath, 'utf-8');
+      let html = htmlTemplate;
+      const domainMode = c.get('domainMode') as string | undefined;
+      if (domainMode && domainMode !== 'admin') {
+        html = html.replace(
+          '<head>',
+          `<head><script>window.__DOMAIN_MODE__ = "${domainMode}";</script>`
+        );
+      }
       return c.html(html);
     } catch (err) {
-      console.error('[Static] Failed to read index.html:', err);
+      console.error('[Static] Failed to serve index.html:', err);
       return c.text('Frontend not found', 500);
     }
   });
+
+  // Serve static assets (JS, CSS, images, fonts, etc.)
+  // This only runs if the SPA fallback middleware above called next().
+  app.use('/*', serveStatic({ root: frontendDistPath }));
 }
 
 export { app };

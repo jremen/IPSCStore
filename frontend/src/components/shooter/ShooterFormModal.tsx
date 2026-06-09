@@ -5,6 +5,7 @@ import { useShooterStore } from '../../stores/shooterStore';
 import { useUIStore } from '../../stores/uiStore';
 import ShooterFormFields, { type ShooterFormData } from '../shared/ShooterFormFields';
 import type { CreateShooterInput } from '../../types/shooter';
+import { useEscClose } from '../../hooks/useEscClose';
 
 interface ShooterFormModalProps {
   show: boolean;
@@ -16,6 +17,7 @@ export default function ShooterFormModal({ show, onClose, editShooter }: Shooter
   const { createShooter, updateShooter } = useShooterStore();
   const { addToast } = useUIStore();
   const { t } = useTranslation();
+  useEscClose(onClose);
   const [form, setForm] = useState<ShooterFormData>({
     first_name: '', last_name: '', category: 'regular', tag: null,
     division: 'standard', power_factor: 'minor', region: '', email: null,

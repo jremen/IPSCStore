@@ -1,6 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { useScoringStore } from '../stores/scoringStore';
 import { calculatePreview } from '../utils/scoring';
+import { parseTimeString } from '../utils/timeFormat';
 import type { Stage } from '../types/stage';
 import type { ScoreInput, TargetScore } from '../types/scoring';
 
@@ -37,6 +38,11 @@ export function useIPSCScoring(stage: Stage, score: ScoreInput) {
     [score.targets]
   );
 
+  const npmTargets = useMemo(
+    () => score.targets.filter(t => t.target_type === 'npm'),
+    [score.targets]
+  );
+
   const noShootHits = useMemo(
     () => noShootTargets.reduce((s, t) => s + t.no_shoot_hits, 0),
     [noShootTargets]
@@ -45,6 +51,16 @@ export function useIPSCScoring(stage: Stage, score: ScoreInput) {
   const steelMisses = useMemo(
     () => steelTargets.filter(t => !t.steel_hit).length,
     [steelTargets]
+  );
+
+  const steelNSHits = useMemo(
+    () => steelTargets.reduce((s, t) => s + t.no_shoot_hits, 0),
+    [steelTargets]
+  );
+
+  const npmHits = useMemo(
+    () => npmTargets.filter(t => t.steel_hit === true).length,
+    [npmTargets]
   );
 
   /** Aggregated totals across all paper targets for desktop input */
@@ -219,6 +235,86 @@ export function useIPSCScoring(stage: Stage, score: ScoreInput) {
     setScore({ ...score, targets: newTargets });
   }, [steelTargets, score, setScore]);
 
+  const handleSteelNSClick = useCallback((delta: number) => {
+    // Store aggregate NS count on first steel target only (same pattern as no_shoot targets)
+    const sortedSteel = [...steelTargets].sort((a, b) => a.target_index - b.target_index);
+    const firstIdx = sortedSteel.length > 0 ? sortedSteel[0].target_index : -1;
+    const newTargets = score.targets.map(t => {
+      if (t.target_type !== 'steel') return t;
+      if (t.target_index === firstIdx) {
+        return { ...t, no_shoot_hits: Math.max(0, t.no_shoot_hits + delta) };
+      }
+      return { ...t, no_shoot_hits: 0 };
+    });
+    setScore({ ...score, targets: newTargets });
+  }, [steelTargets, score, setScore]);
+
+  const handleResetSteel = useCallback(() => {
+    const newTargets = score.targets.map(t => {
+      if (t.target_type !== 'steel') return t;
+      return { ...t, steel_hit: true, no_shoot_hits: 0 };
+    });
+    setScore({ ...score, targets: newTargets });
+  }, [score, setScore]);
+
+  const handleSteelMissIncrement = useCallback(() => {
+    handleSteelMissChange(steelMisses + 1);
+  }, [steelMisses, handleSteelMissChange]);
+
+  const handleSteelMissDecrement = useCallback(() => {
+    handleSteelMissChange(Math.max(0, steelMisses - 1));
+  }, [steelMisses, handleSteelMissChange]);
+
+  const steelHits = steelTargets.length - steelMisses;
+
+  const handleSteelHitIncrement = useCallback(() => {
+    // Convert a miss to a hit (decrement misses)
+    if (steelMisses > 0) {
+      handleSteelMissChange(steelMisses - 1);
+    }
+  }, [steelMisses, handleSteelMissChange]);
+
+  const handleSteelHitDecrement = useCallback(() => {
+    // Convert a hit to a miss (increment misses)
+    if (steelMisses < steelTargets.length) {
+      handleSteelMissChange(steelMisses + 1);
+    }
+  }, [steelMisses, steelTargets.length, handleSteelMissChange]);
+
+  // ─── NPM (Non-Penalty Miss) target handlers ───
+
+  const handleNpmHitIncrement = useCallback(() => {
+    // Mark one more NPM target as hit
+    const sortedNpm = [...npmTargets].sort((a, b) => a.target_index - b.target_index);
+    const firstUnhit = sortedNpm.find(t => t.steel_hit !== true);
+    if (!firstUnhit) return; // all already hit
+    const newTargets = score.targets.map(t => {
+      if (t.target_type !== 'npm' || t.target_index !== firstUnhit.target_index) return t;
+      return { ...t, steel_hit: true };
+    });
+    setScore({ ...score, targets: newTargets });
+  }, [npmTargets, score, setScore]);
+
+  const handleNpmHitDecrement = useCallback(() => {
+    // Un-hit one NPM target (revert to null = not attempted)
+    const sortedNpm = [...npmTargets].sort((a, b) => b.target_index - a.target_index);
+    const lastHit = sortedNpm.find(t => t.steel_hit === true);
+    if (!lastHit) return; // none hit
+    const newTargets = score.targets.map(t => {
+      if (t.target_type !== 'npm' || t.target_index !== lastHit.target_index) return t;
+      return { ...t, steel_hit: null };
+    });
+    setScore({ ...score, targets: newTargets });
+  }, [npmTargets, score, setScore]);
+
+  const handleResetNpm = useCallback(() => {
+    const newTargets = score.targets.map(t => {
+      if (t.target_type !== 'npm') return t;
+      return { ...t, steel_hit: null, no_shoot_hits: 0 };
+    });
+    setScore({ ...score, targets: newTargets });
+  }, [score, setScore]);
+
   const handleNoShootChange = useCallback((newHits: number) => {
     const clamped = Math.max(0, newHits);
     // Put all no-shoot hits on the first no-shoot target (penalty is per-hit, distribution doesn't matter)
@@ -231,15 +327,19 @@ export function useIPSCScoring(stage: Stage, score: ScoreInput) {
     setScore({ ...score, targets: newTargets });
   }, [noShootTargets, score, setScore]);
 
-  const handleTimeChange = useCallback((value: string) => {
-    setScore({ ...score, time: value ? parseFloat(value) : null });
-  }, [score, setScore]);
+  const handleTimeChange = useCallback((value: number | null) => {
+    // Read current score from store to avoid stale closure over `score`
+    const currentScore = useScoringStore.getState().currentScore;
+    if (currentScore) {
+      setScore({ ...currentScore, time: value });
+    }
+  }, [setScore]);
 
   const handleResetAll = useCallback(() => {
     const resetTargets = score.targets.map(t => ({
       ...t,
       alpha: 0, charlie: 0, delta: 0, miss: 0, no_shoot_hits: 0,
-      steel_hit: t.target_type === 'steel' ? true : t.steel_hit,
+      steel_hit: t.target_type === 'steel' ? true : t.target_type === 'npm' ? null : t.steel_hit,
     }));
     setScore({
       ...score,
@@ -291,14 +391,17 @@ export function useIPSCScoring(stage: Stage, score: ScoreInput) {
   const isFixedTime = stage.scoring_type === 'fixed_time';
   const showExtraPenalties = isVirginia || isFixedTime;
 
-  const hasSidebar = steelTargets.length > 0 || (noShootTargets.length > 0 && stage.paper_targets === 0);
+  const hasSidebar = steelTargets.length > 0 || npmTargets.length > 0 || (noShootTargets.length > 0 && stage.paper_targets === 0);
 
   return {
     paperTargets,
     steelTargets,
     noShootTargets,
+    npmTargets,
     noShootHits,
     steelMisses,
+    steelNSHits,
+    npmHits,
     paperTotals,
     isTargetFinished,
     handlePaperHitClick,
@@ -309,6 +412,16 @@ export function useIPSCScoring(stage: Stage, score: ScoreInput) {
     handlePaperNSClick,
     handleResetTarget,
     handleSteelMissChange,
+    handleSteelNSClick,
+    handleResetSteel,
+    steelHits,
+    handleSteelHitIncrement,
+    handleSteelHitDecrement,
+    handleSteelMissIncrement,
+    handleSteelMissDecrement,
+    handleNpmHitIncrement,
+    handleNpmHitDecrement,
+    handleResetNpm,
     handleNoShootChange,
     handleTimeChange,
     handleResetAll,

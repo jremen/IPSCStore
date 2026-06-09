@@ -21,7 +21,7 @@ export function getPointValues(pf: PowerFactor): PointValues {
 }
 
 interface TargetHitInput {
-  target_type: 'paper' | 'steel' | 'no_shoot';
+  target_type: 'paper' | 'steel' | 'no_shoot' | 'npm';
   alpha: number;
   charlie: number;
   delta: number;
@@ -91,7 +91,14 @@ export function calculateScore(input: ScoreInput): CalculatedScore {
       } else {
         miss_count += 1;
       }
+      no_shoot_hit_count += target.no_shoot_hits;
     } else if (target.target_type === 'no_shoot') {
+      no_shoot_hit_count += target.no_shoot_hits;
+    } else if (target.target_type === 'npm') {
+      if (target.steel_hit) {
+        raw_points += pv.steel; // +5 bonus
+      }
+      // miss = no penalty (don't increment miss_count)
       no_shoot_hit_count += target.no_shoot_hits;
     }
   }
@@ -232,7 +239,7 @@ export function calculateHitFactorScore(input: ScoreInput): CalculatedScore {
 
 export interface IDPAInput {
   targets: Array<{
-    target_type: 'paper' | 'steel' | 'no_shoot';
+    target_type: 'paper' | 'steel' | 'no_shoot' | 'npm';
     alpha: number;       // -0 points down
     charlie: number;     // -1 point down
     delta: number;       // -3 points down
@@ -273,6 +280,9 @@ export function calculateIDPAScore(input: IDPAInput): CalculatedScore {
       }
     } else if (target.target_type === 'no_shoot') {
       no_shoot_hit_count += target.no_shoot_hits;
+    } else if (target.target_type === 'npm') {
+      // NPM: hit = no time bonus in IDPA, miss = no penalty
+      // Effectively a no-op in time-based scoring
     }
   }
 

@@ -37,8 +37,11 @@ PG_BIN_DIR="$PG_DIR/bin"
 echo "Setting up PostgreSQL $PG_VERSION binaries for $PLATFORM..."
 echo "  Target: $PG_DIR"
 
-# Clean previous download
-rm -rf "$PG_DIR"
+# Clean previous download — remove the entire pg directory to ensure
+# no stale files from other platforms remain (e.g., .exe/.dll from Windows builds)
+if [ -d "$PG_DIR" ]; then
+  rm -rf "$PG_DIR" 2>/dev/null || true
+fi
 
 # --- Map platform to EDB download info ---
 # EDB binary URLs: https://www.enterprisedb.com/download-postgresql-binaries
@@ -128,26 +131,65 @@ if [ -n "$EDB_OS" ]; then
       fi
     done
 
-    # Copy lib directory (shared libraries needed by postgres)
-    if [ -d "$EXTRACTED_DIR/lib" ]; then
-      cp -r "$EXTRACTED_DIR/lib" "$PG_DIR/"
-      echo "  Copied: lib/"
+    # On Windows, the EDB distribution puts required DLLs in bin/ alongside the EXEs.
+    # These DLLs (libpq.dll, libssl-3-x64.dll, libintl-9.dll, etc.) are required
+    # by postgres.exe and pg_ctl.exe at runtime. They MUST be in the same directory
+    # as the EXEs or on the system PATH — the lib/ directory alone is not enough.
+    if [ "$PLATFORM" = "win-x64" ]; then
+      find "$EXTRACTED_DIR/bin" -maxdepth 1 -name '*.dll' -exec cp {} "$PG_BIN_DIR/" \;
+      echo "  Copied: bin/*.dll (Windows runtime DLLs)"
     fi
 
-    # Copy share directory (timezone, postgres.bki, etc.)
+    # Copy lib directory — shared libraries (.dylib/.so/.dll), skip static archives (.a), libtool (.la), pkg-config (.pc)
+    # Also copy the lib/postgresql/ subdirectory which contains extension modules
+    if [ -d "$EXTRACTED_DIR/lib" ]; then
+      mkdir -p "$PG_DIR/lib"
+      if [ "$PLATFORM" = "win-x64" ]; then
+        # Windows: copy DLLs (extension modules like adminpack.dll, etc.)
+        find "$EXTRACTED_DIR/lib" -maxdepth 1 -name '*.dll' -exec cp {} "$PG_DIR/lib/" \;
+        echo "  Copied: lib/*.dll"
+      else
+        # macOS/Linux: copy shared libraries only (skip .a, .la, .pc)
+        find "$EXTRACTED_DIR/lib" -maxdepth 1 \( -name '*.dylib' -o -name '*.so*' \) -exec cp {} "$PG_DIR/lib/" \;
+        echo "  Copied: lib/*.dylib"
+      fi
+      # Copy extension modules (lib/postgresql/*.so or *.dylib)
+      if [ -d "$EXTRACTED_DIR/lib/postgresql" ]; then
+        mkdir -p "$PG_DIR/lib/postgresql"
+        cp "$EXTRACTED_DIR/lib/postgresql"/* "$PG_DIR/lib/postgresql/" 2>/dev/null || true
+        echo "  Copied: lib/postgresql/"
+      fi
+    fi
+
+    # Copy share directory (timezone, postgres.bki, extension control files, etc.)
+    # Layout differs between platforms:
+    #   macOS/Linux: EDB puts files in share/postgresql/ (extension/, postgres.bki, etc.)
+    #   Windows: EDB puts files directly in share/ (extension/, postgres.bki, etc.)
+    # PostgreSQL derives pkgdatadir relative to its binary:
+    #   macOS: pg/bin/../share/postgresql/
+    #   Windows: pg/bin/../share/
+    # We must preserve the platform-specific layout so PostgreSQL can find its files.
     if [ -d "$EXTRACTED_DIR/share" ]; then
       mkdir -p "$PG_DIR/share"
-      if [ -d "$EXTRACTED_DIR/share/postgresql" ]; then
-        cp -r "$EXTRACTED_DIR/share/postgresql" "$PG_DIR/share/"
-        echo "  Copied: share/postgresql/"
-      fi
-      if [ -d "$EXTRACTED_DIR/share/timezone" ]; then
-        cp -r "$EXTRACTED_DIR/share/timezone" "$PG_DIR/share/"
-        echo "  Copied: share/timezone/"
-      elif [ -d "$EXTRACTED_DIR/share/postgresql/timezone" ]; then
-        mkdir -p "$PG_DIR/share/timezone"
-        cp -r "$EXTRACTED_DIR/share/postgresql/timezone"/* "$PG_DIR/share/timezone/"
-        echo "  Copied: share/timezone/ (from postgresql dir)"
+      if [ "$PLATFORM" = "win-x64" ]; then
+        # Windows: copy share/ contents directly to pg/share/ (matching EDB layout)
+        # This includes: extension/, contrib/, postgres.bki, tsearch_data/, timezone/, etc.
+        cp -r "$EXTRACTED_DIR/share"/* "$PG_DIR/share/" 2>/dev/null || true
+        echo "  Copied: share/* (Windows layout)"
+      else
+        # macOS/Linux: EDB puts files in share/postgresql/
+        if [ -d "$EXTRACTED_DIR/share/postgresql" ]; then
+          cp -r "$EXTRACTED_DIR/share/postgresql" "$PG_DIR/share/"
+          echo "  Copied: share/postgresql/"
+        fi
+        if [ -d "$EXTRACTED_DIR/share/timezone" ]; then
+          cp -r "$EXTRACTED_DIR/share/timezone" "$PG_DIR/share/"
+          echo "  Copied: share/timezone/"
+        elif [ -d "$EXTRACTED_DIR/share/postgresql/timezone" ]; then
+          mkdir -p "$PG_DIR/share/timezone"
+          cp -r "$EXTRACTED_DIR/share/postgresql/timezone"/* "$PG_DIR/share/timezone/"
+          echo "  Copied: share/timezone/ (from postgresql dir)"
+        fi
       fi
     fi
 
@@ -198,8 +240,15 @@ if [ "$EDB_SUCCESS" = false ] && [[ "$PLATFORM" == mac-* ]]; then
     BREW_LIB_DIR=$(dirname "$BREW_PG_BIN")/lib
     if [ -d "$BREW_LIB_DIR" ]; then
       mkdir -p "$PG_DIR/lib"
-      cp -r "$BREW_LIB_DIR"/* "$PG_DIR/lib/" 2>/dev/null || true
-      echo "  Copied: lib/"
+      # Copy only shared libraries, skip static archives
+      find "$BREW_LIB_DIR" -maxdepth 1 \( -name '*.dylib' -o -name '*.so*' \) -exec cp {} "$PG_DIR/lib/" \; 2>/dev/null || true
+      echo "  Copied: lib/*.dylib"
+      # Copy extension modules
+      if [ -d "$BREW_LIB_DIR/postgresql" ]; then
+        mkdir -p "$PG_DIR/lib/postgresql"
+        cp "$BREW_LIB_DIR/postgresql"/* "$PG_DIR/lib/postgresql/" 2>/dev/null || true
+        echo "  Copied: lib/postgresql/"
+      fi
     fi
 
     BREW_SHARE_DIR=""
@@ -292,9 +341,27 @@ if [ "$EDB_SUCCESS" = false ]; then
     fi
   done
 
+  # On Windows, copy required DLLs from bin/ (runtime dependencies)
+  if [ "$PLATFORM" = "win-x64" ]; then
+    find "$EXTRACTED_DIR/bin" -maxdepth 1 -name '*.dll' -exec cp {} "$PG_BIN_DIR/" \; 2>/dev/null || true
+    echo "  Copied: bin/*.dll (Windows runtime DLLs)"
+  fi
+
   if [ -d "$EXTRACTED_DIR/lib" ]; then
-    cp -r "$EXTRACTED_DIR/lib" "$PG_DIR/"
-    echo "  Copied: lib/"
+    mkdir -p "$PG_DIR/lib"
+    if [ "$PLATFORM" = "win-x64" ]; then
+      find "$EXTRACTED_DIR/lib" -maxdepth 1 -name '*.dll' -exec cp {} "$PG_DIR/lib/" \; 2>/dev/null || true
+      echo "  Copied: lib/*.dll"
+    else
+      find "$EXTRACTED_DIR/lib" -maxdepth 1 \( -name '*.dylib' -o -name '*.so*' \) -exec cp {} "$PG_DIR/lib/" \; 2>/dev/null || true
+      echo "  Copied: lib/*.dylib"
+    fi
+    # Copy extension modules
+    if [ -d "$EXTRACTED_DIR/lib/postgresql" ]; then
+      mkdir -p "$PG_DIR/lib/postgresql"
+      cp "$EXTRACTED_DIR/lib/postgresql"/* "$PG_DIR/lib/postgresql/" 2>/dev/null || true
+      echo "  Copied: lib/postgresql/"
+    fi
   fi
 
   if [ -d "$EXTRACTED_DIR/share" ]; then

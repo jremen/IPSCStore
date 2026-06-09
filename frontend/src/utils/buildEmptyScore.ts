@@ -71,6 +71,10 @@ export function buildEmptyScore(stage: Stage): ScoreInput {
       for (let i = 1; i <= stage.no_shoot_targets; i++) {
         targets.push({ target_index: nsStart + i, target_type: 'no_shoot', alpha: 0, charlie: 0, delta: 0, miss: 0, no_shoot_hits: 0, steel_hit: null });
       }
+      const npmStart = nsStart + stage.no_shoot_targets;
+      for (let i = 1; i <= stage.npm_targets; i++) {
+        targets.push({ target_index: npmStart + i, target_type: 'npm', alpha: 0, charlie: 0, delta: 0, miss: 0, no_shoot_hits: 0, steel_hit: null });
+      }
 
       if (scoringType === 'idpa') {
         return { time: null, targets, procedural_count: 0, ftsa_count: 0, extra_shot_count: 0, extra_hit_count: 0, stacking_count: 0, overtime_shot_count: 0, is_dnf: false, score_data: { penalty_pe: 0, penalty_hnt: 0, penalty_ftn: 0, penalty_fp: 0, penalty_ftdr: 0 } };

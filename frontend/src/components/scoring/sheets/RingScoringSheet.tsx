@@ -1,5 +1,6 @@
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useScoreDataUpdater } from '../../../hooks/useScoreDataUpdater';
+import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
 import { calculateRingPreview } from '../../../utils/scoring';
 import { ringValueLabel } from '../../../utils/constants';
 import { ScoringSheetHeader, DnfToggle, DqSection } from '../shared';
@@ -15,6 +16,7 @@ export default function RingScoringSheet({ stage, score }: Props) {
   const { setScore } = useScoringStore();
   const { sd, updateScoreData } = useScoreDataUpdater(score);
   const shooter = useScoringStore(s => s.registrations.find(r => r.id === s.currentRegistrationId));
+  const isReadOnly = useScoringReadOnly();
 
   const config = stage.config || {};
   const scoringType = stage.scoring_type;
@@ -84,7 +86,7 @@ export default function RingScoringSheet({ stage, score }: Props) {
         <ScoringSheetHeader
           title={`${typeIcon} ${typeLabel} Scoring`}
           subtitle={`${shotsCount} ${label.toLowerCase()}s • Tap to cycle values`}
-          onReset={handleResetAll}
+          onReset={isReadOnly ? undefined : handleResetAll}
         />
 
         <div className="p-3">
@@ -102,9 +104,11 @@ export default function RingScoringSheet({ stage, score }: Props) {
                     val === 11 ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 ring-2 ring-yellow-400' :
                     val >= 9 ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 ring-2 ring-green-400' :
                     val >= 7 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400' :
-                    'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 ring-2 ring-orange-400'}`}
+                    'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 ring-2 ring-orange-400'}
+                  ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                 onClick={() => cycleRingValue(idx)}
                 onContextMenu={(e) => { e.preventDefault(); longPressRing(idx); }}
+                disabled={isReadOnly}
               >
                 <span className="text-lg">{val === 0 ? '—' : ringValueLabel(val)}</span>
                 <span className="text-[10px] text-gray-400">#{idx + 1}</span>
@@ -115,8 +119,8 @@ export default function RingScoringSheet({ stage, score }: Props) {
       </div>
 
       <div className="flex items-center gap-4 mb-3 flex-wrap">
-        <DnfToggle isDnf={score.is_dnf} onToggle={() => setScore({ ...score, is_dnf: !score.is_dnf })} />
-        <DqSection shooter={shooter} />
+        <DnfToggle isDnf={score.is_dnf} onToggle={() => setScore({ ...score, is_dnf: !score.is_dnf })} disabled={isReadOnly} />
+        <DqSection shooter={shooter} disabled={isReadOnly} />
       </div>
 
       <div className="bg-green-50 dark:bg-gray-800 rounded-lg p-3 border border-green-200 dark:border-green-800 shadow-sm">

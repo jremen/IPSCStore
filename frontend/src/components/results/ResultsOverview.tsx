@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Tabs, TabItem } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
@@ -8,6 +8,8 @@ import { divisionLabel, categoryLabel } from '../../utils/constants';
 import ExportButtons from './ExportButtons';
 import ResultsTable from './ResultsTable';
 import type { DqShooter } from '../../stores/resultsStore';
+
+type ResultTab = 'byDivision' | 'overall' | 'byStage' | 'byCategory' | 'byTag';
 
 function DqTable({ dqShooters, showDivision = true }: { dqShooters: DqShooter[]; showDivision?: boolean }) {
   const { t } = useTranslation();
@@ -49,6 +51,7 @@ export default function ResultsOverview() {
   const { overallResults, dqOverall, divisionResults, dqDivisions, stageResults, categoryResults, dqCategories, tagResults, dqTags, loading,
           fetchOverall, fetchByDivision, fetchByStage, fetchByCategory, fetchByTag } = useResultsStore();
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<ResultTab>('byDivision');
 
   const activeMatch = matches?.find((m: any) => m.id === activeMatchId);
 
@@ -78,10 +81,10 @@ export default function ResultsOverview() {
 
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-xl font-bold dark:text-white">{t('results.title')}</h2>
-        <ExportButtons />
+        <ExportButtons activeTab={activeTab} />
       </div>
 
-      <Tabs>
+      <Tabs onActiveTabChange={(idx) => setActiveTab(['byDivision', 'overall', 'byStage', 'byCategory', 'byTag'][idx] as ResultTab)}>
         <TabItem title={t('results.byDivision')} active>
           <h2 className="print-only hidden text-lg font-bold mb-2">{t('results.byDivision')}</h2>
           {Object.keys(divisionResults).length === 0 && !loading && (
@@ -115,11 +118,11 @@ export default function ResultsOverview() {
                   .map(([division, scores]) => (
                     <div key={division} className="division-results-section mb-4 ml-2">
                       <h4 className="font-medium text-sm text-gray-600 dark:text-gray-400 mb-1">{divisionLabel(division)}</h4>
-                      <ResultsTable results={scores as any[]} columns={['position', 'shooter', 'stagePercent', 'stagePoints']} />
+                      <ResultsTable results={scores as any[]} columns={['position', 'shooter', 'stagePercent', 'stagePoints', 'hitFactor', 'netPoints']} />
                     </div>
                   ))
               ) : (
-                <ResultsTable results={stage.scores as any[]} columns={['position', 'shooter', 'division', 'stagePercent', 'stagePoints']} />
+                <ResultsTable results={stage.scores as any[]} columns={['position', 'shooter', 'division', 'stagePercent', 'stagePoints', 'hitFactor', 'netPoints']} />
               )}
               {stage.dq_scores && stage.dq_scores.length > 0 && (
                 <div className="mt-2 border border-red-300 rounded-lg overflow-hidden">

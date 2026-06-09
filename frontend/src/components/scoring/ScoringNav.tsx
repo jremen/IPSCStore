@@ -5,10 +5,9 @@ import { useUIStore } from '../../stores/uiStore';
 import { useScoringStore } from '../../stores/scoringStore';
 import { useStageStore } from '../../stores/stageStore';
 import { useAuthStore } from '../../stores/authStore';
-import { api } from '../../services/api';
 import { divisionLabel, categoryLabel, powerFactorLabel } from '../../utils/constants';
-import { buildEmptyScore } from '../../utils/buildEmptyScore';
-import type { Stage } from '../../types/stage';
+import { isScoreComplete } from '../../utils/scoringValidation';
+import { useScoringReadOnly } from '../../hooks/useScoringReadOnly';
 import ScoringSheet from './ScoringSheet';
 import ShooterDropdown from './ShooterDropdown';
 import SquadFilterBar from './SquadFilterBar';
@@ -21,10 +20,11 @@ interface ScoringNavProps {
 export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
   const { activeMatchId, addToast } = useUIStore();
   const { registrations, fetchRegistrations, currentRegistrationId, selectShooter,
-          currentScore, setScore, saveScore, validateScore, alerts, nextShooter, prevShooter,
+          currentScore, loadScore, saveScore, validateScore, nextShooter, prevShooter,
           activeStageId, setActiveStageId, fetchScoringProgress } = useScoringStore();
   const { stages, fetchStages } = useStageStore();
   const { authenticatedMatchId } = useAuthStore();
+  const isReadOnly = useScoringReadOnly();
   const { t } = useTranslation();
 
   // For remote scorers: fall back to authenticatedMatchId when activeMatchId isn't set yet
@@ -50,36 +50,19 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
     }
   }, [stages, activeStageId, restrictedStageId]);
 
-  const loadScoreForShooter = async (matchId: string, stageId: string, regId: string) => {
-    const stage = stages.find((s) => s.id === stageId);
-    try {
-      const result = await api.getShooterScore(matchId, stageId, regId);
-      setScore({
-        time: result.time,
-        targets: (result.targets || []).map((t: any) => ({
-          ...t,
-          target_data: t.target_data || {},
-        })),
-        procedural_count: result.procedural_count,
-        ftsa_count: result.ftsa_count,
-        extra_shot_count: result.extra_shot_count,
-        extra_hit_count: result.extra_hit_count,
-        stacking_count: result.stacking_count,
-        overtime_shot_count: result.overtime_shot_count,
-        is_dnf: result.is_dnf,
-        chrono: result.chrono,
-        score_data: result.score_data || {},
-      });
-    } catch {
-      if (stage) setScore(buildEmptyScore(stage));
+  // Load score whenever the current shooter changes (next/prev, dropdown, auto-advance)
+  useEffect(() => {
+    if (effectiveMatchId && activeStageId && currentRegistrationId) {
+      const stage = stages.find((s) => s.id === activeStageId);
+      if (stage) {
+        loadScore(effectiveMatchId, activeStageId, currentRegistrationId, stage);
+      }
     }
-  };
+  }, [currentRegistrationId, activeStageId, effectiveMatchId]);
 
-  const handleSelectShooter = async (regId: string) => {
+  const handleSelectShooter = (regId: string) => {
     selectShooter(regId);
-    if (effectiveMatchId && activeStageId) {
-      await loadScoreForShooter(effectiveMatchId, activeStageId, regId);
-    }
+    // Score load is handled by the useEffect above watching currentRegistrationId
   };
 
   const handleSave = async () => {
@@ -96,8 +79,30 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
     try {
       await saveScore(effectiveMatchId, activeStageId, currentRegistrationId, currentScore);
       addToast(t('scoring.saved'), 'success');
-      // Refresh scoring progress after save to update indicators
-      if (effectiveMatchId) fetchScoringProgress(effectiveMatchId);
+      // Refresh scoring progress after save (await so scoredIds is up-to-date)
+      if (effectiveMatchId) await fetchScoringProgress(effectiveMatchId);
+
+      // Auto-advance to next unscored shooter in current squad
+      const scored = useScoringStore.getState().scoredIds();
+      const regs = useScoringStore.getState().filteredRegistrations();
+      const currentIdx = regs.findIndex(r => r.id === currentRegistrationId);
+
+      let nextRegId: string | null = null;
+      // Search forward from current position
+      for (let i = currentIdx + 1; i < regs.length; i++) {
+        if (!scored.has(regs[i].id)) { nextRegId = regs[i].id; break; }
+      }
+      // Wrap around from the beginning
+      if (!nextRegId) {
+        for (let i = 0; i < currentIdx; i++) {
+          if (!scored.has(regs[i].id)) { nextRegId = regs[i].id; break; }
+        }
+      }
+
+      if (nextRegId) {
+        selectShooter(nextRegId);
+        // Score load is handled by the useEffect above watching currentRegistrationId
+      }
     } catch (err: any) {
       addToast(err.message, 'error');
     }
@@ -105,10 +110,7 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
 
   const handleStageChange = (stageId: string) => {
     setActiveStageId(stageId);
-    if (effectiveMatchId && currentRegistrationId) {
-      selectShooter(currentRegistrationId);
-      loadScoreForShooter(effectiveMatchId, stageId, currentRegistrationId);
-    }
+    // Score load is handled by the useEffect above watching activeStageId
   };
 
   if (!effectiveMatchId) {
@@ -116,6 +118,7 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
   }
 
   const currentStage = stages.find((s) => s.id === activeStageId);
+  const canConfirm = currentScore && currentStage && isScoreComplete(currentStage, currentScore) && !isReadOnly;
 
   return (
     <div className="flex flex-col h-full 2xl:gap-12">
@@ -170,8 +173,8 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
       {activeStageId && currentRegistrationId && (
         <div className="sticky bottom-0 z-10 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-3 flex justify-between items-center no-print">
           <Button color="gray" onClick={() => prevShooter()} className="min-h-11">{t('common.prev')}</Button>
-          <Button color="blue" onClick={handleSave} disabled={!currentScore} className="min-h-11">
-            {t('common.save')}
+          <Button color="blue" onClick={handleSave} disabled={!canConfirm} className="min-h-11">
+            {t('common.confirm')}
           </Button>
           <Button color="gray" onClick={() => nextShooter()} className="min-h-11">{t('common.next')}</Button>
         </div>

@@ -6,6 +6,7 @@ import { useMatchStore } from '../../stores/matchStore';
 import { api } from '../../services/api';
 import ShooterFormFields, { type ShooterFormData } from '../shared/ShooterFormFields';
 import type { Category, Division, PowerFactor } from '../../types/shooter';
+import { useEscClose } from '../../hooks/useEscClose';
 
 interface CreateShooterModalProps {
   show: boolean;
@@ -18,6 +19,7 @@ export default function CreateShooterModal({ show, onClose, matchId, onCreated }
   const { addToast } = useUIStore();
   const { matches } = useMatchStore();
   const { t } = useTranslation();
+  useEscClose(onClose);
   const matchOrganization = matches.find((m: any) => m.id === matchId)?.organization;
   const [squad, setSquad] = useState('');
   const [form, setForm] = useState<ShooterFormData>({

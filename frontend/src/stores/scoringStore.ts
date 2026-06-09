@@ -2,11 +2,15 @@ import { create } from 'zustand';
 import { api } from '../services/api';
 import type { ScoringAlert, TargetScore, ScoreInput, RegistrationWithShooter, ScoringProgress } from '../types/scoring';
 import type { Stage } from '../types/stage';
+import { buildEmptyScore } from '../utils/buildEmptyScore';
+import { buildScorePayload } from '../utils/buildScorePayload';
 
 interface ScoringState {
   registrations: RegistrationWithShooter[];
   currentRegistrationId: string | null;
   currentScore: ScoreInput | null;
+  /** Whether the current score was loaded from the server (previously saved) vs. newly created */
+  isExistingScore: boolean;
   alerts: ScoringAlert[];
   saving: boolean;
   loading: boolean;
@@ -19,10 +23,11 @@ interface ScoringState {
 interface ScoringActions {
   fetchRegistrations: (matchId: string) => Promise<void>;
   selectShooter: (registrationId: string) => void;
-  loadScore: (matchId: string, stageId: string, registrationId: string) => Promise<void>;
+  loadScore: (matchId: string, stageId: string, registrationId: string, stage: Stage) => Promise<void>;
   saveScore: (matchId: string, stageId: string, registrationId: string, data: ScoreInput) => Promise<void>;
   validateScore: (stage: Stage, score: ScoreInput) => ScoringAlert[];
   setScore: (score: ScoreInput) => void;
+  setIsExistingScore: (value: boolean) => void;
   nextShooter: () => void;
   prevShooter: () => void;
   setSquadFilter: (squad: number | null) => void;
@@ -40,6 +45,7 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   registrations: [],
   currentRegistrationId: null,
   currentScore: null,
+  isExistingScore: false,
   alerts: [],
   saving: false,
   loading: false,
@@ -59,17 +65,24 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   },
 
   selectShooter: (registrationId) => {
-    set({ currentRegistrationId: registrationId, alerts: [] });
+    set({ currentRegistrationId: registrationId, alerts: [], isExistingScore: false });
   },
 
-  loadScore: async (matchId, stageId, registrationId) => {
+  loadScore: async (matchId, stageId, registrationId, stage) => {
     try {
       const result = await api.getShooterScore(matchId, stageId, registrationId);
       set({
         currentScore: {
           time: result.time,
           targets: (result.targets || []).map((t: any) => ({
-            ...t,
+            target_index: t.target_index,
+            target_type: t.target_type,
+            alpha: t.alpha,
+            charlie: t.charlie,
+            delta: t.delta,
+            miss: t.miss,
+            no_shoot_hits: t.no_shoot_hits,
+            steel_hit: t.steel_hit,
             target_data: t.target_data || {},
           })),
           procedural_count: result.procedural_count,
@@ -82,18 +95,23 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
           chrono: result.chrono,
           score_data: result.score_data || {},
         },
+        isExistingScore: true,
       });
     } catch {
-      // No score yet — init empty
-      set({ currentScore: null });
+      // No score yet — create empty score for the stage
+      set({
+        currentScore: buildEmptyScore(stage),
+        isExistingScore: false,
+      });
     }
   },
 
   saveScore: async (matchId, stageId, registrationId, data) => {
     set({ saving: true, error: null });
     try {
-      await api.saveScore(matchId, stageId, registrationId, data);
-      set({ saving: false });
+      const payload = buildScorePayload(data);
+      await api.saveScore(matchId, stageId, registrationId, payload);
+      set({ saving: false, isExistingScore: true });
     } catch (err: any) {
       set({ error: err.message, saving: false });
       throw err;
@@ -110,11 +128,16 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
     if (zoneTypes.includes(scoringType)) {
       const totalHits = score.targets.reduce((sum, t) => {
         if (t.target_type === 'paper') return sum + t.alpha + t.charlie + t.delta + t.miss;
+        if (t.target_type === 'steel') return sum + 1; // always 1 — shooter fired a round whether hit or miss
         return sum;
       }, 0);
 
       if (totalHits < stage.min_rounds) {
-        alerts.push({ type: 'warning', message: `Only ${totalHits} hits entered, but minimum is ${stage.min_rounds}` });
+        alerts.push({ type: 'error', message: `Only ${totalHits} hits entered, but minimum is ${stage.min_rounds}` });
+      }
+
+      if (totalHits > stage.min_rounds) {
+        alerts.push({ type: 'error', message: `${totalHits} hits entered, but maximum is ${stage.min_rounds}` });
       }
 
       if (scoringType === 'virginia' && stage.steel_targets > 0) {
@@ -149,6 +172,8 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   },
 
   setScore: (score) => set({ currentScore: score }),
+
+  setIsExistingScore: (value) => set({ isExistingScore: value }),
 
   filteredRegistrations: () => {
     const { registrations, squadFilter } = get();
@@ -198,7 +223,7 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
       }
     }
 
-    set({ squadFilter: squad, currentRegistrationId: newRegId, alerts: [] });
+    set({ squadFilter: squad, currentRegistrationId: newRegId, alerts: [], isExistingScore: false });
   },
 
   setActiveStageId: (stageId) => {

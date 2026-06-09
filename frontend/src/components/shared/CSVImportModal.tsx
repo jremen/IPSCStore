@@ -5,12 +5,14 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
 import { useUIStore } from '../../stores/uiStore';
 import type { CSVImportResult } from '../../types/results';
+import { useEscClose } from '../../hooks/useEscClose';
 
 interface Props {
   show: boolean;
   onClose: () => void;
   type: 'shooters' | 'registrations' | 'scores';
   matchId?: string;
+  onImportComplete?: () => void;
 }
 
 const COLUMN_DEFINITIONS: Record<string, { key: string; labelKey: string; required: boolean }[]> = {
@@ -48,7 +50,7 @@ const COLUMN_DEFINITIONS: Record<string, { key: string; labelKey: string; requir
   ],
 };
 
-export default function CSVImportModal({ show, onClose, type, matchId }: Props) {
+export default function CSVImportModal({ show, onClose, type, matchId, onImportComplete }: Props) {
   const { addToast } = useUIStore();
   const { t } = useTranslation();
   const [result, setResult] = useState<CSVImportResult | null>(null);
@@ -61,12 +63,25 @@ export default function CSVImportModal({ show, onClose, type, matchId }: Props) 
 
   const columns = COLUMN_DEFINITIONS[type] || [];
 
+  /** Detect whether a CSV uses semicolons or commas as delimiter */
+  const detectDelimiter = useCallback((text: string): string => {
+    const lines = text.split('\n').slice(0, 5).filter(l => l.trim());
+    let semicolons = 0;
+    let commas = 0;
+    for (const line of lines) {
+      semicolons += (line.match(/;/g) || []).length;
+      commas += (line.match(/,/g) || []).length;
+    }
+    return semicolons > commas ? ';' : ',';
+  }, []);
+
   const parseCSVHeaders = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
       const firstLine = text.split('\n')[0] || '';
-      const headers = firstLine.split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+      const delimiter = detectDelimiter(firstLine);
+      const headers = firstLine.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
       setCsvHeaders(headers);
 
       const autoMapping: Record<string, string> = {};
@@ -102,7 +117,7 @@ export default function CSVImportModal({ show, onClose, type, matchId }: Props) 
       setStep('mapping');
     };
     reader.readAsText(file);
-  }, [columns]);
+  }, [columns, detectDelimiter]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
@@ -137,6 +152,7 @@ export default function CSVImportModal({ show, onClose, type, matchId }: Props) 
       setResult(res);
       setStep('result');
       addToast(t('import.importedCount', { count: res.imported }), 'success');
+      onImportComplete?.();
     } catch (err: any) {
       addToast(err.message, 'error');
     } finally {
@@ -152,13 +168,14 @@ export default function CSVImportModal({ show, onClose, type, matchId }: Props) 
     setColumnMapping({});
     setStep('upload');
   };
+  useEscClose(handleReset);
 
   const label = type === 'shooters' ? t('import.importShooters') : type === 'registrations' ? t('import.importRegistrations') : t('import.importScores');
 
   const sampleCSVs: Record<string, string> = {
-    shooters: 'first_name,last_name,category,tag,division,power_factor,region,email\nJohn,Doe,regular,,standard,minor,USA,john@example.com',
-    registrations: 'shooter_first_name,shooter_last_name,squad,division,category,power_factor\nJohn,Doe,1,standard,regular,minor',
-    scores: 'shooter_first_name,shooter_last_name,stage_number,time,alpha,charlie,delta,miss,no_shoot_hits,steel_hits,procedural,ftsa\nJohn,Doe,1,12.45,4,2,0,0,0,2,0,0',
+    shooters: 'first_name;last_name;category;tag;division;power_factor;region;email\nJohn;Doe;regular;;standard;minor;USA;john@example.com',
+    registrations: 'shooter_first_name;shooter_last_name;squad;division;category;power_factor\nJohn;Doe;1;standard;regular;minor',
+    scores: 'shooter_first_name;shooter_last_name;stage_number;time;alpha;charlie;delta;miss;no_shoot_hits;steel_hits;procedural;ftsa\nJohn;Doe;1;12.45;4;2;0;0;0;2;0;0',
   };
 
   const downloadSample = () => {

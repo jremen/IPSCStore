@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { sql } from './client.js';
+import bcrypt from 'bcryptjs';
 
 export async function runMigrations() {
   // Create migrations tracking table
@@ -43,8 +44,37 @@ export async function runMigrations() {
       await tx`INSERT INTO _migrations (name) VALUES (${file})`;
     });
 
+    // After migration 008 adds password_hash column, hash existing plain-text passwords
+    if (file === '008_hash_passwords.sql') {
+      await hashExistingPlainPasswords();
+    }
+
     console.log(`  Applied: ${file}`);
   }
 
   console.log('Migrations complete.');
+}
+
+/**
+ * One-time data migration: hash any remaining plain-text stage passwords.
+ * Called right after migration 008 adds the password_hash column,
+ * before migration 009 drops the plain-text password column.
+ */
+async function hashExistingPlainPasswords() {
+  const stages = await sql`
+    SELECT id, password FROM stages WHERE password IS NOT NULL AND password_hash IS NULL
+  `;
+
+  if (stages.length === 0) return;
+
+  console.log(`  Hashing ${stages.length} plain-text stage password(s)...`);
+
+  for (const stage of stages) {
+    const hash = await bcrypt.hash(stage.password, 10);
+    await sql`
+      UPDATE stages SET password_hash = ${hash}, password = NULL WHERE id = ${stage.id}
+    `;
+  }
+
+  console.log('  Stage password hashing complete.');
 }

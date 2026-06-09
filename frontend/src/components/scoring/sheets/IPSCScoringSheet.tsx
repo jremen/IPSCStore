@@ -1,18 +1,17 @@
 import { Label, Alert } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
-import { InputField } from '../../shared/InputField';
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useIPSCScoring } from '../../../hooks/useIPSCScoring';
 import { useDeviceContext } from '../../../hooks/useDeviceContext';
+import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
 import { ScoringSheetHeader, DnfToggle, DqSection, ScorePreviewCard, ProceduralsSection } from '../shared';
+import TimeInput from '../shared/TimeInput';
 import PaperTargetsTable from './IPSCPaperTargets';
 import DesktopPaperTargets from './DesktopPaperTargets';
-import SteelTargetsSection from './IPSCSteelTargets';
 import DesktopSteelTargets from './DesktopSteelTargets';
 import NoShootSection from './IPSCNoShootTargets';
 import type { Stage } from '../../../types/stage';
 import type { ScoreInput } from '../../../types/scoring';
-import { twMerge } from "tailwind-merge";
 
 interface Props {
   stage: Stage;
@@ -26,44 +25,56 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
   const shooter = useScoringStore(
     (s) => s.registrations.find(r => r.id === s.currentRegistrationId)
   );
+  const isReadOnly = useScoringReadOnly();
 
   const {
-    paperTargets, steelTargets, noShootTargets, noShootHits, steelMisses,
-    paperTotals, isTargetFinished, handlePaperHitClick, handlePaperMissClick, handlePaperDecrement,
+    paperTargets, steelTargets, noShootTargets, npmTargets, noShootHits, steelMisses, steelNSHits,
+    npmHits, paperTotals, isTargetFinished, handlePaperHitClick, handlePaperMissClick, handlePaperDecrement,
     handlePaperTotalsChange, handlePaperNSClick, handleResetTarget, handleSteelMissChange,
+    handleSteelNSClick, handleResetSteel, steelHits, handleSteelHitIncrement, handleSteelHitDecrement,
+    handleSteelMissIncrement, handleSteelMissDecrement,
+    handleNpmHitIncrement, handleNpmHitDecrement, handleResetNpm,
     handleNoShootChange, handleTimeChange, handleResetAll, handleProceduralChange,
     handlePenaltyFieldChange, handleDnfToggle, preview, isVirginia, isFixedTime,
     showExtraPenalties, hasSidebar, hpp,
   } = useIPSCScoring(stage, score);
 
-  const TimeBlock = ({className}:{className:string}) => <div className={twMerge("my-3", className)}>
-        <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
-        <InputField
-          type="number"
-          step="0.01"
-          min="0"
-          sizing="lg"
-          decimal
-          value={score.time ?? ''}
-          onChange={handleTimeChange}
-          disabled={stage.scoring_type === 'fixed_time'}
-          className="text-center text-4xl! py-1! font-semibold"
-        />
-        {stage.scoring_type === 'fixed_time' && stage.par_time && (
-          <p className="text-xs text-gray-500 mt-1 text-center">Par time: {stage.par_time}s</p>
-        )}
-      </div>
+  const timeInput = (
+    <>
+      <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
+      <TimeInput
+        value={score.time}
+        onChange={handleTimeChange}
+        disabled={isReadOnly || stage.scoring_type === 'fixed_time'}
+        className="py-1!"
+      />
+      {stage.scoring_type === 'fixed_time' && stage.par_time && (
+        <p className="text-xs text-gray-500 mt-1 text-center">Par time: {stage.par_time}s</p>
+      )}
+    </>
+  );
+
+  const hasNoShootTargets = stage.no_shoot_targets > 0;
+
+  // Subtitle showing stage composition
+  const subtitleParts = [];
+  if (stage.paper_targets > 0) subtitleParts.push(`${stage.paper_targets} paper × ${hpp} hits`);
+  if (stage.steel_targets > 0) subtitleParts.push(`${stage.steel_targets} steel`);
+  if (hasNoShootTargets) subtitleParts.push('no-shoot');
+  if (stage.npm_targets > 0) subtitleParts.push(`${stage.npm_targets} npm`);
+  const subtitle = subtitleParts.join(' • ');
 
   return (
     <div className="p-2 sm:p-4 max-lg:max-w-3xl mx-auto lg:grid grid-cols-2 gap-6">
-      {/* TIME INPUT — ALWAYS VISIBLE AT TOP */}
-      
-      <TimeBlock className="lg:hidden" />
+      {/* TIME INPUT — ALWAYS VISIBLE AT TOP (mobile) */}
+      <div className="my-3 lg:hidden">
+        {timeInput}
+      </div>
       {/* SCORING SHEET — two-column on desktop when sidebar exists */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 max-lg:mb-3 shadow-sm overflow-hidden -order-1">
         <ScoringSheetHeader
-          subtitle={`${stage.paper_targets} paper × ${hpp} hits • ${stage.steel_targets} steel • ${stage.no_shoot_targets} no-shoot`}
-          onReset={handleResetAll}
+          subtitle={subtitle}
+          onReset={isReadOnly ? undefined : handleResetAll}
         />
         {isDesktop ? (
           <p className="text-[10px] text-gray-400 px-3 -mt-1 mb-1">{t('scoring.desktopInstruction')}</p>
@@ -73,14 +84,15 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
 
         {/* Main content area: flex row on desktop when sidebar exists */}
         <div className={hasSidebar ? 'md:flex' : ''}>
-          {/* PAPER TARGETS */}
-          {paperTargets.length > 0 && (
-            <div className={hasSidebar ? 'md:flex-1 md:min-w-0' : ''}>
-              {isDesktop ? (
+          {/* MOBILE: unified scoring table (steel row + paper targets) */}
+          {/* DESKTOP: paper targets only (steel in sidebar) */}
+          <div className={hasSidebar ? 'md:flex-1 md:min-w-0' : ''}>
+            {(paperTargets.length > 0 || steelTargets.length > 0) && (
+              isDesktop ? (
                 <DesktopPaperTargets
                   paperTargets={paperTargets}
                   hpp={hpp}
-                  hasNoShootTargets={stage.no_shoot_targets > 0}
+                  hasNoShootTargets={hasNoShootTargets}
                   paperTotals={paperTotals}
                   onPaperTotalsChange={handlePaperTotalsChange}
                 />
@@ -88,34 +100,62 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
                 <PaperTargetsTable
                   paperTargets={paperTargets}
                   hpp={hpp}
-                  hasNoShootTargets={stage.no_shoot_targets > 0}
+                  hasNoShootTargets={hasNoShootTargets}
                   isTargetFinished={isTargetFinished}
                   onHitClick={handlePaperHitClick}
                   onMissClick={handlePaperMissClick}
                   onDecrement={handlePaperDecrement}
                   onNSClick={handlePaperNSClick}
                   onResetTarget={handleResetTarget}
+                  disabled={isReadOnly}
+                  steelCount={steelTargets.length}
+                  steelHits={steelHits}
+                  steelMisses={steelMisses}
+                  onSteelHitIncrement={handleSteelHitIncrement}
+                  onSteelHitDecrement={handleSteelHitDecrement}
+                  onSteelMissIncrement={handleSteelMissIncrement}
+                  onSteelMissDecrement={handleSteelMissDecrement}
+                  onSteelNSClick={handleSteelNSClick}
+                  steelNSHits={steelNSHits}
+                  onResetSteel={handleResetSteel}
+                  npmCount={npmTargets.length}
+                  npmHits={npmHits}
+                  onNpmHitIncrement={handleNpmHitIncrement}
+                  onNpmHitDecrement={handleNpmHitDecrement}
+                  onResetNpm={handleResetNpm}
                 />
-              )}
-            </div>
-          )}
+              )
+            )}
+          </div>
 
-          {/* RIGHT SIDEBAR: Steel, No-Shoot, Procedurals */}
+          {/* RIGHT SIDEBAR: Steel, No-Shoot, Procedurals (desktop only) */}
           {hasSidebar && (
             <div className="md:w-72 md:shrink-0 md:border-l md:border-gray-200 dark:md:border-gray-700">
-              {steelTargets.length > 0 && (
-                isDesktop ? (
-                  <DesktopSteelTargets
-                    steelTargets={steelTargets}
-                    steelMisses={steelMisses}
-                    onSteelMissChange={handleSteelMissChange}
-                  />
-                ) : (
-                  <SteelTargetsSection steelTargets={steelTargets} steelMisses={steelMisses} onSteelMissChange={handleSteelMissChange} />
-                )
+              {(steelTargets.length > 0 || npmTargets.length > 0) && isDesktop && (
+                <DesktopSteelTargets
+                  steelTargets={steelTargets}
+                  steelMisses={steelMisses}
+                  onSteelMissChange={handleSteelMissChange}
+                  disabled={isReadOnly}
+                  steelNSHits={steelNSHits}
+                  onSteelNSChange={handleSteelNSClick}
+                  npmCount={npmTargets.length}
+                  npmHits={npmHits}
+                  onNpmHitChange={(newHits: number) => {
+                    // Set exactly N targets as hit, rest as null
+                    const sortedNpm = [...npmTargets].sort((a, b) => a.target_index - b.target_index);
+                    const hitSet = new Set(sortedNpm.slice(0, newHits).map(t => t.target_index));
+                    const newTargets = score.targets.map(t => {
+                      if (t.target_type !== 'npm') return t;
+                      return { ...t, steel_hit: hitSet.has(t.target_index) ? true : null };
+                    });
+                    useScoringStore.getState().setScore({ ...score, targets: newTargets });
+                  }}
+                />
               )}
-              {noShootTargets.length > 0 && stage.paper_targets === 0 && (
-                <NoShootSection noShootHits={noShootHits} onNoShootChange={handleNoShootChange} />
+              {/* No-Shoot section: show standalone only when no paper targets and no steel targets */}
+              {noShootTargets.length > 0 && paperTargets.length === 0 && steelTargets.length === 0 && (
+                <NoShootSection noShootHits={noShootHits} onNoShootChange={handleNoShootChange} disabled={isReadOnly} />
               )}
               <ProceduralsSection
                 proceduralCount={score.procedural_count}
@@ -128,6 +168,7 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
                 stackingCount={score.stacking_count}
                 overtimeShotCount={score.overtime_shot_count}
                 onPenaltyFieldChange={handlePenaltyFieldChange}
+                disabled={isReadOnly}
               />
             </div>
           )}
@@ -146,6 +187,7 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
             stackingCount={score.stacking_count}
             overtimeShotCount={score.overtime_shot_count}
             onPenaltyFieldChange={handlePenaltyFieldChange}
+            disabled={isReadOnly}
           />
         )}
       </div>
@@ -161,11 +203,13 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
 
       {/* DNF + DQ toggles */}
       <div className="lg:flex flex-col justify-between">
-        <TimeBlock className="max-lg:hidden" />
+        <div className="my-3 max-lg:hidden">
+          {timeInput}
+        </div>
 
         <div className="flex items-center gap-4 mb-3 flex-wrap">
-          <DnfToggle isDnf={score.is_dnf} onToggle={handleDnfToggle} />
-          <DqSection shooter={shooter} />
+          <DnfToggle isDnf={score.is_dnf} onToggle={handleDnfToggle} disabled={isReadOnly} />
+          <DqSection shooter={shooter} disabled={isReadOnly} />
         </div>
 
         {/* Live Score Preview */}

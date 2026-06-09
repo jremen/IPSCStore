@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
 import { useMatchStore } from '../../stores/matchStore';
 import BulkEditFormFields, { type BulkEditForm } from '../shared/BulkEditFormFields';
+import { useEscClose } from '../../hooks/useEscClose';
 
 interface BulkEditRegistrationsModalProps {
   show: boolean;
@@ -32,6 +33,7 @@ export default function BulkEditRegistrationsModal({ show, onClose, selectedIds,
     setForm({ changeDivision: false, division: 'standard', changeCategory: false, category: 'regular', changePowerFactor: false, powerFactor: 'minor', changeSquad: false, squad: '' });
     onClose();
   };
+  useEscClose(handleClose);
 
   const handleSave = async () => {
     const updates: Record<string, any> = {};

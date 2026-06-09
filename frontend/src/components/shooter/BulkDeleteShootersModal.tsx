@@ -3,6 +3,7 @@ import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Alert } from 'flowb
 import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
 import { TbTrash } from "react-icons/tb";
+import { useEscClose } from '../../hooks/useEscClose';
 
 interface BulkDeleteShootersModalProps {
   show: boolean;
@@ -37,6 +38,7 @@ export default function BulkDeleteShootersModal({ show, onClose, shooterIds, sho
     setResult(null);
     onClose();
   };
+  useEscClose(handleClose);
 
   return (
     <Modal show={show} onClose={handleClose} size="md">

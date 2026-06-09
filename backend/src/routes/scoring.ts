@@ -3,8 +3,7 @@ import { sql } from '../db/client.js';
 import {
   calculateScore, calculateHitFactorScore, calculateIDPAScore,
   calculateActionSteelScore, calculateMultiGunScore, calculateRingScore,
-  calculateHitCountScore, calculateStagePercent, calculateStagePoints,
-  calculateTimeBasedPercent, calculateAggregatedScore
+  calculateHitCountScore, calculateAggregatedScore
 } from '../utils/scoringCalc.js';
 
 export const scoringRoutes = new Hono();
@@ -100,8 +99,6 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
   let x_count = 0;
 
   if (isWinMSSImport && (scoringType === 'comstock' || scoringType === 'virginia' || scoringType === 'fixed_time' || scoringType === 'hit_factor')) {
-    // WinMSS imported scores: recalculate from preserved aggregated totals, not per-target data.
-    // This ensures the score matches what was imported, even if per-target distribution isn't perfect.
     const agg = sd.aggregated;
     calcResult = calculateAggregatedScore({
       total_alpha: agg.alpha || 0,
@@ -123,7 +120,6 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
     });
 
   } else if (scoringType === 'comstock' || scoringType === 'virginia' || scoringType === 'fixed_time') {
-    // Standard IPSC/USPSA scoring — per-target with best-N rule
     calcResult = calculateScore({
       targets: targets.map((t: any) => ({
         target_type: t.target_type,
@@ -148,7 +144,6 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
     });
 
   } else if (scoringType === 'hit_factor') {
-    // Hit Factor — identical to Comstock calculation
     calcResult = calculateHitFactorScore({
       targets: targets.map((t: any) => ({
         target_type: t.target_type,
@@ -173,7 +168,6 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
     });
 
   } else if (scoringType === 'idpa') {
-    // IDPA Vickers Count
     const sd = score_data || {};
     calcResult = calculateIDPAScore({
       targets: targets.map((t: any) => ({
@@ -196,7 +190,6 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
     total_time = calcResult.total_time;
 
   } else if (scoringType === 'action_steel') {
-    // Action Steel — per-string time + plate hits
     const sd = score_data || {};
     calcResult = calculateActionSteelScore({
       string_times: sd.string_times || [],
@@ -209,7 +202,6 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
     total_time = calcResult.total_time;
 
   } else if (scoringType === 'multi_gun') {
-    // Multi-Gun — time + penalty seconds
     const sd = score_data || {};
     calcResult = calculateMultiGunScore({
       time: time || 0,
@@ -224,24 +216,20 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
     total_time = calcResult.total_time;
 
   } else if (scoringType === 'bullseye' || scoringType === 'archery' || (scoringType === 'long_range' && stageConfig.variant === 'f_class')) {
-    // Ring-based scoring
     const sd = score_data || {};
     const ringValues = sd.ring_values || [];
     calcResult = calculateRingScore(ringValues);
     x_count = calcResult.x_count;
 
   } else if (scoringType === 'nrl22' || (scoringType === 'long_range' && stageConfig.variant !== 'f_class')) {
-    // Hit-count scoring
     const hits = targets.filter((t: any) => t.target_data?.hit === true).length;
     const pointValue = stageConfig.point_value || 10;
     calcResult = calculateHitCountScore(hits, pointValue);
 
   } else if (scoringType === 'chrono') {
-    // Chrono — existing behavior
     calcResult = { raw_points: 0, penalty_points: 0, net_points: 0, hit_factor: 0 };
 
   } else {
-    // Fallback — use existing calculation
     calcResult = calculateScore({
       targets: targets.map((t: any) => ({
         target_type: t.target_type,
@@ -266,89 +254,93 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
     });
   }
 
-  // Upsert stage_score with type-specific fields
-  const [score] = await sql`
-    INSERT INTO stage_scores (match_id, stage_id, registration_id, time,
-      extra_shot_count, extra_hit_count, stacking_count, overtime_shot_count,
-      procedural_count, ftsa_count, is_dnf,
-      raw_points, penalty_points, net_points, hit_factor,
-      total_time, x_count, score_data)
-    VALUES (${matchId}, ${stageId}, ${registrationId}, ${time ?? null},
-      ${extra_shot_count}, ${extra_hit_count}, ${stacking_count}, ${overtime_shot_count},
-      ${procedural_count}, ${ftsa_count}, ${is_dnf},
-      ${calcResult.raw_points}, ${calcResult.penalty_points}, ${calcResult.net_points}, ${calcResult.hit_factor},
-      ${total_time}, ${x_count}, ${JSON.stringify(score_data || {})})
-    ON CONFLICT (stage_id, registration_id) DO UPDATE SET
-      time = ${time ?? null},
-      extra_shot_count = ${extra_shot_count},
-      extra_hit_count = ${extra_hit_count},
-      stacking_count = ${stacking_count},
-      overtime_shot_count = ${overtime_shot_count},
-      procedural_count = ${procedural_count},
-      ftsa_count = ${ftsa_count},
-      is_dnf = ${is_dnf},
-      raw_points = ${calcResult.raw_points},
-      penalty_points = ${calcResult.penalty_points},
-      net_points = ${calcResult.net_points},
-      hit_factor = ${calcResult.hit_factor},
-      total_time = ${total_time},
-      x_count = ${x_count},
-      score_data = ${JSON.stringify(score_data || {})},
-      updated_at = NOW()
-    RETURNING *
-  `;
-
-  // Upsert target_scores (with target_data JSONB)
-  for (const t of targets) {
-    const targetData = t.target_data ? JSON.stringify(t.target_data) : '{}';
-    await sql`
-      INSERT INTO target_scores (stage_score_id, target_index, target_type, alpha, charlie, delta, miss, no_shoot_hits, steel_hit, target_data)
-      VALUES (${score.id}, ${t.target_index}, ${t.target_type}, ${t.alpha || 0}, ${t.charlie || 0}, ${t.delta || 0}, ${t.miss || 0}, ${t.no_shoot_hits || 0}, ${t.steel_hit !== undefined ? t.steel_hit : null}, ${targetData}::jsonb)
-      ON CONFLICT (stage_score_id, target_index) DO UPDATE SET
-        alpha = ${t.alpha || 0}, charlie = ${t.charlie || 0}, delta = ${t.delta || 0},
-        miss = ${t.miss || 0}, no_shoot_hits = ${t.no_shoot_hits || 0},
-        steel_hit = ${t.steel_hit !== undefined ? t.steel_hit : null},
-        target_data = ${targetData}::jsonb
-    `;
-  }
-
-  // Handle chrono if provided
-  if (chrono && scoringType === 'chrono') {
-    const { calculateChronoPf, checkPfPassed } = await import('../utils/scoringCalc.js');
-    const chronoResult = calculateChronoPf(chrono.bullet_weight, chrono.velocity_1, chrono.velocity_2, chrono.velocity_3);
-
-    const [match] = await sql`SELECT organization FROM matches WHERE id = ${matchId}`;
-    const pfCheck = checkPfPassed(chronoResult.calculatedPf, powerFactor, match.organization);
-
-    await sql`
-      INSERT INTO chrono_results (stage_score_id, bullet_weight, velocity_1, velocity_2, velocity_3,
-                                   avg_velocity, calculated_pf, pf_passed)
-      VALUES (${score.id}, ${chrono.bullet_weight}, ${chrono.velocity_1 || null}, ${chrono.velocity_2 || null},
-              ${chrono.velocity_3 || null}, ${chronoResult.avgVelocity}, ${chronoResult.calculatedPf}, ${pfCheck.passed})
-      ON CONFLICT (stage_score_id) DO UPDATE SET
-        bullet_weight = ${chrono.bullet_weight},
-        velocity_1 = ${chrono.velocity_1 || null},
-        velocity_2 = ${chrono.velocity_2 || null},
-        velocity_3 = ${chrono.velocity_3 || null},
-        avg_velocity = ${chronoResult.avgVelocity},
-        calculated_pf = ${chronoResult.calculatedPf},
-        pf_passed = ${pfCheck.passed},
+  // Run the entire save + recalculate in a transaction to prevent concurrent write conflicts
+  const scoreResult = await sql.begin(async (sql) => {
+    // Upsert stage_score with type-specific fields
+    const [score] = await sql`
+      INSERT INTO stage_scores (match_id, stage_id, registration_id, time,
+        extra_shot_count, extra_hit_count, stacking_count, overtime_shot_count,
+        procedural_count, ftsa_count, is_dnf,
+        raw_points, penalty_points, net_points, hit_factor,
+        total_time, x_count, score_data)
+      VALUES (${matchId}, ${stageId}, ${registrationId}, ${time ?? null},
+        ${extra_shot_count}, ${extra_hit_count}, ${stacking_count}, ${overtime_shot_count},
+        ${procedural_count}, ${ftsa_count}, ${is_dnf},
+        ${calcResult.raw_points}, ${calcResult.penalty_points}, ${calcResult.net_points}, ${calcResult.hit_factor},
+        ${total_time}, ${x_count}, ${JSON.stringify(score_data || {})})
+      ON CONFLICT (stage_id, registration_id) DO UPDATE SET
+        time = ${time ?? null},
+        extra_shot_count = ${extra_shot_count},
+        extra_hit_count = ${extra_hit_count},
+        stacking_count = ${stacking_count},
+        overtime_shot_count = ${overtime_shot_count},
+        procedural_count = ${procedural_count},
+        ftsa_count = ${ftsa_count},
+        is_dnf = ${is_dnf},
+        raw_points = ${calcResult.raw_points},
+        penalty_points = ${calcResult.penalty_points},
+        net_points = ${calcResult.net_points},
+        hit_factor = ${calcResult.hit_factor},
+        total_time = ${total_time},
+        x_count = ${x_count},
+        score_data = ${JSON.stringify(score_data || {})},
         updated_at = NOW()
+      RETURNING *
     `;
 
-    // Reclassify if PF failed but passed minor
-    if (pfCheck.reclassifyTo) {
+    // Upsert target_scores
+    for (const t of targets) {
+      const targetData = t.target_data ? JSON.stringify(t.target_data) : '{}';
       await sql`
-        UPDATE match_registrations SET power_factor = ${pfCheck.reclassifyTo}
-        WHERE id = ${registrationId}
+        INSERT INTO target_scores (stage_score_id, target_index, target_type, alpha, charlie, delta, miss, no_shoot_hits, steel_hit, target_data)
+        VALUES (${score.id}, ${t.target_index}, ${t.target_type}, ${t.alpha || 0}, ${t.charlie || 0}, ${t.delta || 0}, ${t.miss || 0}, ${t.no_shoot_hits || 0}, ${t.steel_hit !== undefined ? t.steel_hit : null}, ${targetData}::jsonb)
+        ON CONFLICT (stage_score_id, target_index) DO UPDATE SET
+          alpha = ${t.alpha || 0}, charlie = ${t.charlie || 0}, delta = ${t.delta || 0},
+          miss = ${t.miss || 0}, no_shoot_hits = ${t.no_shoot_hits || 0},
+          steel_hit = ${t.steel_hit !== undefined ? t.steel_hit : null},
+          target_data = ${targetData}::jsonb
       `;
     }
-  }
 
-  // Trigger stage recalculation
+    // Handle chrono if provided
+    if (chrono && scoringType === 'chrono') {
+      const { calculateChronoPf, checkPfPassed } = await import('../utils/scoringCalc.js');
+      const chronoResult = calculateChronoPf(chrono.bullet_weight, chrono.velocity_1, chrono.velocity_2, chrono.velocity_3);
+
+      const [match] = await sql`SELECT organization FROM matches WHERE id = ${matchId}`;
+      const pfCheck = checkPfPassed(chronoResult.calculatedPf, powerFactor, match.organization);
+
+      await sql`
+        INSERT INTO chrono_results (stage_score_id, bullet_weight, velocity_1, velocity_2, velocity_3,
+                                     avg_velocity, calculated_pf, pf_passed)
+        VALUES (${score.id}, ${chrono.bullet_weight}, ${chrono.velocity_1 || null}, ${chrono.velocity_2 || null},
+                ${chrono.velocity_3 || null}, ${chronoResult.avgVelocity}, ${chronoResult.calculatedPf}, ${pfCheck.passed})
+        ON CONFLICT (stage_score_id) DO UPDATE SET
+          bullet_weight = ${chrono.bullet_weight},
+          velocity_1 = ${chrono.velocity_1 || null},
+          velocity_2 = ${chrono.velocity_2 || null},
+          velocity_3 = ${chrono.velocity_3 || null},
+          avg_velocity = ${chronoResult.avgVelocity},
+          calculated_pf = ${chronoResult.calculatedPf},
+          pf_passed = ${pfCheck.passed},
+          updated_at = NOW()
+      `;
+
+      if (pfCheck.reclassifyTo) {
+        await sql`
+          UPDATE match_registrations SET power_factor = ${pfCheck.reclassifyTo}
+          WHERE id = ${registrationId}
+        `;
+      }
+    }
+
+    return score;
+  });
+
+  // Recalculate stage rankings (outside transaction — reads committed data)
   await recalculateStage(matchId, stageId);
 
-  return c.json({ ...score, targets, calcResult });
+  return c.json({ ...scoreResult, targets, calcResult });
 });
 
 // Recalculate all scores for a stage
@@ -368,104 +360,195 @@ scoringRoutes.post('/matches/:matchId/recalculate', async (c) => {
   return c.json({ recalculated: true, stage_count: stages.length });
 });
 
+/**
+ * Recalculate stage_percent and stage_points for all shooters on a stage.
+ * Uses atomic SQL window functions instead of per-row UPDATEs to prevent
+ * race conditions when multiple range officers save simultaneously.
+ */
 async function recalculateStage(matchId: string, stageId: string) {
   const [stage] = await sql`SELECT * FROM stages WHERE id = ${stageId}`;
   const stageConfig = typeof stage.config === 'string' ? JSON.parse(stage.config) : (stage.config || {});
-
-  // Get all non-DQ, non-DNF scores with division info for per-division ranking
-  const scores = await sql`
-    SELECT ss.id, ss.hit_factor, ss.net_points, ss.total_time, ss.x_count, ss.registration_id,
-           COALESCE(mr.division, s.division) as division
-    FROM stage_scores ss
-    JOIN match_registrations mr ON mr.id = ss.registration_id
-    JOIN shooters s ON s.id = mr.shooter_id
-    WHERE ss.stage_id = ${stageId} AND mr.is_dq = FALSE AND ss.is_dnf = FALSE
-  `;
-
   const scoringType = stage.scoring_type;
   const maxPoints = Number(stage.max_points);
 
-  // Group scores by division for per-division ranking
-  const divisionGroups = new Map<string, any[]>();
-  for (const score of scores) {
-    const div = (score as any).division || 'unknown';
-    if (!divisionGroups.has(div)) divisionGroups.set(div, []);
-    divisionGroups.get(div)!.push(score);
-  }
+  // Use a transaction for atomicity — prevents concurrent recalculations from interleaving
+  await sql.begin(async (sql) => {
 
-  // For each division, compute stage_percent and stage_points relative to the best in that division
-  for (const [division, divScores] of divisionGroups) {
     if (['comstock', 'virginia', 'hit_factor'].includes(scoringType)) {
-      // Rank by hit_factor (highest wins) within division
-      const highestHF = Math.max(0, ...divScores.map((s: any) => Number(s.hit_factor)));
-      for (const score of divScores) {
-        const stagePercent = calculateStagePercent(Number(score.hit_factor), highestHF);
-        const stagePoints = calculateStagePoints(stagePercent, maxPoints);
-        await sql`
-          UPDATE stage_scores SET stage_percent = ${stagePercent}, stage_points = ${stagePoints}
-          WHERE id = ${score.id}
-        `;
-      }
+      // Rank by hit_factor (highest wins) within each division
+      await sql`
+        WITH ranked AS (
+          SELECT ss.id,
+            ROUND(CASE WHEN best.best_hf <= 0 THEN 0
+                 ELSE (ss.hit_factor / best.best_hf) * 100 END, 4) as stage_percent,
+            ROUND(CASE WHEN best.best_hf <= 0 THEN 0
+                 ELSE (ss.hit_factor / best.best_hf) * ${maxPoints} END, 2) as stage_points
+          FROM stage_scores ss
+          JOIN match_registrations mr ON mr.id = ss.registration_id
+          JOIN shooters s ON s.id = mr.shooter_id
+          CROSS JOIN LATERAL (
+            SELECT MAX(ss2.hit_factor) as best_hf
+            FROM stage_scores ss2
+            JOIN match_registrations mr2 ON mr2.id = ss2.registration_id
+            JOIN shooters s2 ON s2.id = mr2.shooter_id
+            WHERE ss2.stage_id = ${stageId}
+              AND mr2.is_dq = FALSE
+              AND ss2.is_dnf = FALSE
+              AND COALESCE(mr2.division, s2.division) = COALESCE(mr.division, s.division)
+          ) best
+          WHERE ss.stage_id = ${stageId}
+            AND mr.is_dq = FALSE
+            AND ss.is_dnf = FALSE
+        )
+        UPDATE stage_scores ss
+        SET stage_percent = ranked.stage_percent, stage_points = ranked.stage_points
+        FROM ranked
+        WHERE ss.id = ranked.id
+      `;
+
     } else if (scoringType === 'fixed_time') {
-      // Rank by net_points (highest wins) within division
-      const highestNP = Math.max(0, ...divScores.map((s: any) => Number(s.net_points)));
-      for (const score of divScores) {
-        const stagePercent = calculateStagePercent(Number(score.net_points), highestNP);
-        const stagePoints = calculateStagePoints(stagePercent, maxPoints);
-        await sql`
-          UPDATE stage_scores SET stage_percent = ${stagePercent}, stage_points = ${stagePoints}
-          WHERE id = ${score.id}
-        `;
-      }
+      // Rank by net_points (highest wins) within each division
+      await sql`
+        WITH ranked AS (
+          SELECT ss.id,
+            ROUND(CASE WHEN best.best_np <= 0 THEN 0
+                 ELSE (ss.net_points / best.best_np) * 100 END, 4) as stage_percent,
+            ROUND(CASE WHEN best.best_np <= 0 THEN 0
+                 ELSE (ss.net_points / best.best_np) * ${maxPoints} END, 2) as stage_points
+          FROM stage_scores ss
+          JOIN match_registrations mr ON mr.id = ss.registration_id
+          JOIN shooters s ON s.id = mr.shooter_id
+          CROSS JOIN LATERAL (
+            SELECT MAX(ss2.net_points) as best_np
+            FROM stage_scores ss2
+            JOIN match_registrations mr2 ON mr2.id = ss2.registration_id
+            JOIN shooters s2 ON s2.id = mr2.shooter_id
+            WHERE ss2.stage_id = ${stageId}
+              AND mr2.is_dq = FALSE
+              AND ss2.is_dnf = FALSE
+              AND COALESCE(mr2.division, s2.division) = COALESCE(mr.division, s.division)
+          ) best
+          WHERE ss.stage_id = ${stageId}
+            AND mr.is_dq = FALSE
+            AND ss.is_dnf = FALSE
+        )
+        UPDATE stage_scores ss
+        SET stage_percent = ranked.stage_percent, stage_points = ranked.stage_points
+        FROM ranked
+        WHERE ss.id = ranked.id
+      `;
+
     } else if (['idpa', 'action_steel', 'multi_gun'].includes(scoringType)) {
-      // Rank by total_time (lowest wins) within division
-      const validTimes = divScores.map((s: any) => Number(s.total_time)).filter((t: number) => t > 0);
-      const lowestTime = validTimes.length > 0 ? Math.min(...validTimes) : 0;
-      for (const score of divScores) {
-        const stagePercent = calculateTimeBasedPercent(Number(score.total_time), lowestTime);
-        const stagePoints = calculateStagePoints(stagePercent, maxPoints);
-        await sql`
-          UPDATE stage_scores SET stage_percent = ${stagePercent}, stage_points = ${stagePoints}
-          WHERE id = ${score.id}
-        `;
-      }
+      // Rank by total_time (lowest wins) within each division
+      await sql`
+        WITH ranked AS (
+          SELECT ss.id,
+            ROUND(CASE WHEN best.lowest_time <= 0 OR ss.total_time <= 0 THEN 0
+                 ELSE (best.lowest_time / ss.total_time) * 100 END, 4) as stage_percent,
+            ROUND(CASE WHEN best.lowest_time <= 0 OR ss.total_time <= 0 THEN 0
+                 ELSE (best.lowest_time / ss.total_time) * ${maxPoints} END, 2) as stage_points
+          FROM stage_scores ss
+          JOIN match_registrations mr ON mr.id = ss.registration_id
+          JOIN shooters s ON s.id = mr.shooter_id
+          CROSS JOIN LATERAL (
+            SELECT MIN(ss2.total_time) as lowest_time
+            FROM stage_scores ss2
+            JOIN match_registrations mr2 ON mr2.id = ss2.registration_id
+            JOIN shooters s2 ON s2.id = mr2.shooter_id
+            WHERE ss2.stage_id = ${stageId}
+              AND mr2.is_dq = FALSE
+              AND ss2.is_dnf = FALSE
+              AND ss2.total_time > 0
+              AND COALESCE(mr2.division, s2.division) = COALESCE(mr.division, s.division)
+          ) best
+          WHERE ss.stage_id = ${stageId}
+            AND mr.is_dq = FALSE
+            AND ss.is_dnf = FALSE
+        )
+        UPDATE stage_scores ss
+        SET stage_percent = ranked.stage_percent, stage_points = ranked.stage_points
+        FROM ranked
+        WHERE ss.id = ranked.id
+      `;
+
     } else if (['bullseye', 'archery'].includes(scoringType) || (scoringType === 'long_range' && stageConfig.variant === 'f_class')) {
-      // Rank by net_points (highest wins) within division
-      const highestNP = Math.max(0, ...divScores.map((s: any) => Number(s.net_points)));
-      for (const score of divScores) {
-        const stagePercent = calculateStagePercent(Number(score.net_points), highestNP);
-        const stagePoints = calculateStagePoints(stagePercent, maxPoints);
-        await sql`
-          UPDATE stage_scores SET stage_percent = ${stagePercent}, stage_points = ${stagePoints}
-          WHERE id = ${score.id}
-        `;
-      }
+      // Rank by net_points (highest wins) within each division
+      await sql`
+        WITH ranked AS (
+          SELECT ss.id,
+            ROUND(CASE WHEN best.best_np <= 0 THEN 0
+                 ELSE (ss.net_points / best.best_np) * 100 END, 4) as stage_percent,
+            ROUND(CASE WHEN best.best_np <= 0 THEN 0
+                 ELSE (ss.net_points / best.best_np) * ${maxPoints} END, 2) as stage_points
+          FROM stage_scores ss
+          JOIN match_registrations mr ON mr.id = ss.registration_id
+          JOIN shooters s ON s.id = mr.shooter_id
+          CROSS JOIN LATERAL (
+            SELECT MAX(ss2.net_points) as best_np
+            FROM stage_scores ss2
+            JOIN match_registrations mr2 ON mr2.id = ss2.registration_id
+            JOIN shooters s2 ON s2.id = mr2.shooter_id
+            WHERE ss2.stage_id = ${stageId}
+              AND mr2.is_dq = FALSE
+              AND ss2.is_dnf = FALSE
+              AND COALESCE(mr2.division, s2.division) = COALESCE(mr.division, s.division)
+          ) best
+          WHERE ss.stage_id = ${stageId}
+            AND mr.is_dq = FALSE
+            AND ss.is_dnf = FALSE
+        )
+        UPDATE stage_scores ss
+        SET stage_percent = ranked.stage_percent, stage_points = ranked.stage_points
+        FROM ranked
+        WHERE ss.id = ranked.id
+      `;
+
     } else if (['nrl22'].includes(scoringType) || (scoringType === 'long_range' && stageConfig.variant !== 'f_class')) {
-      // Rank by net_points as percentage of winner within division
-      const highestNP = Math.max(0, ...divScores.map((s: any) => Number(s.net_points)));
-      for (const score of divScores) {
-        const stagePercent = calculateStagePercent(Number(score.net_points), highestNP);
-        const stagePoints = calculateStagePoints(stagePercent, maxPoints);
-        await sql`
-          UPDATE stage_scores SET stage_percent = ${stagePercent}, stage_points = ${stagePoints}
-          WHERE id = ${score.id}
-        `;
-      }
+      // Rank by net_points (highest wins) within each division
+      await sql`
+        WITH ranked AS (
+          SELECT ss.id,
+            ROUND(CASE WHEN best.best_np <= 0 THEN 0
+                 ELSE (ss.net_points / best.best_np) * 100 END, 4) as stage_percent,
+            ROUND(CASE WHEN best.best_np <= 0 THEN 0
+                 ELSE (ss.net_points / best.best_np) * ${maxPoints} END, 2) as stage_points
+          FROM stage_scores ss
+          JOIN match_registrations mr ON mr.id = ss.registration_id
+          JOIN shooters s ON s.id = mr.shooter_id
+          CROSS JOIN LATERAL (
+            SELECT MAX(ss2.net_points) as best_np
+            FROM stage_scores ss2
+            JOIN match_registrations mr2 ON mr2.id = ss2.registration_id
+            JOIN shooters s2 ON s2.id = mr2.shooter_id
+            WHERE ss2.stage_id = ${stageId}
+              AND mr2.is_dq = FALSE
+              AND ss2.is_dnf = FALSE
+              AND COALESCE(mr2.division, s2.division) = COALESCE(mr.division, s.division)
+          ) best
+          WHERE ss.stage_id = ${stageId}
+            AND mr.is_dq = FALSE
+            AND ss.is_dnf = FALSE
+        )
+        UPDATE stage_scores ss
+        SET stage_percent = ranked.stage_percent, stage_points = ranked.stage_points
+        FROM ranked
+        WHERE ss.id = ranked.id
+      `;
     }
-  }
 
-  // DQ shooters: zero stage_points and stage_percent
-  await sql`
-    UPDATE stage_scores ss
-    SET stage_points = 0, stage_percent = 0
-    FROM match_registrations mr
-    WHERE ss.registration_id = mr.id AND ss.stage_id = ${stageId} AND mr.is_dq = TRUE
-  `;
+    // DQ shooters: zero stage_points and stage_percent
+    await sql`
+      UPDATE stage_scores ss
+      SET stage_points = 0, stage_percent = 0
+      FROM match_registrations mr
+      WHERE ss.registration_id = mr.id AND ss.stage_id = ${stageId} AND mr.is_dq = TRUE
+    `;
 
-  // DNF shooters: zero stage_points and stage_percent
-  await sql`
-    UPDATE stage_scores
-    SET stage_points = 0, stage_percent = 0
-    WHERE stage_id = ${stageId} AND is_dnf = TRUE
-  `;
+    // DNF shooters: zero stage_points and stage_percent
+    await sql`
+      UPDATE stage_scores
+      SET stage_points = 0, stage_percent = 0
+      WHERE stage_id = ${stageId} AND is_dnf = TRUE
+    `;
+  });
 }

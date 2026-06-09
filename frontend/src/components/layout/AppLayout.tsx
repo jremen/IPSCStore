@@ -9,11 +9,13 @@ import ShooterDatabase from '../shooter/ShooterDatabase';
 import Registration from '../registration/MatchRegistration';
 import Scoring from '../scoring/ScoringNav';
 import Results from '../results/ResultsOverview';
+import AdminLoginPage from '../auth/AdminLoginPage';
 import StageLoginPage from '../auth/StageLoginPage';
+import PublicResultsView from '../results/PublicResultsView';
 
 export default function AppLayout() {
-  const { activeTab, setActiveTab, setActiveMatch } = useUIStore();
-  const { isAuthenticated, isAdmin, authenticatedStageId, authenticatedMatchId, restoreSession } = useAuthStore();
+  const { activeTab, setActiveMatch } = useUIStore();
+  const { isAuthenticated, isAdmin, isLocalNetwork, domainMode, authenticatedStageId, authenticatedMatchId, restoreSession } = useAuthStore();
 
   // Restore auth session on mount
   useEffect(() => {
@@ -29,8 +31,22 @@ export default function AppLayout() {
     }
   }, [isAuthenticated, isAdmin, authenticatedMatchId, setActiveMatch]);
 
-  // Not authenticated and not admin → show login page
+  // Domain mode: vysledky.local → show public results (no login needed)
+  if (domainMode === 'results') {
+    return <PublicResultsView />;
+  }
+
+  // Not authenticated → show login page
   if (!isAuthenticated) {
+    // Domain mode: hodnotenie.local → always show stage login (never admin)
+    if (domainMode === 'scoring') {
+      return <StageLoginPage />;
+    }
+    // On local network → show admin login
+    if (isLocalNetwork) {
+      return <AdminLoginPage />;
+    }
+    // Remote → show scorer login
     return <StageLoginPage />;
   }
 

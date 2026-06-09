@@ -1,11 +1,13 @@
 import { app } from 'electron';
 import path from 'path';
-import { execFile, exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
 
 const execFileAsync = promisify(execFile);
-const execAsync = promisify(exec);
+
+/** Whether we're running on Windows */
+const isWin32 = process.platform === 'win32';
 
 /** Common system PostgreSQL binary directories to search */
 const SYSTEM_PG_PATHS: Record<string, string[]> = {
@@ -47,7 +49,6 @@ export interface PgConfig {
 export class PgManager {
   private config: PgConfig;
   private pgBinDir: string;
-  private initialized = false;
 
   constructor(config?: Partial<PgConfig>) {
     const userDataDir = app.getPath('userData');
@@ -174,12 +175,13 @@ export class PgManager {
 
     // Run initdb
     const initdb = this.getBin('initdb');
+    const env = this.getEnvWithBinPath();
     await execFileAsync(initdb, [
       '-D', this.config.dataDir,
       '-U', this.config.user,
       '--auth=trust',
       '--encoding=UTF8',
-    ]);
+    ], { env });
 
     // Start temporarily to create database
     await this.start();
@@ -195,7 +197,7 @@ export class PgManager {
         '-p', String(this.config.port),
         '-U', this.config.user,
         this.config.database,
-      ]);
+      ], { env });
     } catch (err) {
       // Database might already exist, that's OK
       console.log('[PgManager] Database may already exist, continuing...');
@@ -204,7 +206,6 @@ export class PgManager {
     // Stop PostgreSQL after initialization
     await this.stop();
 
-    this.initialized = true;
     console.log('[PgManager] PostgreSQL initialized successfully');
   }
 
@@ -212,6 +213,11 @@ export class PgManager {
    * Import seed data into the database.
    * Called after the backend runs migrations (which create the tables).
    * Only runs on first launch — tracked by a `.seeded` marker file.
+   *
+   * Uses --disable-triggers to avoid foreign key ordering issues during import.
+   * Duplicate key errors are expected if the database already has data from a
+   * previous run, so we always write the .seeded marker after import to prevent
+   * repeated attempts.
    */
   async importSeedData(): Promise<void> {
     const seededMarker = path.join(this.config.dataDir, '.seeded');
@@ -233,6 +239,8 @@ export class PgManager {
 
     if (!seedDataPath || !await this.fileExists(seedDataPath)) {
       console.log('[PgManager] No seed data file found, skipping import');
+      // Write the marker even without seed data so we don't retry on every launch
+      await fs.writeFile(seededMarker, new Date().toISOString());
       return;
     }
 
@@ -241,18 +249,29 @@ export class PgManager {
     // Check that pg_restore exists
     if (!await this.binExists('pg_restore')) {
       console.warn('[PgManager] pg_restore not found, cannot import seed data');
+      await fs.writeFile(seededMarker, new Date().toISOString());
       return;
     }
 
     const pgRestore = this.getBin('pg_restore');
+    const env = this.getEnvWithBinPath();
 
+    // Use --disable-triggers to avoid foreign key ordering issues during import.
+    // This requires the SUPERUSER role which our ipscscore user has on the local instance.
+    // Use execFileAsync instead of execAsync to avoid shell quoting issues on Windows.
     try {
-      const { stderr } = await execAsync(
-        `"${pgRestore}" --data-only --no-owner --no-privileges --no-comments ` +
-        `-h ${this.config.host} -p ${this.config.port} -U ${this.config.user} ` +
-        `-d ${this.config.database} "${seedDataPath}"`,
-        { timeout: 120000 }
-      );
+      const { stderr } = await execFileAsync(pgRestore, [
+        '--data-only',
+        '--no-owner',
+        '--no-privileges',
+        '--no-comments',
+        '--disable-triggers',
+        '-h', this.config.host,
+        '-p', String(this.config.port),
+        '-U', this.config.user,
+        '-d', this.config.database,
+        seedDataPath,
+      ], { env, timeout: 120000 });
 
       if (stderr && !stderr.includes('WARNING')) {
         console.warn('[PgManager] pg_restore warnings:', stderr);
@@ -260,20 +279,26 @@ export class PgManager {
 
       // Mark as seeded
       await fs.writeFile(seededMarker, new Date().toISOString());
-
       console.log('[PgManager] Seed data imported successfully');
     } catch (err: any) {
-      // pg_restore exits with code 1 for warnings, which execAsync treats as error
-      // Check if it was actually successful by looking at the error message
+      // pg_restore exits with code 1 even for non-fatal errors (like duplicate keys).
+      // Since we're importing into a fresh database after migrations, errors here
+      // typically mean data already exists from a previous failed attempt or a
+      // schema mismatch in the dump. Either way, we write the marker to prevent
+      // repeated import attempts on every startup.
       const output = err?.stdout || err?.stderr || String(err);
-      if (output.includes('ERROR')) {
-        console.error('[PgManager] Failed to import seed data:', err);
+      const errorCount = (output.match(/ERROR/g) || []).length;
+      if (errorCount > 0) {
+        console.warn(`[PgManager] pg_restore completed with ${errorCount} error(s). ` +
+          'This is normal if data already exists in the database.');
+        console.warn('[PgManager] Error details:', output.substring(0, 500));
       } else {
-        // Likely just warnings — mark as seeded anyway
-        console.warn('[PgManager] pg_restore completed with warnings:', output);
-        await fs.writeFile(seededMarker, new Date().toISOString());
-        console.log('[PgManager] Seed data imported (with warnings)');
+        console.warn('[PgManager] pg_restore completed with warnings:', output.substring(0, 500));
       }
+
+      // Always write the marker to prevent repeated import attempts
+      await fs.writeFile(seededMarker, new Date().toISOString());
+      console.log('[PgManager] Seed data import finished (marker written to prevent retries)');
     }
   }
 
@@ -296,28 +321,74 @@ export class PgManager {
 
     // Configure PostgreSQL to listen on our port
     const postgresConf = path.join(this.config.dataDir, 'postgresql.conf');
+
+    // The compiled-in dynamic_library_path points to the EDB install dir
+    // (e.g. C:\Program Files\PostgreSQL\16\lib on Windows or
+    // /opt/pginstaller_16.auto/... on macOS) which doesn't exist in our bundled app.
+    // Set it to our bundled lib directory instead.
+    const pgLibDir = path.join(path.dirname(this.pgBinDir), 'lib');
+    // Use forward slashes for PostgreSQL config (even on Windows)
+    const pgLibDirPg = pgLibDir.replace(/\\/g, '/');
+    const dynamicLibraryPathLine = `dynamic_library_path = '${pgLibDirPg}'`;
+
     try {
       await fs.access(postgresConf);
+      // Config file exists — ensure dynamic_library_path is set
+      const existingConf = await fs.readFile(postgresConf, 'utf-8');
+      if (!existingConf.includes('dynamic_library_path')) {
+        // Append the setting if it's missing (upgrades from older versions)
+        await fs.appendFile(postgresConf, `\n${dynamicLibraryPathLine}\n`);
+        console.log('[PgManager] Added dynamic_library_path to existing postgresql.conf');
+      }
     } catch {
       // Create minimal postgresql.conf
-      await fs.writeFile(postgresConf, [
+      const confLines = [
         `listen_addresses = '${this.config.host}'`,
         `port = ${this.config.port}`,
         `max_connections = 100`,
         `shared_buffers = 128MB`,
-      ].join('\n'));
+        dynamicLibraryPathLine,
+      ];
+
+      await fs.writeFile(postgresConf, confLines.join('\n'));
     }
 
     const pgCtl = this.getBin('pg_ctl');
     const logFile = path.join(this.config.dataDir, 'pg.log');
+    const env = this.getEnvWithBinPath();
 
-    await execFileAsync(pgCtl, [
+    // On Windows, pg_ctl start -w can hang because postgres.exe is a console app
+    // that doesn't detach properly. Use -w on macOS/Linux, but skip it on Windows
+    // and use our own readiness check instead.
+    const args = [
       'start',
       '-D', this.config.dataDir,
       '-l', logFile,
       '-o', `-p ${this.config.port}`,
-      '-w', // Wait until started
-    ]);
+    ];
+
+    if (!isWin32) {
+      args.push('-w'); // Wait until started (works reliably on Unix)
+    }
+
+    try {
+      await execFileAsync(pgCtl, args, { env, timeout: 30000 });
+    } catch (err: any) {
+      // On Windows, pg_ctl start without -w returns immediately, so this
+      // shouldn't timeout. On Unix with -w, a timeout means PG didn't start.
+      if (isWin32 && err?.killed) {
+        // Timeout on Windows — pg_ctl might not have started yet, but that's OK
+        // We'll check readiness in waitReady()
+        console.log('[PgManager] pg_ctl start timed out (Windows), checking readiness...');
+      } else if (!isWin32) {
+        throw err;
+      }
+    }
+
+    // On Windows, always wait for readiness manually since we can't rely on -w
+    if (isWin32) {
+      await this.waitReady(60, 1000);
+    }
 
     console.log('[PgManager] PostgreSQL started');
   }
@@ -326,6 +397,7 @@ export class PgManager {
   async stop(): Promise<void> {
     console.log('[PgManager] Stopping PostgreSQL...');
     const pgCtl = this.getBin('pg_ctl');
+    const env = this.getEnvWithBinPath();
 
     try {
       await execFileAsync(pgCtl, [
@@ -333,7 +405,7 @@ export class PgManager {
         '-D', this.config.dataDir,
         '-m', 'fast',
         '-w',
-      ]);
+      ], { env });
       console.log('[PgManager] PostgreSQL stopped');
     } catch (err) {
       console.error('[PgManager] Error stopping PostgreSQL:', err);
@@ -369,5 +441,25 @@ export class PgManager {
   private getBin(name: string): string {
     const ext = process.platform === 'win32' ? '.exe' : '';
     return path.join(this.pgBinDir, `${name}${ext}`);
+  }
+
+  /**
+   * Get environment variables with the PostgreSQL bin directory added to PATH.
+   * On Windows, postgres.exe and pg_ctl.exe need their DLLs (libpq.dll, etc.)
+   * to be found via PATH or in the same directory. Adding the bin dir to PATH
+   * ensures the DLLs are found even when the working directory differs.
+   */
+  private getEnvWithBinPath(): Record<string, string> {
+    const env = { ...process.env as Record<string, string> };
+    const pathSep = isWin32 ? ';' : ':';
+    const existingPath = env.PATH || env.Path || '';
+    // On Windows, env variables can be PATH or Path (case-insensitive)
+    const pathKey = isWin32 ? 'PATH' : 'PATH';
+    env[pathKey] = this.pgBinDir + pathSep + existingPath;
+    // On Windows, also set Path for compatibility
+    if (isWin32) {
+      env.Path = env[pathKey];
+    }
+    return env;
   }
 }

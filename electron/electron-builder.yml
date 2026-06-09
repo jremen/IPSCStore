@@ -26,8 +26,15 @@ extraResources:
   - from: resources/seed-data.dump
     to: seed-data.dump
 
+# After each arch build, thin universal PG binaries to single-arch
+# so the universal merger can LIPO-merge them back properly.
+afterPack: scripts/afterPack.js
+
 mac:
-  target: dmg
+  target:
+    - target: dmg
+      arch:
+        - universal
   icon: resources/icon.icns
   category: public.app-category.utilities
   # Hardened runtime needed for macOS distribution
@@ -35,10 +42,16 @@ mac:
   # entitlements: resources/entitlements.mac.plist
 
 win:
-  target: nsis
+  target:
+    - target: nsis
+      arch:
+        - x64
   icon: resources/icon.ico
 
 linux:
-  target: AppImage
+  target:
+    - target: AppImage
+      arch:
+        - x64
   icon: resources/icon.png
   category: Utility

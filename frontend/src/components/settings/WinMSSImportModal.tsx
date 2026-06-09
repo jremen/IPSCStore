@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
 import { useUIStore } from '../../stores/uiStore';
 import { useMatchStore } from '../../stores/matchStore';
+import { useEscClose } from '../../hooks/useEscClose';
 
 interface ImportResult {
   matches: Array<{ id: string; name: string; date: string; imported: boolean; updated?: boolean }>;
@@ -79,6 +80,7 @@ export default function WinMSSImportModal({ show, onClose }: { show: boolean; on
     setError(null);
     setInspectData(null);
   };
+  useEscClose(handleClose);
 
   return (
     <Modal show={show} onClose={handleClose} size="xl">

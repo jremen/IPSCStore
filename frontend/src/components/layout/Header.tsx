@@ -12,9 +12,17 @@ import { ThemeToggle } from "../settings/ThemeToggle";
 export default function Header() {
   const { activeMatchId } = useUIStore();
   const { currentMatch } = useMatchStore();
-  const { isAdmin, authenticatedStageName, logout } = useAuthStore();
+  const { isAdmin, authenticatedStageName, logout, adminLogout } = useAuthStore();
   const { t } = useTranslation();
   const [showSettings, setShowSettings] = useState(false);
+
+  const handleLogout = () => {
+    if (isAdmin) {
+      adminLogout();
+    } else {
+      logout();
+    }
+  };
 
   return (
     <>
@@ -35,7 +43,7 @@ export default function Header() {
           <div className="flex items-center gap-3">
             {isAdmin && <LanUrlBadge /> }
             <LanguageSelector />
-            
+
             {isAdmin && (
               <button
                 onClick={() => setShowSettings(true)}
@@ -51,16 +59,26 @@ export default function Header() {
             <ThemeToggle />
           </div>
         </div>
-        {!isAdmin && (
-            <Button
-              onClick={logout}
-              color="purple"
-              className="w-full"
-              title={t('auth.logout')}
-            >
-              {t('auth.stage')} {authenticatedStageName ? `${authenticatedStageName}` : `🚪 ${t('auth.logout')}`}
-            </Button>
-          )}
+        {!isAdmin ? (
+          <Button
+            onClick={handleLogout}
+            color="purple"
+            className="w-full"
+            title={t('auth.logout')}
+          >
+            {t('auth.stage')} {authenticatedStageName ? `${authenticatedStageName}` : `🚪 ${t('auth.logout')}`}
+          </Button>
+        ) : (
+          <Button
+            onClick={handleLogout}
+            color="dark"
+            size="xs"
+            className="w-full"
+            title={t('auth.logout')}
+          >
+            🔒 {t('auth.adminLogout')}
+          </Button>
+        )}
       </header>
       {isAdmin && <SettingsModal show={showSettings} onClose={() => setShowSettings(false)} />}
     </>

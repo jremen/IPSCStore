@@ -1,19 +1,32 @@
 import { Hono } from 'hono';
 import { sql } from '../db/client.js';
+import bcrypt from 'bcryptjs';
 
 export const stageRoutes = new Hono();
+
+// Columns to select from stages — excludes password_hash for security
+const STAGE_COLUMNS = `
+  s.id, s.match_id, s.stage_number, s.name, s.scoring_type,
+  s.paper_targets, s.steel_targets, s.no_shoot_targets, s.npm_targets, s.hits_per_paper,
+  s.min_rounds, s.max_points, s.par_time, s.image_path, s.config,
+  s.password_hash IS NOT NULL AS has_password,
+  s.created_at, s.updated_at
+`;
 
 // List stages for a match
 stageRoutes.get('/matches/:matchId/stages', async (c) => {
   const matchId = c.req.param('matchId');
   const stages = await sql`
-    SELECT * FROM stages WHERE match_id = ${matchId} ORDER BY stage_number
+    SELECT ${sql.unsafe(STAGE_COLUMNS)}
+    FROM stages s
+    WHERE s.match_id = ${matchId}
+    ORDER BY s.stage_number
   `;
   return c.json(stages);
 });
 
 // Calculate min_rounds and max_points based on scoring_type and config
-function calcStageParams(scoring_type: string, paper_targets: number, steel_targets: number, no_shoot_targets: number, hits_per_paper: number, config: any): { min_rounds: number; max_points: number } {
+function calcStageParams(scoring_type: string, paper_targets: number, steel_targets: number, no_shoot_targets: number, npm_targets: number, hits_per_paper: number, config: any): { min_rounds: number; max_points: number } {
   switch (scoring_type) {
     case 'comstock':
     case 'virginia':
@@ -21,7 +34,7 @@ function calcStageParams(scoring_type: string, paper_targets: number, steel_targ
     case 'hit_factor':
     case 'idpa': {
       const min_rounds = (paper_targets * hits_per_paper) + steel_targets;
-      const max_points = (paper_targets * hits_per_paper * 5) + (steel_targets * 5);
+      const max_points = (paper_targets * hits_per_paper * 5) + (steel_targets * 5) + (npm_targets * 5);
       return { min_rounds, max_points };
     }
     case 'action_steel': {
@@ -61,7 +74,7 @@ function calcStageParams(scoring_type: string, paper_targets: number, steel_targ
     }
     default: {
       const min_rounds = (paper_targets * hits_per_paper) + steel_targets;
-      const max_points = (paper_targets * hits_per_paper * 5) + (steel_targets * 5);
+      const max_points = (paper_targets * hits_per_paper * 5) + (steel_targets * 5) + (npm_targets * 5);
       return { min_rounds, max_points };
     }
   }
@@ -71,7 +84,7 @@ function calcStageParams(scoring_type: string, paper_targets: number, steel_targ
 stageRoutes.post('/matches/:matchId/stages', async (c) => {
   const matchId = c.req.param('matchId');
   const body = await c.req.json();
-  const { name, scoring_type, paper_targets = 0, steel_targets = 0, no_shoot_targets = 0, hits_per_paper = 2, par_time, config, password } = body;
+  const { name, scoring_type, paper_targets = 0, steel_targets = 0, no_shoot_targets = 0, npm_targets = 0, hits_per_paper = 2, par_time, config, password } = body;
 
   if (!name || !scoring_type) {
     return c.json({ error: 'name and scoring_type are required' }, 400);
@@ -84,14 +97,21 @@ stageRoutes.post('/matches/:matchId/stages', async (c) => {
   const stage_number = Number(maxNum.max_num) + 1;
 
   const stageConfig = config || {};
-  const { min_rounds, max_points } = calcStageParams(scoring_type, paper_targets, steel_targets, no_shoot_targets, hits_per_paper, stageConfig);
+  const { min_rounds, max_points } = calcStageParams(scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, stageConfig);
+
+  // Hash password with bcrypt (auto-generates salt, cost 10)
+  const password_hash = password ? await bcrypt.hash(password, 10) : null;
 
   const [stage] = await sql`
     INSERT INTO stages (match_id, stage_number, name, scoring_type, paper_targets, steel_targets,
-                        no_shoot_targets, hits_per_paper, min_rounds, max_points, par_time, config, password)
+                        no_shoot_targets, npm_targets, hits_per_paper, min_rounds, max_points, par_time, config, password_hash)
     VALUES (${matchId}, ${stage_number}, ${name}, ${scoring_type}, ${paper_targets}, ${steel_targets},
-            ${no_shoot_targets}, ${hits_per_paper}, ${min_rounds}, ${max_points}, ${par_time || null}, ${JSON.stringify(stageConfig)}, ${password || null})
-    RETURNING *
+            ${no_shoot_targets}, ${npm_targets}, ${hits_per_paper}, ${min_rounds}, ${max_points}, ${par_time || null}, ${JSON.stringify(stageConfig)}, ${password_hash})
+    RETURNING id, match_id, stage_number, name, scoring_type,
+              paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper,
+              min_rounds, max_points, par_time, image_path, config,
+              password_hash IS NOT NULL AS has_password,
+              created_at, updated_at
   `;
   return c.json(stage, 201);
 });
@@ -99,7 +119,11 @@ stageRoutes.post('/matches/:matchId/stages', async (c) => {
 // Get stage detail
 stageRoutes.get('/stages/:id', async (c) => {
   const id = c.req.param('id');
-  const [stage] = await sql`SELECT * FROM stages WHERE id = ${id}`;
+  const [stage] = await sql`
+    SELECT ${sql.unsafe(STAGE_COLUMNS)}
+    FROM stages s
+    WHERE s.id = ${id}
+  `;
   if (!stage) return c.json({ error: 'Stage not found' }, 404);
   return c.json(stage);
 });
@@ -108,7 +132,7 @@ stageRoutes.get('/stages/:id', async (c) => {
 stageRoutes.put('/stages/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json();
-  const { name, scoring_type, paper_targets, steel_targets, no_shoot_targets, hits_per_paper, par_time, config, password } = body;
+  const { name, scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, par_time, config, password } = body;
 
   // Recalculate min_rounds and max_points if targets changed
   const [existing] = await sql`SELECT * FROM stages WHERE id = ${id}`;
@@ -118,9 +142,20 @@ stageRoutes.put('/stages/:id', async (c) => {
   const pt = paper_targets ?? Number(existing.paper_targets);
   const stl = steel_targets ?? Number(existing.steel_targets);
   const nst = no_shoot_targets ?? Number(existing.no_shoot_targets);
+  const npmt = npm_targets ?? Number(existing.npm_targets);
   const hpp = hits_per_paper ?? Number(existing.hits_per_paper);
   const stageConfig = config ?? (typeof existing.config === 'string' ? JSON.parse(existing.config) : existing.config || {});
-  const { min_rounds, max_points } = calcStageParams(st, pt, stl, nst, hpp, stageConfig);
+  const { min_rounds, max_points } = calcStageParams(st, pt, stl, nst, npmt, hpp, stageConfig);
+
+  // Handle password: empty string = remove, non-empty = hash & set, undefined = keep existing
+  let password_hash: string | null;
+  if (password === '') {
+    password_hash = null; // Remove password
+  } else if (password) {
+    password_hash = await bcrypt.hash(password, 10); // New password
+  } else {
+    password_hash = existing.password_hash; // Keep existing
+  }
 
   const [updated] = await sql`
     UPDATE stages
@@ -129,15 +164,20 @@ stageRoutes.put('/stages/:id', async (c) => {
         paper_targets = ${pt},
         steel_targets = ${stl},
         no_shoot_targets = ${nst},
+        npm_targets = ${npmt},
         hits_per_paper = ${hpp},
         min_rounds = ${min_rounds},
         max_points = ${max_points},
         par_time = ${par_time !== undefined ? par_time : existing.par_time},
         config = ${JSON.stringify(stageConfig)},
-        password = ${password !== undefined ? password : existing.password},
+        password_hash = ${password_hash},
         updated_at = NOW()
     WHERE id = ${id}
-    RETURNING *
+    RETURNING id, match_id, stage_number, name, scoring_type,
+              paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper,
+              min_rounds, max_points, par_time, image_path, config,
+              password_hash IS NOT NULL AS has_password,
+              created_at, updated_at
   `;
   return c.json(updated);
 });

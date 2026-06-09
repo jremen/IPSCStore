@@ -129,7 +129,7 @@ export const InputField = memo(
                   !/^-?\d*([.,]\d*)?$/.test(v)
                 )
                   return;
-                onChange(decimal ? v.replace(',', '.') : v);
+                onChange(decimal ? v.replace(/,/g, '.') : v);
               }}
               onBlur={onBlur}
               onKeyDown={onKeyDown}

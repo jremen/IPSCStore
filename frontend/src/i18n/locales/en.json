@@ -72,7 +72,21 @@
     "noStages": "No stages have passwords set. Ask the range master to configure stage passwords.",
     "incorrectPassword": "Incorrect password.",
     "sessionExpired": "Session expired. Please log in again.",
-    "logout": "Logout"
+    "logout": "Logout",
+    "adminTitle": "🔒 Admin Login",
+    "adminSubtitle": "Enter the admin password to manage matches and scores",
+    "adminPassword": "Admin Password",
+    "enterAdminPassword": "Enter admin password",
+    "adminLogin": "Log In",
+    "adminLogout": "Admin Logout",
+    "defaultPasswordHint": "Default password: admin",
+    "changePassword": "Change Password",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password",
+    "passwordChanged": "Password changed successfully.",
+    "passwordMismatch": "New passwords do not match.",
+    "passwordTooShort": "New password must be at least 4 characters."
   },
   "tabs": {
     "matches": "Matches",
@@ -85,7 +99,9 @@
   "header": {
     "title": "IPSC SCORE",
     "copyUrl": "Copy URL to clipboard",
-    "copied": "Copied!"
+    "copied": "Copied!",
+    "domainResults": "Public results (.local domain)",
+    "domainScoring": "Range master scoring (.local domain)"
   },
   "matches": {
     "title": "Matches",
@@ -126,10 +142,13 @@
     "paperTargets": "Paper Targets",
     "steelTargets": "Steel Targets",
     "noShootTargets": "No-Shoot Targets",
+    "hasNoShootTargets": "Has no-shoot targets",
+    "npmTargets": "NPM Targets",
     "hitsPerPaper": "Hits per Paper Target",
     "parTime": "Par Time (Fixed Time only)",
     "password": "Stage Password (for remote scorers)",
     "passwordPlaceholder": "Leave empty for no password",
+    "passwordKeepHint": "Leave blank to keep current password",
     "passwordHelp": "Set a password to require remote scorers to authenticate before entering scores for this stage.",
     "minRounds": "Min rounds",
     "maxPoints": "Max points",
@@ -223,6 +242,8 @@
     "squadN": "Squad {{number}}",
     "saved": "Score saved",
     "fixErrors": "Fix errors before saving",
+    "scoreLocked": "Score locked — only admin can edit saved scores",
+    "readOnly": "Read Only",
     "time": "TIME (seconds)",
     "parTime": "Par time: {{time}}s",
     "sheetTitle": "SCORING SHEET",
@@ -318,7 +339,9 @@
     "penaltiesSecondsAdded": "Penalties (seconds added)",
     "secondsEach": "+{{sec}}s each",
     "ringShotsEntered": "{{label}}s ({{entered}}/{{total}} entered)",
-    "paperHitsEach": "× {{hpp}} hits each"
+    "paperHitsEach": "× {{hpp}} hits each",
+    "npmTargets": "NPM",
+    "npmBonus": "+5 bonus, 0 penalty"
   },
   "results": {
     "title": "Results",
@@ -336,6 +359,7 @@
     "matchPercent": "Match %",
     "points": "Points",
     "stagePercent": "Stage %",
+    "netPoints": "Net Pts",
     "tag": "Tag: {{tag}}",
     "noTags": "No tagged shooters in this match.",
     "print": "Print",
@@ -347,7 +371,13 @@
     "pdfExported": "PDF exported",
     "matchResults": "Match Results",
     "disqualified": "Disqualified",
-    "dqReason": "DQ Reason"
+    "dqReason": "DQ Reason",
+    "saveAs": "Save As",
+    "save": "Save",
+    "fileExported": "File exported",
+    "publicTitle": "Results",
+    "noCurrentMatch": "No active match. Results will appear when a match is set as current.",
+    "autoRefresh": "Auto-refreshed at {{time}}"
   },
   "import": {
     "importShooters": "Import Shooters",
@@ -371,6 +401,9 @@
     "skipped": "Skipped:",
     "moreErrors": "...and {{count}} more errors",
     "importedCount": "Imported {{count}} records",
+    "exportRegistrations": "Export Registrations",
+    "exporting": "Exporting...",
+    "csvExported": "CSV exported",
     "winMss": {
       "title": "Import WinMSS Database",
       "button": "Import WinMSS",

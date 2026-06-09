@@ -527,15 +527,15 @@ resultsRoutes.get('/matches/:matchId/results/export/csv', async (c) => {
     ORDER BY s.last_name, s.first_name
   `;
 
-  // Build CSV
+  // Build CSV (semicolon-delimited for European locale compatibility)
   let csv = '﻿'; // BOM for Excel
   csv += `Match: ${match.name} (${match.organization})\nDate: ${formatDate(match.date)}\n\n`;
 
   for (const [division, shooters] of Object.entries(divisionGroups)) {
     csv += `--- ${divisionLabel(division)} ---\n`;
-    csv += 'Position,First Name,Last Name,Division,Category,Power Factor,Match Points\n';
+    csv += 'Position;First Name;Last Name;Division;Category;Power Factor;Match Points\n';
     shooters.forEach((r: any, i: number) => {
-      csv += `${i + 1},${r.first_name},${r.last_name},${divisionLabel(r.division)},${categoryLabel(r.category)},${r.power_factor},${Number(r.match_points).toFixed(2)}\n`;
+      csv += `${i + 1};${r.first_name};${r.last_name};${divisionLabel(r.division)};${categoryLabel(r.category)};${r.power_factor};${Number(r.match_points).toFixed(2)}\n`;
     });
     csv += '\n';
   }
@@ -543,9 +543,9 @@ resultsRoutes.get('/matches/:matchId/results/export/csv', async (c) => {
   // DQ section
   if (dq.length > 0) {
     csv += '--- Disqualified ---\n';
-    csv += 'First Name,Last Name,Division,Category,Power Factor,DQ Reason\n';
+    csv += 'First Name;Last Name;Division;Category;Power Factor;DQ Reason\n';
     dq.forEach((r: any) => {
-      csv += `${r.first_name},${r.last_name},${divisionLabel(r.division)},${categoryLabel(r.category)},${r.power_factor},${r.dq_reason || 'DQ'}\n`;
+      csv += `${r.first_name};${r.last_name};${divisionLabel(r.division)};${categoryLabel(r.category)};${r.power_factor};${r.dq_reason || 'DQ'}\n`;
     });
   }
 

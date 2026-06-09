@@ -31,6 +31,7 @@ export interface Stage {
   paper_targets: number;
   steel_targets: number;
   no_shoot_targets: number;
+  npm_targets: number;
   hits_per_paper: number;
   min_rounds: number;
   max_points: number;
@@ -38,6 +39,7 @@ export interface Stage {
   image_path: string | null;
   config?: StageConfig;
   password?: string | null;
+  has_password?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -48,6 +50,7 @@ export interface CreateStageInput {
   paper_targets?: number;
   steel_targets?: number;
   no_shoot_targets?: number;
+  npm_targets?: number;
   hits_per_paper?: number;
   par_time?: number | null;
   config?: StageConfig;

@@ -2,6 +2,8 @@ import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from 'flowbite-rea
 import { useTranslation } from 'react-i18next';
 import LanguageSelector from './LanguageSelector';
 import DatabaseSettings from './DatabaseSettings';
+import AdminPasswordSection from './AdminPasswordSection';
+import { useEscClose } from '../../hooks/useEscClose';
 
 interface SettingsModalProps {
   show: boolean;
@@ -10,6 +12,7 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ show, onClose }: SettingsModalProps) {
   const { t } = useTranslation();
+  useEscClose(onClose);
 
   return (
     <Modal show={show} onClose={onClose} size="lg">
@@ -22,6 +25,9 @@ export default function SettingsModal({ show, onClose }: SettingsModalProps) {
           </div>
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <DatabaseSettings />
+          </div>
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <AdminPasswordSection />
           </div>
         </div>
       </ModalBody>

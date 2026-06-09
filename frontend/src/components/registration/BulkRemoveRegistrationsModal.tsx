@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Alert } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
+import { useEscClose } from '../../hooks/useEscClose';
 
 interface BulkRemoveRegistrationsModalProps {
   show: boolean;
@@ -37,6 +38,7 @@ export default function BulkRemoveRegistrationsModal({ show, onClose, registrati
     setResult(null);
     onClose();
   };
+  useEscClose(handleClose);
 
   return (
     <Modal show={show} onClose={handleClose} size="md">

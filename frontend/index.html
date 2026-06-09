@@ -4,6 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>IPSC Score</title>
+    <script>
+      try {
+        var LS_KEY = "flowbite-theme-mode";
+        var saved = localStorage.getItem(LS_KEY);
+        var valid = saved === "light" || saved === "dark" || saved === "auto";
+        var resolved = valid ? saved : "auto";
+        var dark =
+          resolved === "dark" ||
+          (resolved === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+        if (!valid) localStorage.setItem(LS_KEY, "auto");
+        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function (e) {
+          if (localStorage.getItem(LS_KEY) === "auto") {
+            document.documentElement.classList.toggle("dark", e.matches);
+          }
+        });
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

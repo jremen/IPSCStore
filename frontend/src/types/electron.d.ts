@@ -7,10 +7,13 @@ export {};
 
 declare global {
   interface Window {
+    __DOMAIN_MODE__?: 'results' | 'scoring' | 'admin';
     electronAPI?: {
       getApiBaseUrl: () => string;
       isElectron: () => boolean;
       getLanIp: () => string;
+      getDomainUrls: () => { vysledky: string; hodnotenie: string };
+      isPort80Active: () => boolean;
     };
   }
 }

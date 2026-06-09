@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { sql } from '../db/client.js';
+import { isUnaccentAvailable } from '../utils/unaccent.js';
 
 export const shooterRoutes = new Hono();
 
@@ -15,25 +16,57 @@ shooterRoutes.get('/', async (c) => {
 
   if (search) {
     const pattern = `%${search}%`;
-    if (limit > 0) {
-      shooters = await sql`
-        SELECT * FROM shooters
-        WHERE first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern}
-        ORDER BY last_name, first_name
-        LIMIT ${limit} OFFSET ${offset}
+    const useUnaccent = await isUnaccentAvailable();
+
+    if (useUnaccent) {
+      // Diacritic-insensitive search: "Remeň" matches "REMEN"
+      if (limit > 0) {
+        shooters = await sql`
+          SELECT * FROM shooters
+          WHERE unaccent(first_name) ILIKE unaccent(${pattern})
+             OR unaccent(last_name) ILIKE unaccent(${pattern})
+             OR email ILIKE ${pattern}
+          ORDER BY last_name, first_name
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+      } else {
+        shooters = await sql`
+          SELECT * FROM shooters
+          WHERE unaccent(first_name) ILIKE unaccent(${pattern})
+             OR unaccent(last_name) ILIKE unaccent(${pattern})
+             OR email ILIKE ${pattern}
+          ORDER BY last_name, first_name
+        `;
+      }
+      const [count] = await sql`
+        SELECT COUNT(*) as count FROM shooters
+        WHERE unaccent(first_name) ILIKE unaccent(${pattern})
+           OR unaccent(last_name) ILIKE unaccent(${pattern})
+           OR email ILIKE ${pattern}
       `;
+      total = Number(count.count);
     } else {
-      shooters = await sql`
-        SELECT * FROM shooters
+      // Fallback: basic ILIKE without diacritic handling
+      if (limit > 0) {
+        shooters = await sql`
+          SELECT * FROM shooters
+          WHERE first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern}
+          ORDER BY last_name, first_name
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+      } else {
+        shooters = await sql`
+          SELECT * FROM shooters
+          WHERE first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern}
+          ORDER BY last_name, first_name
+        `;
+      }
+      const [count] = await sql`
+        SELECT COUNT(*) as count FROM shooters
         WHERE first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern}
-        ORDER BY last_name, first_name
       `;
+      total = Number(count.count);
     }
-    const [count] = await sql`
-      SELECT COUNT(*) as count FROM shooters
-      WHERE first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern}
-    `;
-    total = Number(count.count);
   } else {
     if (limit > 0) {
       shooters = await sql`

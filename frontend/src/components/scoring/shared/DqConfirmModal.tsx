@@ -1,5 +1,6 @@
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Label, TextInput } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
+import { useEscClose } from '../../../hooks/useEscClose';
 
 interface DqConfirmModalProps {
   show: boolean;
@@ -12,6 +13,7 @@ interface DqConfirmModalProps {
 
 export default function DqConfirmModal({ show, onClose, shooterName, dqReason, onReasonChange, onConfirm }: DqConfirmModalProps) {
   const { t } = useTranslation();
+  useEscClose(onClose);
 
   return (
     <Modal show={show} onClose={onClose} size="sm">

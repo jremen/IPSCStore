@@ -2,6 +2,7 @@ import { Badge, Label } from 'flowbite-react';
 import { InputField } from '../../shared/InputField';
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useScoreDataUpdater } from '../../../hooks/useScoreDataUpdater';
+import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
 import { calculateActionSteelPreview } from '../../../utils/scoring';
 import { ScoringSheetHeader, DnfToggle, DqSection, ScorePreviewCard } from '../shared';
 import type { Stage } from '../../../types/stage';
@@ -16,6 +17,7 @@ export default function ActionSteelScoringSheet({ stage, score }: Props) {
   const { setScore } = useScoringStore();
   const { sd, updateScoreData } = useScoreDataUpdater(score);
   const shooter = useScoringStore(s => s.registrations.find(r => r.id === s.currentRegistrationId));
+  const isReadOnly = useScoringReadOnly();
 
   const config = stage.config || {};
   const numStrings = config.number_of_strings || 5;
@@ -67,7 +69,7 @@ export default function ActionSteelScoringSheet({ stage, score }: Props) {
         <ScoringSheetHeader
           title="🎯 Action Steel"
           subtitle={`${numStrings} strings • ${targetsPerString} plates each • Drop ${dropWorst} worst`}
-          onReset={handleResetAll}
+          onReset={isReadOnly ? undefined : handleResetAll}
         />
 
         {stringTimes.map((time, idx) => {
@@ -80,7 +82,7 @@ export default function ActionSteelScoringSheet({ stage, score }: Props) {
                 <span className="text-sm font-bold text-blue-600 dark:text-blue-400">String {idx + 1}</span>
                 <div className="flex items-center gap-2">
                   <Label className="text-xs">Time (s)</Label>
-                  <InputField type="number" step="0.01" min="0" sizing="md" decimal value={time || ''} onChange={(v) => handleStringTime(idx, v)} />
+                  <InputField type="number" step="0.01" min="0" sizing="md" decimal value={time || ''} onChange={(v) => handleStringTime(idx, v)} disabled={isReadOnly} />
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 justify-center">
@@ -88,8 +90,10 @@ export default function ActionSteelScoringSheet({ stage, score }: Props) {
                   <button
                     key={pIdx}
                     className={`w-12 h-12 rounded-lg font-bold text-sm flex items-center justify-center transition-colors cursor-pointer
-                      ${hit ? 'bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300 ring-2 ring-green-400' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-1 ring-red-300'}`}
+                      ${hit ? 'bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300 ring-2 ring-green-400' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-1 ring-red-300'}
+                      ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={() => togglePlate(idx, pIdx)}
+                    disabled={isReadOnly}
                   >
                     P{pIdx + 1}
                   </button>
@@ -105,8 +109,8 @@ export default function ActionSteelScoringSheet({ stage, score }: Props) {
       </div>
 
       <div className="flex items-center gap-4 mb-3 flex-wrap">
-        <DnfToggle isDnf={score.is_dnf} onToggle={() => setScore({ ...score, is_dnf: !score.is_dnf })} />
-        <DqSection shooter={shooter} />
+        <DnfToggle isDnf={score.is_dnf} onToggle={() => setScore({ ...score, is_dnf: !score.is_dnf })} disabled={isReadOnly} />
+        <DqSection shooter={shooter} disabled={isReadOnly} />
       </div>
 
       <div className="bg-green-50 dark:bg-gray-800 rounded-lg p-3 border border-green-200 dark:border-green-800 shadow-sm">

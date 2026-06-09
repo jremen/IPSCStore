@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { sql } from '../db/client.js';
 import { parse } from 'csv-parse/sync';
+import { isUnaccentAvailable } from '../utils/unaccent.js';
 
 export const importRoutes = new Hono();
 
@@ -22,16 +23,34 @@ function parseCSVOptions(body: any) {
 }
 
 /**
+ * Detect whether a CSV uses semicolons or commas as delimiter.
+ * Checks the first few non-empty lines for semicolons vs commas.
+ */
+function detectDelimiter(text: string): string {
+  const lines = text.split('\n').slice(0, 5).filter(l => l.trim());
+  let semicolons = 0;
+  let commas = 0;
+  for (const line of lines) {
+    semicolons += (line.match(/;/g) || []).length;
+    commas += (line.match(/,/g) || []).length;
+  }
+  return semicolons > commas ? ';' : ',';
+}
+
+/**
  * Parse CSV with column mapping support.
  * If columnMapping is provided, renames CSV columns to expected field keys.
  * If hasHeader is false, assigns generic column names (col1, col2, ...).
+ * Auto-detects semicolon vs comma delimiter.
  */
 function parseCSV(text: string, hasHeader: boolean, columnMapping: ColumnMapping | null) {
+  const delimiter = detectDelimiter(text);
+
   if (hasHeader) {
-    const records = parse(text, { columns: true, skip_empty_lines: true, trim: true });
-    if (columnMapping) {
+    const records = parse(text, { columns: true, skip_empty_lines: true, trim: true, delimiter });
+    if (columnMapping && Object.keys(columnMapping).length > 0) {
       // Remap: columnMapping maps expectedField -> csvColumn
-      // We need to reverse: for each record, create a new object with expected keys
+      // Create a new object with expected keys from mapped CSV columns
       return records.map((row: any) => {
         const mapped: any = {};
         for (const [expectedKey, csvColumn] of Object.entries(columnMapping)) {
@@ -41,8 +60,8 @@ function parseCSV(text: string, hasHeader: boolean, columnMapping: ColumnMapping
         }
         // Also keep unmapped columns as-is for backward compat
         for (const [key, value] of Object.entries(row)) {
-          if (!(mapped[key] !== undefined && Object.values(columnMapping).includes(key))) {
-            // Only add if not already mapped from another column
+          if (!(key in mapped) && !Object.values(columnMapping).includes(key)) {
+            mapped[key] = value;
           }
         }
         return mapped;
@@ -51,7 +70,7 @@ function parseCSV(text: string, hasHeader: boolean, columnMapping: ColumnMapping
     return records;
   } else {
     // No header — treat first row as data, assign column names from mapping or generic
-    const records = parse(text, { skip_empty_lines: true, trim: true });
+    const records = parse(text, { skip_empty_lines: true, trim: true, delimiter });
     if (columnMapping && Object.keys(columnMapping).length > 0) {
       // columnMapping maps expectedField -> csvColumn, but without headers, csvColumn is the position-based key
       // Use the order of columnMapping values as the expected column order
@@ -161,12 +180,21 @@ importRoutes.post('/matches/:matchId/registrations', async (c) => {
       continue;
     }
 
-    // Find shooter by name
-    const [shooter] = await sql`
-      SELECT id FROM shooters
-      WHERE first_name ILIKE ${shooter_first_name} AND last_name ILIKE ${shooter_last_name}
-      LIMIT 1
-    `;
+    // Find shooter by name (diacritic-insensitive if unaccent extension is available)
+    const useUnaccent = await isUnaccentAvailable();
+    const [shooter] = useUnaccent
+      ? await sql`
+          SELECT id FROM shooters
+          WHERE unaccent(first_name) ILIKE unaccent(${shooter_first_name})
+            AND unaccent(last_name) ILIKE unaccent(${shooter_last_name})
+          LIMIT 1
+        `
+      : await sql`
+          SELECT id FROM shooters
+          WHERE first_name ILIKE ${shooter_first_name}
+            AND last_name ILIKE ${shooter_last_name}
+          LIMIT 1
+        `;
     if (!shooter) {
       errors.push(`Row ${i + 2}: shooter "${shooter_first_name} ${shooter_last_name}" not found in database`);
       continue;
@@ -228,14 +256,25 @@ importRoutes.post('/matches/:matchId/scores', async (c) => {
       continue;
     }
 
-    // Find registration
-    const [reg] = await sql`
-      SELECT mr.id FROM match_registrations mr
-      JOIN shooters s ON s.id = mr.shooter_id
-      WHERE mr.match_id = ${matchId}
-      AND s.first_name ILIKE ${shooter_first_name} AND s.last_name ILIKE ${shooter_last_name}
-      LIMIT 1
-    `;
+    // Find registration (diacritic-insensitive if unaccent extension is available)
+    const useUnaccent = await isUnaccentAvailable();
+    const [reg] = useUnaccent
+      ? await sql`
+          SELECT mr.id FROM match_registrations mr
+          JOIN shooters s ON s.id = mr.shooter_id
+          WHERE mr.match_id = ${matchId}
+          AND unaccent(s.first_name) ILIKE unaccent(${shooter_first_name})
+          AND unaccent(s.last_name) ILIKE unaccent(${shooter_last_name})
+          LIMIT 1
+        `
+      : await sql`
+          SELECT mr.id FROM match_registrations mr
+          JOIN shooters s ON s.id = mr.shooter_id
+          WHERE mr.match_id = ${matchId}
+          AND s.first_name ILIKE ${shooter_first_name}
+          AND s.last_name ILIKE ${shooter_last_name}
+          LIMIT 1
+        `;
     if (!reg) {
       errors.push(`Row ${i + 2}: shooter not registered for this match`);
       skipped++;

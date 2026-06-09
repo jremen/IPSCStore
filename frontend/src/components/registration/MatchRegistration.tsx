@@ -61,7 +61,7 @@ export default function MatchRegistration() {
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-xl font-bold dark:text-white">{t('registration.title')} ({registrations.length})</h2>
         <div className="flex gap-2">
-          <CSVImportExport type="registrations" matchId={activeMatchId} />
+          <CSVImportExport type="registrations" matchId={activeMatchId} onImportComplete={loadRegistrations} />
           <Button size="sm" color="green" onClick={() => setShowInlineCreate(true)}>{t('shooters.newShooter')}</Button>
           <Button size="sm" color="blue" onClick={() => setShowAdd(true)}>{t('registration.addShooter')}</Button>
         </div>

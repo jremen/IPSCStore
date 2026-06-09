@@ -67,6 +67,7 @@ export default function StageList() {
                   {stage.paper_targets > 0 && <span>{t('stages.paper')}: {stage.paper_targets}</span>}
                   {stage.steel_targets > 0 && <span>{t('stages.steel')}: {stage.steel_targets}</span>}
                   {stage.no_shoot_targets > 0 && <span>{t('stages.noShoot')}: {stage.no_shoot_targets}</span>}
+                  {stage.npm_targets > 0 && <span>NPM: {stage.npm_targets}</span>}
                   {stage.hits_per_paper > 0 && stage.paper_targets > 0 && <span>{t('stages.hitsPerPaperShort')}: {stage.hits_per_paper}</span>}
                   <span>{t('stages.minRoundsShort')}: {stage.min_rounds}</span>
                   <span>{t('stages.maxPointsShort')}: {stage.max_points}</span>

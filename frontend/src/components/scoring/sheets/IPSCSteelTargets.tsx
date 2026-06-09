@@ -6,9 +6,10 @@ interface SteelTargetsSectionProps {
   steelTargets: TargetScore[];
   steelMisses: number;
   onSteelMissChange: (newMisses: number) => void;
+  disabled?: boolean;
 }
 
-export default function SteelTargetsSection({ steelTargets, steelMisses, onSteelMissChange }: SteelTargetsSectionProps) {
+export default function SteelTargetsSection({ steelTargets, steelMisses, onSteelMissChange, disabled = false }: SteelTargetsSectionProps) {
   const {t} = useTranslation();
 
   return (
@@ -22,13 +23,15 @@ export default function SteelTargetsSection({ steelTargets, steelMisses, onSteel
           <span className="text-xs dark:text-white block">{t('scoring.misses')}</span>
           <div className="flex items-center gap-0.5 mt-1">
             <button
-              className="penalty-stepper rounded text-lg font-bold bg-gray-200 dark:bg-gray-600 active:bg-gray-300"
-              onClick={() => onSteelMissChange(steelMisses - 1)}
+              className={`penalty-stepper rounded text-lg font-bold bg-gray-200 dark:bg-gray-600 ${disabled ? 'opacity-50 cursor-not-allowed' : 'active:bg-gray-300'}`}
+              onClick={disabled ? undefined : () => onSteelMissChange(steelMisses - 1)}
+              disabled={disabled}
             >−</button>
             <span className="w-8 text-center text-xl font-mono font-bold text-red-600 dark:text-red-400">{steelMisses}</span>
             <button
-              className="penalty-stepper rounded text-lg font-bold bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 active:bg-red-200"
-              onClick={() => onSteelMissChange(steelMisses + 1)}
+              className={`penalty-stepper rounded text-lg font-bold bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 ${disabled ? 'opacity-50 cursor-not-allowed' : 'active:bg-red-200'}`}
+              onClick={disabled ? undefined : () => onSteelMissChange(steelMisses + 1)}
+              disabled={disabled}
             >+</button>
           </div>
         </div>

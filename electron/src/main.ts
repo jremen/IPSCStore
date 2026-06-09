@@ -4,10 +4,26 @@ import os from 'os';
 import fs from 'fs/promises';
 import { spawn, ChildProcess } from 'child_process';
 import { PgManager } from './pg-manager.js';
+import { setupPort80Redirect, removePort80Redirect, isPort80RedirectActive } from './port80.js';
+
+/**
+ * Safe console.log that catches EPIPE errors.
+ * When the Electron app is launched by double-clicking (not from a terminal),
+ * stdout may be a broken pipe, causing console.log to throw EPIPE.
+ */
+const origLog = console.log;
+const origError = console.error;
+console.log = (...args: any[]) => {
+  try { origLog.apply(console, args); } catch (e: any) { if (e.code !== 'EPIPE') throw e; }
+};
+console.error = (...args: any[]) => {
+  try { origError.apply(console, args); } catch (e: any) { if (e.code !== 'EPIPE') throw e; }
+};
 
 let mainWindow: BrowserWindow | null = null;
 let pgManager: PgManager | null = null;
 let backendProcess: ChildProcess | Electron.UtilityProcess | null = null;
+let mDnsStopFunctions: (() => void)[] = [];
 
 /**
  * Resolve the path to the backend dist directory.
@@ -60,6 +76,57 @@ function killBackend(): void {
     }
     backendProcess = null;
   }
+}
+
+/**
+ * Start mDNS advertising for .local domain names.
+ * Uses dnssd-advertise which registers custom hostnames in mDNS,
+ * so vysledky.local and hodnotenie.local resolve to this machine's IP.
+ * Also advertises DNS-SD services so the app appears in Bonjour browsers.
+ */
+function startMDns(port: number): void {
+  try {
+    const { advertise } = require('dnssd-advertise');
+
+    // Advertise results service (vysledky.local)
+    const stop1 = advertise({
+      name: 'IPSC Score - Results',
+      type: 'http',
+      protocol: 'tcp',
+      port,
+      hostname: 'vysledky',
+    });
+    mDnsStopFunctions.push(stop1);
+    console.log('[mDNS] Advertised: vysledky.local');
+
+    // Advertise scoring service (hodnotenie.local)
+    const stop2 = advertise({
+      name: 'IPSC Score - Scoring',
+      type: 'http',
+      protocol: 'tcp',
+      port,
+      hostname: 'hodnotenie',
+    });
+    mDnsStopFunctions.push(stop2);
+    console.log('[mDNS] Advertised: hodnotenie.local');
+  } catch (err) {
+    console.error('[mDNS] Failed to start mDNS advertising:', err);
+  }
+}
+
+/**
+ * Stop mDNS advertising.
+ */
+function stopMDns(): void {
+  for (const stop of mDnsStopFunctions) {
+    try {
+      stop();
+    } catch {
+      // Ignore errors during shutdown
+    }
+  }
+  mDnsStopFunctions = [];
+  console.log('[mDNS] Services unregistered');
 }
 
 /**
@@ -179,13 +246,14 @@ function startBackend(port: number): Promise<void> {
 /**
  * Create the main browser window.
  */
-function createWindow(port: number, lanIp: string): void {
+function createWindow(port: number, lanIp: string, port80Active: boolean): void {
   const isDev = process.env.ELECTRON_DEV === 'true';
+  const portSuffix = port80Active ? '' : `:${port}`;
 
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    title: `IPSC Score${lanIp ? ` — LAN: http://${lanIp}:${port}` : ''}`,
+    title: `IPSC Score${lanIp ? ` — http://${lanIp}${portSuffix}` : ''}`,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -196,6 +264,16 @@ function createWindow(port: number, lanIp: string): void {
   // Set environment variables for the preload script
   process.env.ELECTRON_API_URL = `http://localhost:${port}`;
   process.env.ELECTRON_LAN_IP = lanIp;
+  process.env.ELECTRON_PORT80 = port80Active ? '1' : '0';
+
+  // Use port-less URLs when port 80 redirect is active
+  if (port80Active) {
+    process.env.ELECTRON_VYSLEDKY_URL = 'http://vysledky.local';
+    process.env.ELECTRON_HODNOTENIE_URL = 'http://hodnotenie.local';
+  } else {
+    process.env.ELECTRON_VYSLEDKY_URL = `http://vysledky.local:${port}`;
+    process.env.ELECTRON_HODNOTENIE_URL = `http://hodnotenie.local:${port}`;
+  }
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
@@ -238,6 +316,7 @@ async function main(): Promise<void> {
 
   console.log('[Main] Starting IPSC Score...');
   console.log(`[Main] LAN IP: ${lanIp}`);
+  console.log(`[Main] Platform: ${process.platform} ${process.arch}`);
 
   // Check if we should use an external PostgreSQL
   const externalDbUrl = process.env.DATABASE_URL;
@@ -255,11 +334,17 @@ async function main(): Promise<void> {
     } catch (err) {
       console.error('[Main] Failed to start PostgreSQL:', err);
 
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      const errorStack = err instanceof Error ? err.stack : undefined;
+      if (errorStack) {
+        console.error('[Main] Stack trace:', errorStack);
+      }
+
       const result = await dialog.showMessageBox({
         type: 'error',
         title: 'Database Error',
         message: 'Failed to start the built-in database.',
-        detail: `${err}\n\nYou can try using an external PostgreSQL server by setting the DATABASE_URL environment variable.`,
+        detail: `${errorMessage}\n\nYou can try using an external PostgreSQL server by setting the DATABASE_URL environment variable.`,
         buttons: ['Try Anyway', 'Quit'],
         defaultId: 1,
       });
@@ -284,7 +369,8 @@ async function main(): Promise<void> {
     console.log('[Main] Backend server started successfully');
   } catch (err) {
     console.error('[Main] Failed to start backend:', err);
-    dialog.showErrorBox('Startup Error', `Failed to start the backend server: ${err}`);
+    const backendError = err instanceof Error ? err.message : String(err);
+    dialog.showErrorBox('Startup Error', `Failed to start the backend server: ${backendError}`);
     app.quit();
     return;
   }
@@ -300,13 +386,30 @@ async function main(): Promise<void> {
   }
 
   // Create the browser window
-  createWindow(port, lanIp);
+  // Try to set up port 80 redirect so .local domains work without port number
+  const port80Active = await setupPort80Redirect(port);
+  createWindow(port, lanIp, port80Active);
 
-  // Show LAN IP in console for mobile access
+  // Start mDNS advertising for .local domains
+  // Advertise port 80 if redirect is active, otherwise port 3001
+  const mDnsPort = port80Active ? 80 : port;
+  startMDns(mDnsPort);
+
+  // Show LAN access info in console
+  const portSuffix = port80Active ? '' : `:${port}`;
   console.log('');
   console.log('========================================');
   console.log('  Mobile devices can connect to:');
-  console.log(`  http://${lanIp}:${port}`);
+  console.log(`  http://${lanIp}${portSuffix}`);
+  console.log('');
+  console.log('  .local domains on this network:');
+  if (port80Active) {
+    console.log('  http://vysledky.local     (public results)');
+    console.log('  http://hodnotenie.local   (range master scoring)');
+  } else {
+    console.log(`  http://vysledky.local:${port}   (public results)`);
+    console.log(`  http://hodnotenie.local:${port}  (range master scoring)`);
+  }
   console.log('========================================');
   console.log('');
 }
@@ -320,6 +423,15 @@ app.on('ready', () => {
   });
 });
 
+// Ignore EPIPE errors — these happen when console.log writes to a broken pipe
+// (e.g. when the app is launched by double-clicking, not from a terminal).
+process.on('uncaughtException', (err: any) => {
+  if (err?.code === 'EPIPE') return;
+  console.error('[Main] Uncaught exception:', err);
+  dialog.showErrorBox('Unexpected Error', err?.message || String(err));
+  app.quit();
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
@@ -329,12 +441,20 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (mainWindow === null) {
     const port = parseInt(process.env.PORT || '3001', 10);
-    createWindow(port, process.env.ELECTRON_LAN_IP || getLanIp());
+    createWindow(port, process.env.ELECTRON_LAN_IP || getLanIp(), isPort80RedirectActive());
   }
 });
 
 app.on('before-quit', () => {
   console.log('[Main] Shutting down...');
+
+  // Stop mDNS advertising
+  stopMDns();
+
+  // Remove port 80 redirect
+  removePort80Redirect().catch((err) => {
+    console.error('[Main] Error removing port 80 redirect:', err);
+  });
 
   // Kill the backend process
   killBackend();

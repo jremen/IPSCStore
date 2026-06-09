@@ -247,6 +247,43 @@ registrationRoutes.get('/matches/:matchId/squads', async (c) => {
   });
 });
 
+// Export registrations as CSV (semicolon-delimited)
+registrationRoutes.get('/matches/:matchId/registrations/export/csv', async (c) => {
+  const matchId = c.req.param('matchId');
+
+  // Verify match exists
+  const [match] = await sql`SELECT id, name FROM matches WHERE id = ${matchId}`;
+  if (!match) return c.json({ error: 'Match not found' }, 404);
+
+  const registrations = await sql`
+    SELECT mr.squad,
+           COALESCE(mr.division, s.division) as division,
+           COALESCE(mr.category, s.category) as category,
+           COALESCE(mr.power_factor, s.power_factor) as power_factor,
+           s.first_name, s.last_name
+    FROM match_registrations mr
+    JOIN shooters s ON s.id = mr.shooter_id
+    WHERE mr.match_id = ${matchId}
+    ORDER BY mr.squad NULLS LAST, s.last_name, s.first_name
+  `;
+
+  // Build semicolon-delimited CSV with BOM for Excel compatibility
+  let csv = '﻿';
+  csv += 'first_name;last_name;squad;division;category;power_factor\n';
+  for (const r of registrations) {
+    const squad = r.squad ?? '';
+    const division = r.division ?? '';
+    const category = r.category ?? '';
+    const powerFactor = r.power_factor ?? '';
+    csv += `${r.first_name};${r.last_name};${squad};${division};${category};${powerFactor}\n`;
+  }
+
+  const sanitized = (match.name as string).replace(/[^a-zA-Z0-9_-]/g, '_');
+  c.header('Content-Type', 'text/csv; charset=utf-8');
+  c.header('Content-Disposition', `attachment; filename="${sanitized}_registrations.csv"`);
+  return c.body(csv);
+});
+
 // DQ shooter
 registrationRoutes.put('/matches/:matchId/registrations/:id/dq', async (c) => {
   const id = c.req.param('id');

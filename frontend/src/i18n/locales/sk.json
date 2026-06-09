@@ -72,7 +72,21 @@
     "noStages": "Žiadne situácie nemajú nastavené heslo. Požiadajte rozhodcu o nastavenie hesiel.",
     "incorrectPassword": "Nesprávne heslo.",
     "sessionExpired": "Relácia vypršala. Prihláste sa znova.",
-    "logout": "Odhlásiť"
+    "logout": "Odhlásiť",
+    "adminTitle": "🔒 Prihlásenie administrátora",
+    "adminSubtitle": "Zadajte admin heslo pre správu súťaží a bodov",
+    "adminPassword": "Admin heslo",
+    "enterAdminPassword": "Zadajte admin heslo",
+    "adminLogin": "Prihlásiť",
+    "adminLogout": "Odhlásiť admina",
+    "defaultPasswordHint": "Predvolené heslo: admin",
+    "changePassword": "Zmeniť heslo",
+    "currentPassword": "Aktuálne heslo",
+    "newPassword": "Nové heslo",
+    "confirmNewPassword": "Potvrdiť nové heslo",
+    "passwordChanged": "Heslo bolo úspešne zmenené.",
+    "passwordMismatch": "Nové heslá sa nezhodujú.",
+    "passwordTooShort": "Nové heslo musí mať aspoň 4 znaky."
   },
   "tabs": {
     "matches": "Súťaže",
@@ -85,7 +99,9 @@
   "header": {
     "title": "IPSCScore",
     "copyUrl": "Kopírovať URL do schránky",
-    "copied": "Skopírované!"
+    "copied": "Skopírované!",
+    "domainResults": "Verejné výsledky (.local doména)",
+    "domainScoring": "Prihlasovanie pre rozhodcov (.local doména)"
   },
   "matches": {
     "title": "Súťaže",
@@ -126,10 +142,13 @@
     "paperTargets": "Papierové terče",
     "steelTargets": "Kovové terče",
     "noShootTargets": "No-Shoot terče",
+    "hasNoShootTargets": "Má no-shoot terče",
+    "npmTargets": "NPM terče",
     "hitsPerPaper": "Zásahy na papierový terč",
     "parTime": "Par time (iba Fixed Time)",
     "password": "Heslo situácie",
     "passwordPlaceholder": "Nechajte prázdne pre bez hesla",
+    "passwordKeepHint": "Nechajte prázdne pre zachovanie aktuálneho hesla",
     "passwordHelp": "Nastavte heslo pre rozhodcov, aby sa museli prihlásiť pred zadávaním skóre.",
     "minRounds": "Min. nábojov",
     "maxPoints": "Max. bodov",
@@ -223,6 +242,8 @@
     "squadN": "Squad {{number}}",
     "saved": "Skóre uložené",
     "fixErrors": "Opravte chyby pred uložením",
+    "scoreLocked": "Skóre zamknuté — iba admin môže upravovať uložené skóre",
+    "readOnly": "Len na čítanie",
     "time": "ČAS (sekundy)",
     "parTime": "Par time: {{time}}s",
     "sheetTitle": "BODOVACÍ HÁROK",
@@ -318,7 +339,9 @@
     "penaltiesSecondsAdded": "Penalty (pridané sekundy)",
     "secondsEach": "+{{sec}}s každý",
     "ringShotsEntered": "{{label}}s ({{entered}}/{{total}} zadaných)",
-    "paperHitsEach": "× {{hpp}} zásahov každý"
+    "paperHitsEach": "× {{hpp}} zásahov každý",
+    "npmTargets": "NPM",
+    "npmBonus": "+5 bonus, 0 pokuta"
   },
   "results": {
     "title": "Výsledky",
@@ -336,6 +359,7 @@
     "matchPercent": "Súťaž %",
     "points": "Body",
     "stagePercent": "Situácia %",
+    "netPoints": "Čisté body",
     "tag": "Štítok: {{tag}}",
     "noTags": "Žiadni označení strelci v tejto súťaži.",
     "print": "Tlačiť",
@@ -347,7 +371,13 @@
     "pdfExported": "PDF exportované",
     "matchResults": "Výsledky súťaže",
     "disqualified": "Diskvalifikovaní",
-    "dqReason": "Dôvod DQ"
+    "dqReason": "Dôvod DQ",
+    "saveAs": "Uložiť ako",
+    "save": "Uložiť",
+    "fileExported": "Súbor exportovaný",
+    "publicTitle": "Výsledky",
+    "noCurrentMatch": "Žiadna aktívna súťaž. Výsledky sa zobrazia po nastavení aktuálnej súťaže.",
+    "autoRefresh": "Automaticky obnovené o {{time}}"
   },
   "import": {
     "importShooters": "Importovať strelcov",
@@ -371,6 +401,9 @@
     "skipped": "Preskočené:",
     "moreErrors": "...a ďalších {{count}} chýb",
     "importedCount": "Importovaných {{count}} záznamov",
+    "exportRegistrations": "Exportovať registrácie",
+    "exporting": "Exportujem...",
+    "csvExported": "CSV exportované",
     "winMss": {
       "title": "Importovať WinMSS databázu",
       "button": "Importovať WinMSS",

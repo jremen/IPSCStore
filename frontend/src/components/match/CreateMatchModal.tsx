@@ -5,6 +5,7 @@ import { useMatchStore } from '../../stores/matchStore';
 import { useUIStore } from '../../stores/uiStore';
 import { ORGANIZATIONS, FIREARM_TYPES } from '../../utils/constants';
 import type { Organization, FirearmType } from '../../types/match';
+import { useEscClose } from '../../hooks/useEscClose';
 
 interface CreateMatchModalProps {
   show: boolean;
@@ -31,6 +32,7 @@ export default function CreateMatchModal({ show, onClose }: CreateMatchModalProp
     onClose();
     setForm({ name: '', date: '', organization: 'IPSC', firearm_type: 'handgun' });
   };
+  useEscClose(handleClose);
 
   return (
     <Modal show={show} onClose={handleClose} size="lg">

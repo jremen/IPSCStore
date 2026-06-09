@@ -3,6 +3,7 @@ import { Alert, Badge, Label } from 'flowbite-react';
 import { InputField } from '../../shared/InputField';
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useScoreDataUpdater } from '../../../hooks/useScoreDataUpdater';
+import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
 import { calculateIDPAPreview } from '../../../utils/scoring';
 import { HitCell, ScoringSheetHeader, DnfToggle, DqSection, PenaltyStepper } from '../shared';
 import type { Stage } from '../../../types/stage';
@@ -17,6 +18,7 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
   const { setScore, alerts } = useScoringStore();
   const { sd, updateScoreData } = useScoreDataUpdater(score);
   const shooter = useScoringStore(s => s.registrations.find(r => r.id === s.currentRegistrationId));
+  const isReadOnly = useScoringReadOnly();
 
   const hpp = stage.hits_per_paper;
   const penalty_pe = sd.penalty_pe || 0;
@@ -104,9 +106,12 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
     setScore({ ...score, targets: newTargets });
   }, [steelTargets.length, score, stage.paper_targets, setScore]);
 
-  const handleTimeChange = (value: string) => {
-    setScore({ ...score, time: value ? parseFloat(value) : null });
-  };
+  const handleTimeChange = useCallback((value: string) => {
+    const currentScore = useScoringStore.getState().currentScore;
+    if (currentScore) {
+      setScore({ ...currentScore, time: value ? parseFloat(value) : null });
+    }
+  }, [setScore]);
 
   const handleResetAll = () => {
     const resetTargets = score.targets.map(t => ({
@@ -134,14 +139,14 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
       {/* TIME INPUT */}
       <div className="bg-blue-50 dark:bg-gray-800 rounded-lg p-3 mb-3 border-2 border-blue-200 dark:border-blue-800">
         <Label className="text-sm font-bold mb-1 block">⏱ TIME (seconds)</Label>
-        <InputField type="number" step="0.01" min="0" sizing="lg" decimal value={score.time ?? ''} onChange={handleTimeChange} className="text-center text-2xl font-mono" />
+        <InputField type="number" step="0.01" min="0" sizing="lg" decimal value={score.time ?? ''} onChange={handleTimeChange} disabled={isReadOnly} className="text-center text-2xl font-mono" />
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-3 shadow-sm">
         <ScoringSheetHeader
           title="🎯 IDPA SCORING SHEET"
           subtitle={`${stage.paper_targets} paper × ${hpp} hits • ${stage.steel_targets} steel`}
-          onReset={handleResetAll}
+          onReset={isReadOnly ? undefined : handleResetAll}
         />
         <p className="text-[10px] text-gray-400 px-3 -mt-1 mb-1">Tap cell +1 • Long-press −1 • Tap # to reset row</p>
 
@@ -170,15 +175,15 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
                     return (
                       <tr key={target.target_index} className={`text-center border-t border-gray-100 dark:border-gray-700 transition-colors ${finished ? 'bg-green-50 dark:bg-green-900/60' : ''}`}>
                         <td className="py-1.5">
-                          <button className="font-mono text-sm font-bold text-gray-500 hover:text-red-500 cursor-pointer" onClick={() => handleResetTarget(target.target_index)}>{idx + 1}</button>
+                          <button className={`font-mono text-sm font-bold ${isReadOnly ? 'text-gray-400 cursor-not-allowed' : 'text-gray-500 hover:text-red-500 cursor-pointer'}`} onClick={isReadOnly ? undefined : () => handleResetTarget(target.target_index)} disabled={isReadOnly}>{idx + 1}</button>
                         </td>
-                        <td className="py-1.5"><div className="flex justify-center"><HitCell value={target.alpha} color="green" onIncrement={() => handlePaperHitClick(target.target_index, 'alpha')} onDecrement={() => handlePaperDecrement(target.target_index, 'alpha')} /></div></td>
-                        <td className="py-1.5"><div className="flex justify-center"><HitCell value={target.charlie} color="yellow" onIncrement={() => handlePaperHitClick(target.target_index, 'charlie')} onDecrement={() => handlePaperDecrement(target.target_index, 'charlie')} /></div></td>
-                        <td className="py-1.5"><div className="flex justify-center"><HitCell value={target.delta} color="orange" onIncrement={() => handlePaperHitClick(target.target_index, 'delta')} onDecrement={() => handlePaperDecrement(target.target_index, 'delta')} /></div></td>
-                        <td className="py-1.5"><div className="flex justify-center"><HitCell value={target.miss} color="red" onIncrement={() => handlePaperMissClick(target.target_index)} onDecrement={() => handlePaperDecrement(target.target_index, 'miss')} /></div></td>
+                        <td className="py-1.5"><div className="flex justify-center"><HitCell value={target.alpha} color="green" onIncrement={() => handlePaperHitClick(target.target_index, 'alpha')} onDecrement={() => handlePaperDecrement(target.target_index, 'alpha')} disabled={isReadOnly} /></div></td>
+                        <td className="py-1.5"><div className="flex justify-center"><HitCell value={target.charlie} color="yellow" onIncrement={() => handlePaperHitClick(target.target_index, 'charlie')} onDecrement={() => handlePaperDecrement(target.target_index, 'charlie')} disabled={isReadOnly} /></div></td>
+                        <td className="py-1.5"><div className="flex justify-center"><HitCell value={target.delta} color="orange" onIncrement={() => handlePaperHitClick(target.target_index, 'delta')} onDecrement={() => handlePaperDecrement(target.target_index, 'delta')} disabled={isReadOnly} /></div></td>
+                        <td className="py-1.5"><div className="flex justify-center"><HitCell value={target.miss} color="red" onIncrement={() => handlePaperMissClick(target.target_index)} onDecrement={() => handlePaperDecrement(target.target_index, 'miss')} disabled={isReadOnly} /></div></td>
                         <td className="py-1.5"><div className="flex justify-center">
                           {stage.no_shoot_targets > 0 ? (
-                            <HitCell value={target.no_shoot_hits} color="red" onIncrement={() => handlePaperNSClick(target.target_index, 1)} onDecrement={() => handlePaperNSClick(target.target_index, -1)} />
+                            <HitCell value={target.no_shoot_hits} color="red" onIncrement={() => handlePaperNSClick(target.target_index, 1)} onDecrement={() => handlePaperNSClick(target.target_index, -1)} disabled={isReadOnly} />
                           ) : (
                             <button className="w-11 h-11 rounded-lg flex items-center justify-center font-mono text-xl font-bold bg-gray-50 dark:bg-gray-700/50 text-gray-300 dark:text-gray-500 ring-1 ring-gray-200 dark:ring-gray-600 cursor-not-allowed" disabled>0</button>
                           )}
@@ -206,9 +211,9 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
               <div className="text-center">
                 <span className="text-xs text-gray-400 block">Misses</span>
                 <div className="flex items-center gap-0.5 mt-1">
-                  <button className="penalty-stepper rounded text-lg font-bold bg-gray-200 dark:bg-gray-600 active:bg-gray-300" onClick={() => handleSteelMissChange(steelMisses - 1)}>−</button>
+                  <button className={`penalty-stepper rounded text-lg font-bold bg-gray-200 dark:bg-gray-600 ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'active:bg-gray-300'}`} onClick={isReadOnly ? undefined : () => handleSteelMissChange(steelMisses - 1)} disabled={isReadOnly}>−</button>
                   <span className="w-8 text-center text-xl font-mono font-bold text-red-600 dark:text-red-400">{steelMisses}</span>
-                  <button className="penalty-stepper rounded text-lg font-bold bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 active:bg-red-200" onClick={() => handleSteelMissChange(steelMisses + 1)}>+</button>
+                  <button className={`penalty-stepper rounded text-lg font-bold bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'active:bg-red-200'}`} onClick={isReadOnly ? undefined : () => handleSteelMissChange(steelMisses + 1)} disabled={isReadOnly}>+</button>
                 </div>
               </div>
               <div className="text-center">
@@ -240,6 +245,7 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
                   onIncrement={() => updateScoreData({ [key]: ((sd[key] as number) || 0) + 1 })}
                   color="orange"
                   size="sm"
+                  disabled={isReadOnly}
                 />
               </div>
             ))}
@@ -251,6 +257,7 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
                 onIncrement={() => updateScoreData({ penalty_ftdr: penalty_ftdr + 1 })}
                 color="red"
                 size="sm"
+                disabled={isReadOnly}
               />
             </div>
           </div>
@@ -267,8 +274,8 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
       )}
 
       <div className="flex items-center gap-4 mb-3 flex-wrap">
-        <DnfToggle isDnf={score.is_dnf} onToggle={() => setScore({ ...score, is_dnf: !score.is_dnf })} />
-        <DqSection shooter={shooter} />
+        <DnfToggle isDnf={score.is_dnf} onToggle={() => setScore({ ...score, is_dnf: !score.is_dnf })} disabled={isReadOnly} />
+        <DqSection shooter={shooter} disabled={isReadOnly} />
       </div>
 
       {/* IDPA Score Preview */}

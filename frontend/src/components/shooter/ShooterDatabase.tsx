@@ -68,7 +68,7 @@ export default function ShooterDatabase() {
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-xl font-bold dark:text-white">{t('shooters.title')} ({total})</h2>
         <div className="flex gap-2">
-          <CSVImportExport type="shooters" />
+          <CSVImportExport type="shooters" onImportComplete={fetchShooters} />
           <Button size="sm" color="green" onClick={() => setShowCreate(true)}>{t('shooters.newShooter')}</Button>
         </div>
       </div>

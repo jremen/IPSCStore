@@ -35,6 +35,25 @@ cd backend && npm install
 cd frontend && npm install
 ```
 
+## Electron Build
+
+**IMPORTANT: Always rebuild frontend and backend from clean state before packaging.** The Electron app must always reflect the latest source code — never package from stale `dist/` artifacts.
+
+```bash
+# Full build (from project root) — rebuilds frontend + backend + bundles + packages
+npm run build:mac    # Universal macOS (arm64 + x64)
+npm run build:win    # Windows x64
+npm run build:linux  # Linux x64
+
+# Before any Electron build, ALWAYS clean and rebuild:
+rm -rf frontend/dist
+npm run build:frontend   # fresh Vite build
+npm run build:backend    # fresh tsc + copy migrations
+cd electron && npm run bundle-backend   # fresh esbuild bundle
+```
+
+The `download-pg` scripts fetch PostgreSQL binaries into `electron/resources/pg/`. The `afterPack` hook thins universal Mach-O binaries per-architecture so `@electron/universal` can merge them correctly.
+
 ## Architecture
 
 ### Backend (`backend/src/`)

@@ -1,5 +1,6 @@
 import { Badge, Label } from 'flowbite-react';
 import { useScoringStore } from '../../../stores/scoringStore';
+import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
 import { calculateHitCountPreview } from '../../../utils/scoring';
 import { ScoringSheetHeader, DnfToggle, DqSection } from '../shared';
 import type { Stage } from '../../../types/stage';
@@ -13,6 +14,7 @@ interface Props {
 export default function HitCountScoringSheet({ stage, score }: Props) {
   const { setScore } = useScoringStore();
   const shooter = useScoringStore(s => s.registrations.find(r => r.id === s.currentRegistrationId));
+  const isReadOnly = useScoringReadOnly();
 
   const config = stage.config || {};
   const pointValue = config.point_value || 10;
@@ -49,7 +51,7 @@ export default function HitCountScoringSheet({ stage, score }: Props) {
         <ScoringSheetHeader
           title={`🎯 ${typeLabel} Scoring`}
           subtitle={`${totalTargets} targets • ${pointValue} pts per hit • Tap to toggle Hit/Miss`}
-          onReset={handleResetAll}
+          onReset={isReadOnly ? undefined : handleResetAll}
         />
 
         <div className="p-3">
@@ -64,8 +66,10 @@ export default function HitCountScoringSheet({ stage, score }: Props) {
                 <button
                   key={target.target_index}
                   className={`w-16 h-16 rounded-lg font-bold text-sm flex flex-col items-center justify-center transition-colors cursor-pointer
-                    ${isHit ? 'bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300 ring-2 ring-green-400' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-1 ring-red-300'}`}
+                    ${isHit ? 'bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300 ring-2 ring-green-400' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-1 ring-red-300'}
+                    ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                   onClick={() => toggleTargetHit(idx)}
+                  disabled={isReadOnly}
                 >
                   <span className="text-lg">{isHit ? '✓' : '✗'}</span>
                   <span className="text-[10px]">T{idx + 1}</span>
@@ -77,8 +81,8 @@ export default function HitCountScoringSheet({ stage, score }: Props) {
       </div>
 
       <div className="flex items-center gap-4 mb-3 flex-wrap">
-        <DnfToggle isDnf={score.is_dnf} onToggle={() => setScore({ ...score, is_dnf: !score.is_dnf })} />
-        <DqSection shooter={shooter} />
+        <DnfToggle isDnf={score.is_dnf} onToggle={() => setScore({ ...score, is_dnf: !score.is_dnf })} disabled={isReadOnly} />
+        <DqSection shooter={shooter} disabled={isReadOnly} />
       </div>
 
       <div className="bg-green-50 dark:bg-gray-800 rounded-lg p-3 border border-green-200 dark:border-green-800 shadow-sm">

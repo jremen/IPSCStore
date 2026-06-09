@@ -6,6 +6,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useMatchStore } from '../../stores/matchStore';
 import { api } from '../../services/api';
 import { CATEGORIES, POWER_FACTORS, getDivisionsForOrganization } from '../../utils/constants';
+import { useEscClose } from '../../hooks/useEscClose';
 
 interface EditRegistrationModalProps {
   show: boolean;
@@ -19,6 +20,7 @@ export default function EditRegistrationModal({ show, onClose, registration, mat
   const { addToast } = useUIStore();
   const { matches } = useMatchStore();
   const { t } = useTranslation();
+  useEscClose(onClose);
   const matchOrganization = matches.find((m: any) => m.id === matchId)?.organization;
   const divisions = getDivisionsForOrganization(matchOrganization);
   const [form, setForm] = useState({ squad: '', division: '', category: '', power_factor: '' });

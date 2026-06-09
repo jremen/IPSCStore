@@ -11,21 +11,27 @@
     "build": "tsc",
     "bundle-backend": "node scripts/bundle-backend.mjs",
     "export-seed-data": "bash scripts/export-seed-data.sh",
-    "build:mac": "tsc && npm run bundle-backend && electron-builder --mac",
-    "build:win": "tsc && npm run bundle-backend && electron-builder --win",
-    "build:linux": "tsc && npm run bundle-backend && electron-builder --linux",
+    "download-pg": "bash scripts/download-pg.sh",
+    "download-pg:mac": "bash scripts/download-pg.sh mac-arm64",
+    "download-pg:win": "bash scripts/download-pg.sh win-x64",
+    "download-pg:linux": "bash scripts/download-pg.sh linux-x64",
+    "build:mac": "tsc && npm run bundle-backend && npm run download-pg:mac && electron-builder --mac",
+    "build:win": "tsc && npm run bundle-backend && npm run download-pg:win && electron-builder --win --x64",
+    "build:linux": "tsc && npm run bundle-backend && npm run download-pg:linux && electron-builder --linux --x64",
+    "build:all": "tsc && npm run bundle-backend && npm run download-pg:mac && electron-builder --mac && npm run download-pg:win && electron-builder --win --x64",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",
+    "dnssd-advertise": "^1.1.4",
     "electron-store": "^10.0.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "electron": "34.0.0",
     "electron-builder": "^25.0.0",
     "esbuild": "^0.25.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
+    "tsx": "^4.22.0",
+    "typescript": "^5.7.0"
   }
 }

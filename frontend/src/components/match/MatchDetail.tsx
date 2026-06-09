@@ -53,7 +53,7 @@ export default function MatchDetail() {
                 <Badge color="indigo" className="ml-2">{stage.scoring_type}</Badge>
               </div>
               <div className="text-sm dark:text-white">
-                {stage.paper_targets}&nbsp;P / {stage.steel_targets}&nbsp;S / {stage.no_shoot_targets}&nbsp;NS • {stage.min_rounds} rnds • {stage.max_points} pts
+                {stage.paper_targets}&nbsp;P / {stage.steel_targets}&nbsp;S / {stage.no_shoot_targets}&nbsp;NS{stage.npm_targets > 0 ? ` / ${stage.npm_targets} NPM` : ''} • {stage.min_rounds} rnds • {stage.max_points} pts
               </div>
             </div>
           </Card>

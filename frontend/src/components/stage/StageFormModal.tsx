@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, TextInput, Select, Label } from 'flowbite-react';
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, TextInput, Select, Label, Checkbox } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useStageStore } from '../../stores/stageStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -7,6 +7,7 @@ import { SCORING_TYPES } from '../../utils/constants';
 import { InputField } from '../shared/InputField';
 import type { ScoringType, StageConfig } from '../../types/stage';
 import type { Stage } from '../../types/stage';
+import { useEscClose } from '../../hooks/useEscClose';
 
 interface StageForm {
   name: string;
@@ -14,6 +15,7 @@ interface StageForm {
   paper_targets: number;
   steel_targets: number;
   no_shoot_targets: number;
+  npm_targets: number;
   hits_per_paper: number;
   par_time: number | null;
   config: StageConfig;
@@ -22,7 +24,7 @@ interface StageForm {
 
 const emptyForm = (): StageForm => ({
   name: '', scoring_type: 'comstock',
-  paper_targets: 0, steel_targets: 0, no_shoot_targets: 0,
+  paper_targets: 0, steel_targets: 0, no_shoot_targets: 0, npm_targets: 0,
   hits_per_paper: 2, par_time: null, config: {},
   password: '',
 });
@@ -30,23 +32,23 @@ const emptyForm = (): StageForm => ({
 function getVisibleFields(type: ScoringType) {
   const ipsc = ['comstock', 'virginia', 'fixed_time', 'hit_factor', 'chrono', 'idpa'];
   if (ipsc.includes(type)) {
-    return { paperTargets: true, steelTargets: true, noShootTargets: true, hitsPerPaper: true, parTime: type === 'fixed_time', config: false };
+    return { paperTargets: true, steelTargets: true, noShootTargets: true, npmTargets: true, hitsPerPaper: true, parTime: type === 'fixed_time', config: false };
   }
   switch (type) {
     case 'action_steel':
-      return { paperTargets: false, steelTargets: false, noShootTargets: false, hitsPerPaper: false, parTime: false, config: true };
+      return { paperTargets: false, steelTargets: false, noShootTargets: false, npmTargets: false, hitsPerPaper: false, parTime: false, config: true };
     case 'multi_gun':
-      return { paperTargets: false, steelTargets: false, noShootTargets: false, hitsPerPaper: false, parTime: false, config: true };
+      return { paperTargets: false, steelTargets: false, noShootTargets: false, npmTargets: false, hitsPerPaper: false, parTime: false, config: true };
     case 'long_range':
-      return { paperTargets: false, steelTargets: false, noShootTargets: false, hitsPerPaper: false, parTime: false, config: true };
+      return { paperTargets: false, steelTargets: false, noShootTargets: false, npmTargets: false, hitsPerPaper: false, parTime: false, config: true };
     case 'bullseye':
-      return { paperTargets: false, steelTargets: false, noShootTargets: false, hitsPerPaper: false, parTime: false, config: true };
+      return { paperTargets: false, steelTargets: false, noShootTargets: false, npmTargets: false, hitsPerPaper: false, parTime: false, config: true };
     case 'archery':
-      return { paperTargets: false, steelTargets: false, noShootTargets: false, hitsPerPaper: false, parTime: false, config: true };
+      return { paperTargets: false, steelTargets: false, noShootTargets: false, npmTargets: false, hitsPerPaper: false, parTime: false, config: true };
     case 'nrl22':
-      return { paperTargets: false, steelTargets: false, noShootTargets: false, hitsPerPaper: false, parTime: false, config: true };
+      return { paperTargets: false, steelTargets: false, noShootTargets: false, npmTargets: false, hitsPerPaper: false, parTime: false, config: true };
     default:
-      return { paperTargets: true, steelTargets: true, noShootTargets: true, hitsPerPaper: true, parTime: false, config: false };
+      return { paperTargets: true, steelTargets: true, noShootTargets: true, npmTargets: true, hitsPerPaper: true, parTime: false, config: false };
   }
 }
 
@@ -61,6 +63,7 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
   const { createStage, updateStage } = useStageStore();
   const { addToast } = useUIStore();
   const { t } = useTranslation();
+  useEscClose(onClose);
   const [form, setForm] = useState<StageForm>(emptyForm());
 
   useEffect(() => {
@@ -71,10 +74,13 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
         paper_targets: editStage.paper_targets,
         steel_targets: editStage.steel_targets,
         no_shoot_targets: editStage.no_shoot_targets,
+        npm_targets: editStage.npm_targets ?? 0,
         hits_per_paper: editStage.hits_per_paper,
         par_time: editStage.par_time,
         config: editStage.config || {},
-        password: editStage.password || '',
+        // Don't pre-fill password — hashes can't be reversed.
+        // Send empty string = keep existing, non-empty = set new
+        password: '',
       });
     } else {
       setForm(emptyForm());
@@ -91,7 +97,13 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
   const handleEdit = async () => {
     if (!editStage) return;
     try {
-      await updateStage(editStage.id, form);
+      // Build update payload: only include password if user typed something
+      // undefined = keep existing, empty string = remove, non-empty = set new
+      const payload = { ...form };
+      if (form.password === '' && editStage.has_password) {
+        delete (payload as any).password; // keep existing password
+      }
+      await updateStage(editStage.id, payload);
       addToast(t('stages.updated'), 'success');
       onClose();
       setForm(emptyForm());
@@ -123,10 +135,14 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
           </div>
 
           {visibleFields.paperTargets && (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               <InputField label={t('stages.paperTargets')} type="number" step="1" min="0" value={form.paper_targets} onChange={(v) => setForm({ ...form, paper_targets: parseInt(v) || 0 })} />
               <InputField label={t('stages.steelTargets')} type="number" step="1" min="0" value={form.steel_targets} onChange={(v) => setForm({ ...form, steel_targets: parseInt(v) || 0 })} />
-              <InputField label={t('stages.noShootTargets')} type="number" step="1" min="0" value={form.no_shoot_targets} onChange={(v) => setForm({ ...form, no_shoot_targets: parseInt(v) || 0 })} />
+              <div className="flex items-center gap-2">
+                <Checkbox id="no-shoot" checked={form.no_shoot_targets > 0} onChange={(e) => setForm({ ...form, no_shoot_targets: e.target.checked ? 1 : 0 })} />
+                <Label htmlFor="no-shoot">{t('stages.hasNoShootTargets')}</Label>
+              </div>
+              <InputField label={t('stages.npmTargets')} type="number" step="1" min="0" value={form.npm_targets} onChange={(v) => setForm({ ...form, npm_targets: parseInt(v) || 0 })} />
             </div>
           )}
 
@@ -140,7 +156,7 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
               )}
               <div>
                 <Label>{t('stages.password')}</Label>
-                <TextInput type="text" placeholder={t('stages.passwordPlaceholder')} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                <TextInput type="password" placeholder={isEdit && editStage?.has_password ? t('stages.passwordKeepHint') : t('stages.passwordPlaceholder')} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
                 <p className="text-xs text-gray-500 dark:text-white mt-1">{t('stages.passwordHelp')}</p>
               </div>
             </div>

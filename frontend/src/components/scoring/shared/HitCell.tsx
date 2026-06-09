@@ -5,6 +5,7 @@ interface HitCellProps {
   color: string;
   onIncrement: () => void;
   onDecrement: () => void;
+  disabled?: boolean;
 }
 
 const colorMap: Record<string, { bg: string; ring: string; text: string; activeBg: string }> = {
@@ -16,7 +17,7 @@ const colorMap: Record<string, { bg: string; ring: string; text: string; activeB
 };
 
 /** Clickable hit cell — tap to +1, long-press/right-click to -1 */
-export default function HitCell({ value, color, onIncrement, onDecrement }: HitCellProps) {
+export default function HitCell({ value, color, onIncrement, onDecrement, disabled }: HitCellProps) {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
 
@@ -57,14 +58,16 @@ export default function HitCell({ value, color, onIncrement, onDecrement }: HitC
     <button
       className={`
         w-11 h-11 rounded-lg flex items-center justify-center font-mono text-xl font-bold
-        transition-all select-none touch-manipulation cursor-pointer
-        ${c.bg} ${c.text} ${c.activeBg}
+        transition-all select-none touch-manipulation
+        ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
+        ${c.bg} ${c.text} ${disabled ? '' : c.activeBg}
         ${hasValue ? `ring-2 ${c.ring}` : 'ring-1 ring-gray-200 dark:ring-gray-600'}
       `}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerLeave}
-      onContextMenu={handleContextMenu}
+      onPointerDown={disabled ? undefined : handlePointerDown}
+      onPointerUp={disabled ? undefined : handlePointerUp}
+      onPointerLeave={disabled ? undefined : handlePointerLeave}
+      onContextMenu={disabled ? undefined : handleContextMenu}
+      disabled={disabled}
     >
       {value}
     </button>

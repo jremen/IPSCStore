@@ -5,12 +5,14 @@ export default function PenaltyStepper({
   onIncrement,
   size = 'md',
   color = 'orange',
+  disabled = false,
 }: {
   value: number;
   onDecrement: () => void;
   onIncrement: () => void;
   size?: 'sm' | 'md' | 'lg';
   color?: 'orange' | 'purple' | 'red';
+  disabled?: boolean;
 }) {
   const sizeClasses = {
     sm: { wrapper: 'gap-1', button: 'text-sm', value: 'w-8 text-sm', minusBg: '', plusBg: '' },
@@ -30,13 +32,15 @@ export default function PenaltyStepper({
   return (
     <div className={`flex items-center ${s.wrapper}`}>
       <button
-        className={`penalty-stepper rounded ${s.button} font-bold bg-gray-200 dark:bg-gray-600 active:bg-gray-300`}
-        onClick={onDecrement}
+        className={`penalty-stepper rounded ${s.button} font-bold bg-gray-200 dark:bg-gray-600 active:bg-gray-300 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        onClick={disabled ? undefined : onDecrement}
+        disabled={disabled}
       >−</button>
       <span className={`${s.value} text-center font-mono font-bold ${c.value}`}>{value}</span>
       <button
-        className={`penalty-stepper rounded ${s.button} font-bold ${c.plusBg}`}
-        onClick={onIncrement}
+        className={`penalty-stepper rounded ${s.button} font-bold ${c.plusBg} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        onClick={disabled ? undefined : onIncrement}
+        disabled={disabled}
       >+</button>
     </div>
   );

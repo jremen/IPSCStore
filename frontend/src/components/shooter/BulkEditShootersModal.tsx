@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
 import { useShooterStore } from '../../stores/shooterStore';
 import BulkEditFormFields, { type BulkEditForm } from '../shared/BulkEditFormFields';
+import { useEscClose } from '../../hooks/useEscClose';
 
 interface BulkEditShootersModalProps {
   show: boolean;
@@ -30,6 +31,7 @@ export default function BulkEditShootersModal({ show, onClose, selectedIds, sele
     setForm({ changeDivision: false, division: 'standard', changeCategory: false, category: 'regular', changePowerFactor: false, powerFactor: 'minor', changeSquad: false, squad: '' });
     onClose();
   };
+  useEscClose(handleClose);
 
   const handleSave = async () => {
     const updates: Record<string, string> = {};

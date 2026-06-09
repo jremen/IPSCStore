@@ -1,24 +1,55 @@
 import { useState } from 'react';
 import { Button } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
+import { useUIStore } from '../../stores/uiStore';
+import { api } from '../../services/api';
 import CSVImportModal from './CSVImportModal';
-import { TbFileImport } from "react-icons/tb";
+import { TbFileImport, TbFileExport } from 'react-icons/tb';
 
 interface Props {
   type: 'shooters' | 'registrations' | 'scores';
   matchId?: string;
+  onImportComplete?: () => void;
 }
 
-export default function CSVImportExport({ type, matchId }: Props) {
+export default function CSVImportExport({ type, matchId, onImportComplete }: Props) {
   const { t } = useTranslation();
+  const { addToast } = useUIStore();
   const [show, setShow] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const label = type === 'shooters' ? t('import.importShooters') : type === 'registrations' ? t('import.importRegistrations') : t('import.importScores');
+
+  const handleExportRegistrations = async () => {
+    if (!matchId) return;
+    setExporting(true);
+    try {
+      const csv = await api.exportRegistrationCSV(matchId);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `registrations_${matchId}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast(t('import.csvExported'), 'success');
+    } catch (err: any) {
+      addToast(err.message, 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <>
       <Button size="sm" color="light" onClick={() => setShow(true)}><TbFileImport className="mr-2 size-4" />{label}</Button>
-      <CSVImportModal show={show} onClose={() => setShow(false)} type={type} matchId={matchId} />
+      {type === 'registrations' && matchId && (
+        <Button size="sm" color="light" onClick={handleExportRegistrations} disabled={exporting}>
+          <TbFileExport className="mr-2 size-4" />
+          {exporting ? t('import.exporting') : t('import.exportRegistrations')}
+        </Button>
+      )}
+      <CSVImportModal show={show} onClose={() => setShow(false)} type={type} matchId={matchId} onImportComplete={onImportComplete} />
     </>
   );
 }

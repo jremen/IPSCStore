@@ -12,7 +12,7 @@ export function getPointValues(pf: PowerFactor | string) {
 }
 
 export interface TargetHitInput {
-  target_type: 'paper' | 'steel' | 'no_shoot';
+  target_type: 'paper' | 'steel' | 'no_shoot' | 'npm';
   alpha: number;
   charlie: number;
   delta: number;
@@ -71,7 +71,12 @@ export function calculatePreview(
     } else if (target.target_type === 'steel') {
       if (target.steel_hit) raw_points += pv.steel;
       else miss_count += 1;
+      no_shoot_hit_count += target.no_shoot_hits;
     } else if (target.target_type === 'no_shoot') {
+      no_shoot_hit_count += target.no_shoot_hits;
+    } else if (target.target_type === 'npm') {
+      if (target.steel_hit) raw_points += pv.steel; // +5 bonus
+      // miss = no penalty (don't increment miss_count)
       no_shoot_hit_count += target.no_shoot_hits;
     }
   }
@@ -135,6 +140,8 @@ export function calculateIDPAPreview(input: IDPAPreviewInput): PreviewScore {
       }
     } else if (target.target_type === 'no_shoot') {
       no_shoot_hit_count += target.no_shoot_hits;
+    } else if (target.target_type === 'npm') {
+      // NPM: no effect in IDPA time-based scoring
     }
   }
 

@@ -13,6 +13,7 @@ interface ProceduralsSectionProps {
   stackingCount: number;
   overtimeShotCount: number;
   onPenaltyFieldChange: (key: 'extra_shot_count' | 'extra_hit_count' | 'stacking_count' | 'overtime_shot_count', delta: number) => void;
+  disabled?: boolean;
 }
 
 export default function ProceduralsSection({
@@ -26,6 +27,7 @@ export default function ProceduralsSection({
   stackingCount,
   overtimeShotCount,
   onPenaltyFieldChange,
+  disabled = false,
 }: ProceduralsSectionProps) {
   const { t } = useTranslation();
 
@@ -35,7 +37,7 @@ export default function ProceduralsSection({
         <span className="font-bold dark:text-white uppercase tracking-wide">{t('scoring.procedurals')}</span>
         <span className="text-xs dark:text-white">{t('scoring.proceduralsDesc')}</span>
       </div>
-      <PenaltyStepper value={proceduralCount} onDecrement={() => onProceduralChange(-1)} onIncrement={() => onProceduralChange(1)} color="orange" size="lg" />
+      <PenaltyStepper value={proceduralCount} onDecrement={() => onProceduralChange(-1)} onIncrement={() => onProceduralChange(1)} color="orange" size="lg" disabled={disabled} />
 
       {showExtraPenalties && (
         <div className="mt-3">
@@ -59,6 +61,7 @@ export default function ProceduralsSection({
                   onIncrement={() => onPenaltyFieldChange(key, 1)}
                   color="purple"
                   size="sm"
+                  disabled={disabled}
                 />
               </div>
             ))}

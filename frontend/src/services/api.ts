@@ -11,8 +11,12 @@ function getApiBase(): string {
 
 const API_BASE = getApiBase();
 
-/** Get the auth token from localStorage if available */
+/** Get the auth token from localStorage — prefer admin token over scorer token */
 function getAuthToken(): string | null {
+  const role = localStorage.getItem('auth_role');
+  if (role === 'admin') {
+    return localStorage.getItem('admin_token');
+  }
   return localStorage.getItem('auth_token');
 }
 
@@ -94,6 +98,40 @@ async function uploadImage(path: string, file: File): Promise<{ image_path: stri
 export const api = {
   // Auth
   auth: {
+    adminLogin: async (password: string): Promise<{ token: string; role: string; error?: string }> => {
+      try {
+        return await request('/api/auth/admin-login', {
+          method: 'POST',
+          body: JSON.stringify({ password }),
+        });
+      } catch (err: any) {
+        return { error: err.message, token: '', role: '' };
+      }
+    },
+    adminLogout: async (token: string) => {
+      try {
+        return await request('/api/auth/admin-logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+      } catch {
+        return { success: true };
+      }
+    },
+    changeAdminPassword: async (currentPassword: string, newPassword: string, adminToken: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        return await request('/api/auth/admin-password', {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${adminToken}` },
+          body: JSON.stringify({ currentPassword, newPassword }),
+        });
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    },
+    getAdminPasswordStatus: async (): Promise<{ hasPassword: boolean }> => {
+      return request('/api/auth/admin-password-status');
+    },
     stageLogin: async (stageId: string, password: string): Promise<{ token: string; stageId: string; stageName: string; matchId: string; error?: string }> => {
       try {
         return await request('/api/auth/stage-login', {
@@ -107,6 +145,13 @@ export const api = {
     getStages: (matchId?: string) => {
       const qs = matchId ? `?matchId=${matchId}` : '';
       return request<any[]>(`/api/auth/stages${qs}`);
+    },
+    getMe: async (authHeader?: string): Promise<{ role: string; stageId?: string; stageName?: string; isLocalNetwork: boolean; matchId?: string }> => {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authHeader) headers['Authorization'] = authHeader;
+      const res = await fetch(`${API_BASE}/api/auth/me`, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
     },
     logout: async (token: string) => {
       try {
@@ -196,6 +241,7 @@ export const api = {
   getTagResults: (matchId: string) => request<any>(`/api/matches/${matchId}/results/tags`),
   exportCSV: (matchId: string) => requestText(`/api/matches/${matchId}/results/export/csv`),
   exportHTML: (matchId: string) => requestText(`/api/matches/${matchId}/results/export/html`),
+  exportRegistrationCSV: (matchId: string) => requestText(`/api/matches/${matchId}/registrations/export/csv`),
 
   // Import
   importShooters: (file: File, options?: { hasHeader?: boolean; columnMapping?: Record<string, string> }) => {

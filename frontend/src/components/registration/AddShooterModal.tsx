@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, TextInput, Label, Badge } from 'flowbite-react';
+import { useState } from 'react';
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, TextInput, Label, Badge, Spinner } from 'flowbite-react';
 import { InputField } from '../shared/InputField';
 import { useTranslation } from 'react-i18next';
-import { useShooterStore } from '../../stores/shooterStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useShooterSearch } from '../../hooks/useShooterSearch';
 import { api } from '../../services/api';
 import { divisionLabel } from '../../utils/constants';
+import { useEscClose } from '../../hooks/useEscClose';
 
 interface AddShooterModalProps {
   show: boolean;
@@ -17,19 +18,13 @@ interface AddShooterModalProps {
 }
 
 export default function AddShooterModal({ show, onClose, matchId, registeredShooterIds, onAdded }: AddShooterModalProps) {
-  const { shooters, fetchShooters } = useShooterStore();
   const { addToast } = useUIStore();
   const { t } = useTranslation();
-  const [search, setSearch] = useState('');
   const [squad, setSquad] = useState('');
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (show) {
-      fetchShooters({ limit: 200 });
-      setAddedIds(new Set());
-    }
-  }, [show, fetchShooters]);
+  const excludedIds = [...registeredShooterIds, ...addedIds];
+  const { shooters, loading, search, setSearch } = useShooterSearch(excludedIds);
 
   const handleAdd = async (shooterId: string) => {
     try {
@@ -42,16 +37,16 @@ export default function AddShooterModal({ show, onClose, matchId, registeredShoo
     }
   };
 
-  const excludedIds = new Set([...registeredShooterIds, ...addedIds]);
-
-  const filteredShooters = shooters.filter((s) =>
-    !excludedIds.has(s.id) &&
-    (`${s.first_name} ${s.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-      s.email?.toLowerCase().includes(search.toLowerCase()))
-  );
+  const handleClose = () => {
+    setAddedIds(new Set());
+    setSquad('');
+    setSearch('');
+    onClose();
+  };
+  useEscClose(handleClose);
 
   return (
-    <Modal show={show} onClose={onClose} size="lg">
+    <Modal show={show} onClose={handleClose} size="2xl">
       <ModalHeader>{t('registration.addTitle')}</ModalHeader>
       <ModalBody>
         <div className="mb-3">
@@ -59,22 +54,23 @@ export default function AddShooterModal({ show, onClose, matchId, registeredShoo
           <InputField type="number" step="1" min="0" value={squad} onChange={setSquad} placeholder={t('registration.squadPlaceholder')} />
         </div>
         <TextInput placeholder={t('registration.search')} value={search} onChange={(e) => setSearch(e.target.value)} className="mb-3" />
-        <div className="max-h-64 overflow-y-auto space-y-1">
-          {filteredShooters.slice(0, 30).map((s) => (
+        <div className="max-h-128 overflow-y-auto space-y-1">
+          {loading && <div className="text-center py-4"><Spinner size="sm" /> {t('common.loading')}</div>}
+          {!loading && shooters.slice(0, 50).map((s) => (
             <div key={s.id} className="w-full text-left p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between">
               <span className="dark:text-white">{s.first_name} {s.last_name}</span>
               <div className="flex items-center gap-1">
                 <Badge size="xs" color="blue">{divisionLabel(s.division)}</Badge>
                 <Badge size="xs" color="gray">{s.region}</Badge>
-                <Button size="xs" onClick={() => { handleAdd(s.id); }}>{t('common.add')}</Button>
+                <Button size="xs" className="ml-2" onClick={() => { handleAdd(s.id); }}>+&nbsp;{t('common.add')}</Button>
               </div>
             </div>
           ))}
-          {filteredShooters.length === 0 && <p className="text-gray-500 text-sm text-center py-2">{t('registration.searchEmpty')}</p>}
+          {!loading && shooters.length === 0 && <p className="text-gray-500 text-sm text-center py-2">{t('registration.searchEmpty')}</p>}
         </div>
       </ModalBody>
       <ModalFooter>
-        <Button color="gray" onClick={onClose}>{t('common.close')}</Button>
+        <Button color="gray" onClick={handleClose}>{t('common.close')}</Button>
       </ModalFooter>
     </Modal>
   );

@@ -2,6 +2,7 @@ import { Label } from 'flowbite-react';
 import { InputField } from '../../shared/InputField';
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useScoreDataUpdater } from '../../../hooks/useScoreDataUpdater';
+import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
 import { calculateMultiGunPreview } from '../../../utils/scoring';
 import { ScoringSheetHeader, DnfToggle, DqSection } from '../shared';
 import PenaltyStepper from '../shared/PenaltyStepper';
@@ -17,6 +18,7 @@ export default function MultiGunScoringSheet({ stage, score }: Props) {
   const { setScore } = useScoringStore();
   const { sd, updateScoreData } = useScoreDataUpdater(score);
   const shooter = useScoringStore(s => s.registrations.find(r => r.id === s.currentRegistrationId));
+  const isReadOnly = useScoringReadOnly();
 
   const penalty_ftn_sec = sd.penalty_ftn_sec || 0;
   const penalty_miss_sec = sd.penalty_miss_sec || 0;
@@ -62,14 +64,14 @@ export default function MultiGunScoringSheet({ stage, score }: Props) {
       {/* TIME INPUT */}
       <div className="bg-blue-50 dark:bg-gray-800 rounded-lg p-3 mb-3 border-2 border-blue-200 dark:border-blue-800">
         <Label className="text-sm font-bold mb-1 block">⏱ TIME (seconds)</Label>
-        <InputField type="number" step="0.01" min="0" sizing="lg" decimal value={score.time ?? ''} onChange={handleTimeChange} className="text-center text-2xl font-mono" />
+        <InputField type="number" step="0.01" min="0" sizing="lg" decimal value={score.time ?? ''} onChange={handleTimeChange} className="text-center text-2xl font-mono" disabled={isReadOnly} />
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-3 shadow-sm">
         <ScoringSheetHeader
           title="🎯 Multi-Gun Scoring"
           subtitle={`${score.targets.length} targets`}
-          onReset={handleResetAll}
+          onReset={isReadOnly ? undefined : handleResetAll}
         />
 
         {score.targets.filter(t => t.target_type === 'paper').length > 0 && (
@@ -85,8 +87,10 @@ export default function MultiGunScoringSheet({ stage, score }: Props) {
                   <button
                     key={target.target_index}
                     className={`w-16 h-16 rounded-lg font-bold text-sm flex flex-col items-center justify-center transition-colors cursor-pointer
-                      ${neutralized ? 'bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300 ring-2 ring-green-400' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-1 ring-red-300'}`}
+                      ${neutralized ? 'bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300 ring-2 ring-green-400' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-1 ring-red-300'}
+                      ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={() => toggleNeutralized(idx)}
+                    disabled={isReadOnly}
                   >
                     <span className="text-lg">{neutralized ? '✓' : '✗'}</span>
                     <span className="text-[10px]">T{idx + 1}</span>
@@ -117,6 +121,7 @@ export default function MultiGunScoringSheet({ stage, score }: Props) {
                   onIncrement={() => updateScoreData({ [key]: ((sd[key] as number) || 0) + 1 })}
                   color="orange"
                   size="sm"
+                  disabled={isReadOnly}
                 />
               </div>
             ))}
@@ -125,8 +130,8 @@ export default function MultiGunScoringSheet({ stage, score }: Props) {
       </div>
 
       <div className="flex items-center gap-4 mb-3 flex-wrap">
-        <DnfToggle isDnf={score.is_dnf} onToggle={() => setScore({ ...score, is_dnf: !score.is_dnf })} />
-        <DqSection shooter={shooter} />
+        <DnfToggle isDnf={score.is_dnf} onToggle={() => setScore({ ...score, is_dnf: !score.is_dnf })} disabled={isReadOnly} />
+        <DqSection shooter={shooter} disabled={isReadOnly} />
       </div>
 
       {/* Preview */}

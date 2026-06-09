@@ -18,6 +18,7 @@ interface DesktopPaperTargetsProps {
   hasNoShootTargets: boolean;
   paperTotals: PaperTotals;
   onPaperTotalsChange: (field: TotalField, value: number) => void;
+  disabled?: boolean;
 }
 
 const ZONE_CONFIG: { field: TotalField; label: string; color: string;}[] = [
@@ -33,6 +34,7 @@ export default function DesktopPaperTargets({
   hasNoShootTargets,
   paperTotals,
   onPaperTotalsChange,
+  disabled = false,
 }: DesktopPaperTargetsProps) {
   const {t, i18n} = useTranslation();
   const numTargets = paperTargets.length;
@@ -45,7 +47,7 @@ export default function DesktopPaperTargets({
     : ZONE_CONFIG;
 
   return (
-    <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+    <div className="p-3">
       <div className="flex items-center gap-2 mb-3">
         <span className="font-bold text-blue-600 dark:text-white uppercase tracking-wide">{t('scoring.paperTargets')}</span>
         <Badge size="sm" color="blue">{numTargets}</Badge>
@@ -66,12 +68,12 @@ export default function DesktopPaperTargets({
               sizing="sm"
               className={`w-20 h-9 text-center font-mono text-lg font-bold rounded-lg border-2 ${color}`}
               value={paperTotals[field]}
+              disabled={disabled}
               onChange={(v) => {
                 const val = v === '' ? 0 : parseInt(v, 10);
                 onPaperTotalsChange(field, isNaN(val) ? 0 : val);
               }}
             />
-            <span className="text-[10px] text-gray-400">{t('scoring.total')}</span>
           </div>
         ))}
       </div>

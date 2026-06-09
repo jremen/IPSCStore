@@ -2,7 +2,7 @@ import type { PowerFactor, Division, Category } from './shooter';
 
 export interface TargetScore {
   target_index: number;
-  target_type: 'paper' | 'steel' | 'no_shoot';
+  target_type: 'paper' | 'steel' | 'no_shoot' | 'npm';
   alpha: number;
   charlie: number;
   delta: number;

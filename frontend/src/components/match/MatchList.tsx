@@ -37,23 +37,24 @@ export default function MatchList() {
 
   return (
     <div className="p-4 mx-auto">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h2 className="text-xl font-bold dark:text-white">{t('matches.count', { count: matches.length })}</h2>
-        <div className="flex gap-2">
-          {matches.length > 0 && (
-            <Button size="sm" color="red" onClick={() => setShowDeleteAll(true)}><TbTrash /> {t('matches.deleteAll')}</Button>
-          )}
-          <WinMSSImport />
-          <Button size="sm" color="green" onClick={() => setShowCreate(true)}>{t('matches.newMatch')}</Button>
+      <div className="sticky top-4 before:bg-white pb-4 dark:before:bg-gray-900 before:absolute before:h-4 before:w-full before:-top-4 bg-white dark:bg-gray-900 z-100">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h2 className="text-xl font-bold dark:text-white">{t('matches.count', { count: matches.length })}</h2>
+          <div className="flex gap-2">
+            {matches.length > 0 && (
+              <Button size="sm" color="red" onClick={() => setShowDeleteAll(true)}><TbTrash /> {t('matches.deleteAll')}</Button>
+            )}
+            <WinMSSImport />
+            <Button size="sm" color="green" onClick={() => setShowCreate(true)}>{t('matches.newMatch')}</Button>
+          </div>
         </div>
-      </div>
 
-      <TextInput
-        placeholder={t('matches.searchMatches')}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="mb-4"
-      />
+        <TextInput
+          placeholder={t('matches.searchMatches')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
 
       {loading && <p className="text-gray-500">{t('common.loading')}</p>}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
 import { formatTimeDisplay, parseTimeString, formatTimeOnBlur } from '../../../utils/timeFormat';
 
 interface TimeInputProps {
@@ -6,24 +6,25 @@ interface TimeInputProps {
   onChange: (value: number | null) => void;
   disabled?: boolean;
   className?: string;
-  /** Debounce delay in ms for the onChange callback. Default: 300ms */
+  /** Debounce delay in ms for the onChange callback. Default: 600ms */
   debounceMs?: number;
 }
 
 /**
  * Dedicated time input for IPSC scoring with smart decimal handling.
  *
- * Tracks "raw digits" (no dot) separately from display. When raw digits
- * reach 4+, auto-inserts dot in display. This way, if user keeps typing
- * after auto-format (e.g. "1153" → "11.53" then "4"), we re-extract the
- * digits ("11534") and re-format correctly ("115.34").
+ * Uses a single visible <input> with controlled value and explicit cursor
+ * management via useLayoutEffect. When 4+ digits are entered, auto-inserts
+ * a decimal point before the last 2 digits (e.g., "2520" → "25.20").
+ * The cursor position is calculated based on how many digits precede it,
+ * so it stays in the correct position after formatting transformations.
  *
  * The onChange callback is debounced so rapid typing doesn't trigger
  * full store updates on every keystroke. The local display updates
  * immediately for responsive typing feel.
  *
  * - Typing "2520" → display "25.20" on 4th digit
- * - Typing "11534" → "11.53" on 4th digit, then "115.34" on 5th digit
+ * - Typing "11534" → "115.34" on 5th digit
  * - Typing "25.20" directly works
  * - Always shows 2 decimal places on blur
  */
@@ -39,6 +40,8 @@ export default function TimeInput({ value, onChange, disabled, className, deboun
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Latest parsed value to send on debounce flush
   const pendingValueRef = useRef<number | null>(value);
+  // Desired cursor position to restore after render, or null to skip
+  const pendingCursorRef = useRef<number | null>(null);
 
   // Sync external value changes (e.g., from reset) — only when not actively editing
   useEffect(() => {
@@ -49,6 +52,18 @@ export default function TimeInput({ value, onChange, disabled, className, deboun
       pendingValueRef.current = value;
     }
   }, [value]);
+
+  // Restore cursor position after React re-renders the input with a new value.
+  // useLayoutEffect runs synchronously after DOM mutations but before paint,
+  // preventing visible cursor flicker when the formatted value differs from
+  // what the user typed (e.g., auto-inserted decimal point).
+  useLayoutEffect(() => {
+    if (pendingCursorRef.current !== null && inputRef.current) {
+      const pos = pendingCursorRef.current;
+      pendingCursorRef.current = null;
+      inputRef.current.setSelectionRange(pos, pos);
+    }
+  });
 
   // Flush any pending debounced onChange on unmount
   useEffect(() => {
@@ -71,6 +86,37 @@ export default function TimeInput({ value, onChange, disabled, className, deboun
     }, debounceMs);
   }, [onChange, debounceMs]);
 
+  /**
+   * Calculate where the cursor should be in the formatted display string,
+   * based on how many digits are before the cursor in the raw input.
+   *
+   * For formatted strings with a dot (4+ digits like "25.20"):
+   *   - Digits in the seconds part → cursor at that count (before the dot)
+   *   - Digits in the fractions part → cursor at count + 1 (after the dot)
+   *
+   * For raw digits (1-3 digits, no dot):
+   *   - Cursor at the digit count position
+   */
+  const computeCursorPosition = (rawInput: string, cursorPosInRaw: number, digits: string): number => {
+    // Count how many digit characters are before the cursor in the raw input
+    const digitsBeforeCursor = rawInput.slice(0, cursorPosInRaw).replace(/[^0-9]/g, '').length;
+
+    if (digits.length >= 4) {
+      // Formatted as "SS.FF" — the dot sits between seconds and fractions
+      const secondsCount = digits.length - 2;
+      if (digitsBeforeCursor <= secondsCount) {
+        // Cursor in seconds part — positioned before the dot
+        return digitsBeforeCursor;
+      } else {
+        // Cursor in fractions part — add 1 for the dot character
+        return digitsBeforeCursor + 1;
+      }
+    } else {
+      // No dot in display, cursor position equals digit count before cursor
+      return digitsBeforeCursor;
+    }
+  };
+
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
     const cursorPos = e.target.selectionStart ?? raw.length;
@@ -80,7 +126,6 @@ export default function TimeInput({ value, onChange, disabled, className, deboun
       setDisplayValue('');
       rawDigits.current = '';
       dotAutoInserted.current = false;
-      // Clear any pending debounce and notify parent immediately for empty
       if (debounceRef.current !== null) {
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
@@ -93,12 +138,13 @@ export default function TimeInput({ value, onChange, disabled, className, deboun
 
     // If user manually typed a dot (not auto-inserted)
     if (cleaned.includes('.') && !dotAutoInserted.current) {
-      // Validate and let user type freely with their own dot
       if (!/^-?\d*\.\d*$/.test(cleaned)) return;
       setDisplayValue(cleaned);
-      rawDigits.current = ''; // clear raw digits tracking
+      rawDigits.current = '';
       const val = parseFloat(cleaned);
       flushDebouncedOnChange(isNaN(val) ? null : val);
+      // Keep cursor where user placed it — no formatting transformation
+      pendingCursorRef.current = cursorPos;
       return;
     }
 
@@ -116,7 +162,6 @@ export default function TimeInput({ value, onChange, disabled, className, deboun
       return;
     }
 
-    // Update raw digits buffer
     rawDigits.current = digits;
 
     // Auto-format at 4+ digits: insert dot before last 2 digits
@@ -125,24 +170,17 @@ export default function TimeInput({ value, onChange, disabled, className, deboun
       const fractions = digits.slice(-2);
       const formatted = `${seconds}.${fractions}`;
       dotAutoInserted.current = true;
+
+      const newCursorPos = computeCursorPosition(cleaned, cursorPos, digits);
+      pendingCursorRef.current = newCursorPos;
+
       setDisplayValue(formatted);
-
-      // Cursor adjustment: if dot was just inserted (transition from 3→4 digits)
-      // shift cursor right by 1 to account for the inserted dot
-      let newCursorPos = cursorPos;
-      if (!cleaned.includes('.') || digits.length === 4) {
-        // Dot just appeared — shift cursor
-        newCursorPos = cursorPos + 1;
-      }
-      requestAnimationFrame(() => {
-        inputRef.current?.setSelectionRange(newCursorPos, newCursorPos);
-      });
-
       const parsed = parseFloat(formatted);
       flushDebouncedOnChange(isNaN(parsed) ? null : parsed);
     } else {
       // 1-3 digits: just show raw digits, no auto-format
       dotAutoInserted.current = false;
+      pendingCursorRef.current = computeCursorPosition(cleaned, cursorPos, digits);
       setDisplayValue(digits);
       const val = parseFloat(digits);
       flushDebouncedOnChange(isNaN(val) ? null : val);
@@ -151,6 +189,7 @@ export default function TimeInput({ value, onChange, disabled, className, deboun
 
   const handleBlur = useCallback(() => {
     isEditing.current = false;
+    pendingCursorRef.current = null;
 
     // Flush any pending debounced onChange immediately
     if (debounceRef.current !== null) {
@@ -182,11 +221,12 @@ export default function TimeInput({ value, onChange, disabled, className, deboun
       onFocus={handleFocus}
       disabled={disabled}
       autoComplete="off"
-      className={`block w-full text-center text-4xl font-semibold font-mono p-1
+      className={`text-center text-4xl font-semibold font-mono w-full p-2
         rounded-lg border border-gray-300 bg-gray-50 text-gray-900
-        focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600
-        dark:bg-gray-700 dark:text-white dark:focus:border-blue-500
-        dark:focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50
+        focus:border-blue-500 focus:ring-blue-500 focus:outline-none focus:ring-2
+        dark:border-gray-600 dark:bg-gray-700 dark:text-white
+        dark:focus:border-blue-500 dark:focus:ring-blue-500
+        disabled:cursor-not-allowed disabled:opacity-50
         ${className ?? ''}`}
     />
   );

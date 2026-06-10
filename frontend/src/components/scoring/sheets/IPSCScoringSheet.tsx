@@ -39,21 +39,6 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
     showExtraPenalties, hasSidebar, hpp,
   } = useIPSCScoring(stage, score);
 
-  const TimeInputBlock = () => (
-    <>
-      <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
-      <TimeInput
-        value={score.time}
-        onChange={handleTimeChange}
-        disabled={isReadOnly || stage.scoring_type === 'fixed_time'}
-        className="py-1!"
-      />
-      {stage.scoring_type === 'fixed_time' && stage.par_time && (
-        <p className="text-xs text-gray-500 mt-1 text-center">Par time: {stage.par_time}s</p>
-      )}
-    </>
-  );
-
   const hasNoShootTargets = stage.no_shoot_targets > 0;
 
   // Subtitle showing stage composition
@@ -68,7 +53,16 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
     <div className="p-2 sm:p-4 max-w-7xl mx-auto lg:grid grid-cols-2 gap-6">
       {/* TIME INPUT — ALWAYS VISIBLE AT TOP (mobile) */}
       <div className="my-3 lg:hidden">
-        <TimeInputBlock />
+        <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
+        <TimeInput
+          value={score.time}
+          onChange={handleTimeChange}
+          disabled={isReadOnly || stage.scoring_type === 'fixed_time'}
+          className="py-1!"
+        />
+        {stage.scoring_type === 'fixed_time' && stage.par_time && (
+          <p className="text-xs text-gray-500 mt-1 text-center">Par time: {stage.par_time}s</p>
+        )}
       </div>
       {/* SCORING SHEET — two-column on desktop when sidebar exists */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 max-lg:mb-3 shadow-sm overflow-hidden -order-1">
@@ -204,7 +198,16 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
       {/* DNF + DQ toggles */}
       <div className="lg:flex flex-col gap-6">
         <div className="my-3 max-lg:hidden">
-          <TimeInputBlock />
+          <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
+          <TimeInput
+            value={score.time}
+            onChange={handleTimeChange}
+            disabled={isReadOnly || stage.scoring_type === 'fixed_time'}
+            className="py-1!"
+          />
+          {stage.scoring_type === 'fixed_time' && stage.par_time && (
+            <p className="text-xs text-gray-500 mt-1 text-center">Par time: {stage.par_time}s</p>
+          )}
         </div>
 
         <div className="flex items-center gap-4 mb-3 flex-wrap">

@@ -3,7 +3,7 @@ import { Button } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useMatchStore } from '../../stores/matchStore';
 import { useUIStore } from '../../stores/uiStore';
-import { generateScoreSheetPdf, generateScoreSheetInDoc, nativeSaveAs, downloadBlob } from '../../utils/scoreSheetPdf';
+import { generateScoreSheetPdf, nativeSaveAs, downloadBlob } from '../../utils/scoreSheetPdf';
 import type { Stage } from '../../types/stage';
 import ScoreSheetCountModal from './ScoreSheetCountModal';
 
@@ -31,27 +31,14 @@ export default function PrintScoreSheetButton({ stages }: { stages: Stage[] }) {
       const organization = activeMatch.organization || '';
       const selectedStages = stages.filter(s => stageIds.includes(s.id));
 
-      // Generate PDFs for each stage — one doc per stage, save individually
-      // or combine by generating one stage at a time
+      // Generate one PDF with all stages per shooter page
       const doc = await generateScoreSheetPdf({
         matchName,
         matchDate,
         organization,
-        stage: selectedStages[0],
+        stages: selectedStages,
         sheetCount,
       });
-
-      // Add remaining stages to the same doc
-      for (let i = 1; i < selectedStages.length; i++) {
-        doc.addPage();
-        generateScoreSheetInDoc(doc, {
-          matchName,
-          matchDate,
-          organization,
-          stage: selectedStages[i],
-          sheetCount,
-        });
-      }
 
       const baseName = (matchName).replace(/[^a-zA-Z0-9]/g, '_');
       const pdfBlob = doc.output('blob');

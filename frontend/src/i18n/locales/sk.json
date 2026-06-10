@@ -11,8 +11,8 @@
     "back": "Späť",
     "search": "Hľadať...",
     "reset": "Obnoviť všetko",
-    "next": "Ďalej ▶",
-    "prev": "◀ Predošlý",
+    "next": "Ďalej",
+    "prev": "Predošlý",
     "noData": "Žiadne dáta.",
     "confirm": "Potvrdiť",
     "error": "Chyba",
@@ -182,6 +182,7 @@
     "configPointValue": "Bodová hodnota za zásah",
     "printScoreSheets": "Tlač bodovacích hárkov",
     "sheetsPerStage": "Hárky na situáciu",
+    "numberOfShooters": "Počet strelcov",
     "selectStages": "Vybrať situácie",
     "selectAllStages": "Vybrať všetky",
     "pdfGenerated": "Bodovací hárok bol vygenerovaný"

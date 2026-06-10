@@ -58,23 +58,25 @@ export default function MatchRegistration() {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h2 className="text-xl font-bold dark:text-white">{t('registration.title')} ({registrations.length})</h2>
-        <div className="flex gap-2">
-          <CSVImportExport type="registrations" matchId={activeMatchId} onImportComplete={loadRegistrations} />
-          <Button size="sm" color="green" onClick={() => setShowInlineCreate(true)}>{t('shooters.newShooter')}</Button>
-          <Button size="sm" color="blue" onClick={() => setShowAdd(true)}>{t('registration.addShooter')}</Button>
+      <div className="sticky top-4 before:bg-white pb-4 dark:before:bg-gray-900 before:absolute before:h-4 before:w-full before:-top-4 bg-white dark:bg-gray-900 z-100">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h2 className="text-xl font-bold dark:text-white">{t('registration.title')} ({registrations.length})</h2>
+          <div className="flex gap-2">
+            <CSVImportExport type="registrations" matchId={activeMatchId} onImportComplete={loadRegistrations} />
+            <Button size="sm" color="green" onClick={() => setShowInlineCreate(true)}>{t('shooters.newShooter')}</Button>
+            <Button size="sm" color="blue" onClick={() => setShowAdd(true)}>{t('registration.addShooter')}</Button>
+          </div>
         </div>
-      </div>
 
-      <BulkActionToolbar
-        selectedCount={selection.selectedCount}
-        onEdit={() => setShowBulkEdit(true)}
-        onDelete={() => setShowBulkRemove(true)}
-        onClearSelection={selection.clearSelection}
-        editLabel={t('bulkActions.editSelected')}
-        deleteLabel={t('bulkActions.removeSelected')}
-      />
+        <BulkActionToolbar
+          selectedCount={selection.selectedCount}
+          onEdit={() => setShowBulkEdit(true)}
+          onDelete={() => setShowBulkRemove(true)}
+          onClearSelection={selection.clearSelection}
+          editLabel={t('bulkActions.editSelected')}
+          deleteLabel={t('bulkActions.removeSelected')}
+        />
+      </div>
 
       {registrations.length > 0 ? (
         <div className="overflow-x-auto shadow-sm rounded-lg border border-gray-200 dark:border-gray-700">

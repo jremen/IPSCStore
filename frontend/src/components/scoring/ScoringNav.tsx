@@ -12,6 +12,7 @@ import ScoringSheet from './ScoringSheet';
 import ScoreSummarySheet from './ScoreSummarySheet';
 import ShooterDropdown from './ShooterDropdown';
 import SquadFilterBar from './SquadFilterBar';
+import { TbChevronLeft, TbChevronRight } from "react-icons/tb";
 
 interface ScoringNavProps {
   /** If set, restrict the view to only this stage (for remote scorers) */
@@ -181,9 +182,9 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
         <div className="bg-white dark:bg-gray-800 p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 no-print scoring-nav-pinned">
           <SquadFilterBar />
           <div className="flex items-center justify-between mb-2 gap-1">
-            <button onClick={prevShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg disabled:opacity-30 min-h-11 min-w-11 flex items-center justify-center">◀</button>
+            <button onClick={prevShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg disabled:opacity-30 min-h-11 min-w-11 flex items-center justify-center"><TbChevronLeft className="size-6" /></button>
             <ShooterDropdown onSelect={handleSelectShooter} />
-            <button onClick={nextShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg disabled:opacity-30 min-h-11 min-w-11 flex items-center justify-center">▶</button>
+            <button onClick={nextShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg disabled:opacity-30 min-h-11 min-w-11 flex items-center justify-center"><TbChevronRight className="size-6" /></button>
           </div>
           {currentShooter && (
             <div className="flex gap-1 justify-center flex-wrap">
@@ -210,11 +211,11 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
       {/* Bottom bar — pinned at bottom on mobile */}
       {activeStageId && currentRegistrationId && (
         <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-3 flex justify-between items-center no-print scoring-nav-pinned">
-          <Button color="gray" onClick={() => prevShooter()} className="min-h-11">{t('common.prev')}</Button>
+          <Button color="gray" onClick={() => prevShooter()} className="min-h-11"><TbChevronLeft className="size-6 mr-1" />{t('common.prev')}</Button>
           <Button color="blue" onClick={handleConfirm} disabled={!canConfirm} className="min-h-11">
             {t('common.confirm')}
           </Button>
-          <Button color="gray" onClick={() => nextShooter()} className="min-h-11">{t('common.next')}</Button>
+          <Button color="gray" onClick={() => nextShooter()} className="min-h-11">{t('common.next')}<TbChevronRight className="size-6 ml-1" /></Button>
         </div>
       )}
     </div>

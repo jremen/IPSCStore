@@ -76,7 +76,7 @@ function IPSCSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
         >
           ← {t('scoring.backToScoring')}
         </button>
-        <div className="text-lg font-bold">{shooterName}</div>
+        <div className="text-xl font-bold">{shooterName}</div>
         <div className="flex gap-1 flex-wrap mt-1">
           <Badge color="blue">{divisionLabel(shooterDetails.division)}</Badge>
           <Badge color="gray">{categoryLabel(shooterDetails.category)}</Badge>
@@ -88,11 +88,11 @@ function IPSCSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
 
       {/* Summary data — scrollable */}
       <div className="scoring-scroll-area p-4 dark:text-white">
-        <h2 className="text-lg font-semibold mb-3">{t('scoring.summary')}</h2>
+        <h2 className="text-xl font-semibold mb-3">{t('scoring.summary')}</h2>
 
         <div className="space-y-2">
           {/* Hit totals */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-lg">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xl">
             <span className="">A</span>
             <span className="font-mono text-right">{totalAlpha}</span>
 
@@ -119,7 +119,7 @@ function IPSCSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
           <hr className="border-gray-200 dark:border-gray-700" />
 
           {/* Penalties — breakdown by type */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-lg dark:text-white">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xl dark:text-white">
             {score.procedural_count > 0 && (
               <>
                 <span className="">{t('scoring.procedurals')}</span>
@@ -173,7 +173,7 @@ function IPSCSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
           <hr className="border-gray-200 dark:border-gray-700" />
 
           {/* Computed results */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-lg dark:text-white font-medium">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xl dark:text-white font-medium">
             {score.time !== null && (
               <>
                 <span>{t('scoring.time')}</span>
@@ -239,7 +239,7 @@ function IDPASummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
         <button onClick={onBack} className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline mb-2 min-h-11">
           ← {t('scoring.backToScoring')}
         </button>
-        <div className="text-lg font-bold">{shooterName}</div>
+        <div className="text-xl font-bold">{shooterName}</div>
         <div className="flex gap-1 flex-wrap mt-1">
           <Badge color="blue">{divisionLabel(shooterDetails.division)}</Badge>
           <Badge color="gray">{categoryLabel(shooterDetails.category)}</Badge>
@@ -247,9 +247,9 @@ function IDPASummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
       </div>
 
       <div className="scoring-scroll-area p-4">
-        <h2 className="text-lg font-semibold mb-3">{t('scoring.summary')}</h2>
+        <h2 className="text-xl font-semibold mb-3">{t('scoring.summary')}</h2>
         <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-lg">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-xl">
             <span className="">-0 (A)</span>
             <span className="font-mono text-right">{totalAlpha}</span>
 
@@ -268,7 +268,7 @@ function IDPASummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
 
           <hr className="border-gray-200 dark:border-gray-700" />
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-lg font-medium">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-xl font-medium">
             <span>{t('scoring.ptsDown')}</span>
             <span className="font-mono text-right">{preview.raw_points}</span>
 
@@ -318,13 +318,13 @@ function ActionSteelSummary({ stage, score, shooterName, shooterDetails, onBack,
         <button onClick={onBack} className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline mb-2 min-h-11">
           ← {t('scoring.backToScoring')}
         </button>
-        <div className="text-lg font-bold">{shooterName}</div>
+        <div className="text-xl font-bold">{shooterName}</div>
       </div>
 
       <div className="scoring-scroll-area p-4">
-        <h2 className="text-lg font-semibold mb-3">{t('scoring.summary')}</h2>
+        <h2 className="text-xl font-semibold mb-3">{t('scoring.summary')}</h2>
         <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-lg">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-xl">
             {stringTimes.map((time, i) => (
               <Fragment key={i}>
                 <span className="">{t('scoring.stringN', { number: i + 1 })}</span>
@@ -335,7 +335,7 @@ function ActionSteelSummary({ stage, score, shooterName, shooterDetails, onBack,
 
           <hr className="border-gray-200 dark:border-gray-700" />
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-lg font-medium">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-xl font-medium">
             <span>{t('scoring.totalTime')}</span>
             <span className="font-mono text-right font-bold">{preview.total_time?.toFixed(2)}s</span>
           </div>
@@ -375,13 +375,13 @@ function MultiGunSummary({ stage, score, shooterName, shooterDetails, onBack, on
         <button onClick={onBack} className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline mb-2 min-h-11">
           ← {t('scoring.backToScoring')}
         </button>
-        <div className="text-lg font-bold">{shooterName}</div>
+        <div className="text-xl font-bold">{shooterName}</div>
       </div>
 
       <div className="scoring-scroll-area p-4">
-        <h2 className="text-lg font-semibold mb-3">{t('scoring.summary')}</h2>
+        <h2 className="text-xl font-semibold mb-3">{t('scoring.summary')}</h2>
         <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-lg">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-xl">
             <span className="">{t('scoring.targets')}</span>
             <span className="font-mono text-right">{neutralized}/{totalTargets}</span>
 
@@ -394,7 +394,7 @@ function MultiGunSummary({ stage, score, shooterName, shooterDetails, onBack, on
 
           <hr className="border-gray-200 dark:border-gray-700" />
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-lg font-medium">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-xl font-medium">
             <span>{t('scoring.totalTime')}</span>
             <span className="font-mono text-right font-bold">{preview.total_time?.toFixed(2)}s</span>
           </div>
@@ -422,13 +422,13 @@ function RingSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
         <button onClick={onBack} className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline mb-2 min-h-11">
           ← {t('scoring.backToScoring')}
         </button>
-        <div className="text-lg font-bold">{shooterName}</div>
+        <div className="text-xl font-bold">{shooterName}</div>
       </div>
 
       <div className="scoring-scroll-area p-4">
-        <h2 className="text-lg font-semibold mb-3">{t('scoring.summary')}</h2>
+        <h2 className="text-xl font-semibold mb-3">{t('scoring.summary')}</h2>
         <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-lg font-medium">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-xl font-medium">
             <span>{t('scoring.totalScore')}</span>
             <span className="font-mono text-right font-bold">{preview.raw_points}</span>
 
@@ -466,20 +466,20 @@ function HitCountSummary({ stage, score, shooterName, shooterDetails, onBack, on
         <button onClick={onBack} className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline mb-2 min-h-11">
           ← {t('scoring.backToScoring')}
         </button>
-        <div className="text-lg font-bold">{shooterName}</div>
+        <div className="text-xl font-bold">{shooterName}</div>
       </div>
 
       <div className="scoring-scroll-area p-4">
-        <h2 className="text-lg font-semibold mb-3">{t('scoring.summary')}</h2>
+        <h2 className="text-xl font-semibold mb-3">{t('scoring.summary')}</h2>
         <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-lg">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-xl">
             <span className="">{t('scoring.hits')}</span>
             <span className="font-mono text-right">{hits}/{totalTargets}</span>
           </div>
 
           <hr className="border-gray-200 dark:border-gray-700" />
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-lg font-medium">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 dark:text-white text-xl font-medium">
             <span>{t('scoring.totalScore')}</span>
             <span className="font-mono text-right font-bold">{preview.raw_points}</span>
           </div>

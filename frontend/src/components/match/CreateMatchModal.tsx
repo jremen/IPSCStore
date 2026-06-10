@@ -13,7 +13,7 @@ interface CreateMatchModalProps {
 }
 
 export default function CreateMatchModal({ show, onClose }: CreateMatchModalProps) {
-  const { createMatch } = useMatchStore();
+  const { createMatch, markCurrent } = useMatchStore();
   const { setActiveMatch, addToast } = useUIStore();
   const { t } = useTranslation();
   const [form, setForm] = useState({
@@ -26,6 +26,7 @@ export default function CreateMatchModal({ show, onClose }: CreateMatchModalProp
       const match = await createMatch(form);
       onClose();
       setForm({ name: '', date: '', organization: 'IPSC', firearm_type: 'handgun' });
+      await markCurrent(match.id);
       await setActiveMatch(match.id);
     } catch (err: any) {
       addToast(err.message || t('common.error'), 'error');

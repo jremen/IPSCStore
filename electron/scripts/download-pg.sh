@@ -28,7 +28,7 @@ if [ -z "$PLATFORM" ]; then
 fi
 
 # PostgreSQL version — must match EDB binary release
-PG_VERSION="16.14"
+PG_VERSION="16.13"
 PG_MAJOR="${PG_VERSION%%.*}"
 
 PG_DIR="$RESOURCES_DIR/pg"
@@ -311,8 +311,10 @@ if [ "$EDB_SUCCESS" = false ]; then
     linux-arm64) TARGET="aarch64-unknown-linux-gnu" ;;
   esac
 
-  PG_TARBALL="postgresql-${PG_VERSION}-${TARGET}.tar.gz"
-  PG_URL="https://github.com/theseus-rs/postgresql-binaries/releases/download/${PG_VERSION}/${PG_TARBALL}"
+  # theseus-rs uses three-part versioning (e.g., 16.13.0) for tags and filenames
+  THESEUS_VERSION="${PG_VERSION}.0"
+  PG_TARBALL="postgresql-${THESEUS_VERSION}-${TARGET}.tar.gz"
+  PG_URL="https://github.com/theseus-rs/postgresql-binaries/releases/download/${THESEUS_VERSION}/${PG_TARBALL}"
 
   echo "Downloading from: $PG_URL"
   TMPDIR=$(mktemp -d)

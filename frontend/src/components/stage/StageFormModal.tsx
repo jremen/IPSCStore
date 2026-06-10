@@ -135,14 +135,16 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
           </div>
 
           {visibleFields.paperTargets && (
-            <div className="grid grid-cols-4 gap-3">
-              <InputField label={t('stages.paperTargets')} type="number" step="1" min="0" value={form.paper_targets} onChange={(v) => setForm({ ...form, paper_targets: parseInt(v) || 0 })} />
-              <InputField label={t('stages.steelTargets')} type="number" step="1" min="0" value={form.steel_targets} onChange={(v) => setForm({ ...form, steel_targets: parseInt(v) || 0 })} />
+            <div>
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <InputField label={t('stages.paperTargets')} type="number" step="1" min="0" value={form.paper_targets} onChange={(v) => setForm({ ...form, paper_targets: parseInt(v) || 0 })} />
+                <InputField label={t('stages.steelTargets')} type="number" step="1" min="0" value={form.steel_targets} onChange={(v) => setForm({ ...form, steel_targets: parseInt(v) || 0 })} />
+                <InputField label={t('stages.npmTargets')} type="number" step="1" min="0" value={form.npm_targets} onChange={(v) => setForm({ ...form, npm_targets: parseInt(v) || 0 })} />
+              </div>
               <div className="flex items-center gap-2">
                 <Checkbox id="no-shoot" checked={form.no_shoot_targets > 0} onChange={(e) => setForm({ ...form, no_shoot_targets: e.target.checked ? 1 : 0 })} />
                 <Label htmlFor="no-shoot">{t('stages.hasNoShootTargets')}</Label>
               </div>
-              <InputField label={t('stages.npmTargets')} type="number" step="1" min="0" value={form.npm_targets} onChange={(v) => setForm({ ...form, npm_targets: parseInt(v) || 0 })} />
             </div>
           )}
 

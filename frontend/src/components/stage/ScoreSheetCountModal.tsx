@@ -46,7 +46,7 @@ export default function ScoreSheetCountModal({ show, stages, onClose, onGenerate
       <ModalBody>
         <div className="space-y-4">
           <div>
-            <Label className="mb-1 block">{t('stages.sheetsPerStage')}</Label>
+            <Label className="mb-1 block">{t('stages.numberOfShooters')}</Label>
             <TextInput
               type="number"
               min={1}

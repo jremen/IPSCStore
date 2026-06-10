@@ -65,22 +65,24 @@ export default function ShooterDatabase() {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h2 className="text-xl font-bold dark:text-white">{t('shooters.title')} ({total})</h2>
-        <div className="flex gap-2">
-          <CSVImportExport type="shooters" onImportComplete={fetchShooters} />
-          <Button size="sm" color="green" onClick={() => setShowCreate(true)}>{t('shooters.newShooter')}</Button>
+      <div className="sticky top-4 pb-4 before:bg-white dark:before:bg-gray-900 before:absolute before:h-4 before:w-full before:-top-4 bg-white dark:bg-gray-900 z-100">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h2 className="text-xl font-bold dark:text-white">{t('shooters.title')} ({total})</h2>
+          <div className="flex gap-2">
+            <CSVImportExport type="shooters" onImportComplete={fetchShooters} />
+            <Button size="sm" color="green" onClick={() => setShowCreate(true)}>{t('shooters.newShooter')}</Button>
+          </div>
         </div>
+        <TextInput placeholder={t('shooters.search')} value={search} onChange={(e) => setSearch(e.target.value)} className="sticky top-8" />
+
+        <BulkActionToolbar
+          selectedCount={selection.selectedCount}
+          onEdit={() => setShowBulkEdit(true)}
+          onDelete={() => setShowBulkDelete(true)}
+          onClearSelection={selection.clearSelection}
+        />
       </div>
 
-      <TextInput placeholder={t('shooters.search')} value={search} onChange={(e) => setSearch(e.target.value)} className="mb-4" />
-
-      <BulkActionToolbar
-        selectedCount={selection.selectedCount}
-        onEdit={() => setShowBulkEdit(true)}
-        onDelete={() => setShowBulkDelete(true)}
-        onClearSelection={selection.clearSelection}
-      />
 
       {loading && <p className="text-gray-500">{t('common.loading')}</p>}
 

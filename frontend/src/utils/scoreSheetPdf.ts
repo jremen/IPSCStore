@@ -14,6 +14,7 @@
 import { loadPdfFonts, setBoldFont, setRegularFont } from './pdfFont';
 import { getScoringCategoryConfig, getScoringCategory, ringValueLabel, SCORING_TYPES } from './constants';
 import type { Stage } from '../types/stage';
+import i18next from "i18next";
 
 // ── Public interface ──────────────────────────────────────────────────
 
@@ -256,9 +257,9 @@ function drawPageHeader(doc: any, input: ScoreSheetInput, y: number, isContinuat
 function drawShooterInfo(doc: any, y: number, col?: Col): number {
   const c = col || FULL_COL;
   setRegularFont(doc); doc.setFontSize(10);
-  doc.text('Shooter:', c.leftX, y + 8);
+  doc.text(`${i18next.t('results.shooter')}:`, c.leftX, y + 8);
   doc.setLineWidth(0.2);
-  const labelW = doc.getTextWidth('Shooter:') + 1;
+  const labelW = doc.getTextWidth(`${i18next.t('results.shooter')}:`) + 1;
   doc.line(c.leftX + labelW, y + 8, c.rightX, y + 8);
   return y + 10;
 }
@@ -272,7 +273,7 @@ function drawSignatureLines(doc: any, y: number): number {
   doc.line(MARGIN + 8, y + 5.5, MARGIN + halfW, y + 5.5);
 
   const x2 = MARGIN + halfW + 8;
-  doc.text('Shooter:', x2, y + 5);
+  doc.text(`${i18next.t('results.shooter')}:`, x2, y + 5);
   doc.line(x2 + 14, y + 5.5, x2 + halfW - 6, y + 5.5);
 
   return y + SIGNATURE_H;
@@ -282,7 +283,7 @@ function drawSignatureLines(doc: any, y: number): number {
 
 function drawStageHeader(doc: any, stage: Stage, y: number, col: Col): number {
   setBoldFont(doc); doc.setFontSize(9);
-  const stageLabel = `Stage ${stage.stage_number}: ${stage.name}`;
+  const stageLabel = `${i18next.t('auth.stage')} ${stage.stage_number}: ${stage.name}`;
   doc.text(stageLabel, col.leftX, y + 4.5);
 
   setRegularFont(doc); doc.setFontSize(5.5);
@@ -358,21 +359,21 @@ function drawZonePerTargetTable(doc: any, stage: Stage, y: number, col: Col): nu
         if (hasNoShoot) {
           // 6 columns: Tgt=Steel, A=Hit, C=Miss, D=_, M=_, NS=NS
           paperBody.push([
-            { content: `Steel (${stage.steel_targets})`, styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
-            { content: 'Hit', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: `${i18next.t('stages.steel')} (${stage.steel_targets})`, styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: i18next.t('scoring.hits'), styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
             { content: 'Miss', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
-            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
-            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
             { content: 'NS', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
           ]);
         } else {
           // 5 columns: Tgt=Steel, A=Hit, C=Miss, D=_, M=_
           paperBody.push([
-            { content: `Steel (${stage.steel_targets})`, styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
-            { content: 'Hit', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: `${i18next.t('stages.steel')} (${stage.steel_targets})`, styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: i18next.t('scoring.hits'), styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
             { content: 'Miss', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
-            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
-            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
           ]);
         }
       }
@@ -381,7 +382,7 @@ function drawZonePerTargetTable(doc: any, stage: Stage, y: number, col: Col): nu
         if (hasNoShoot) {
           paperBody.push([
             { content: `NPM (${stage.npm_targets})`, styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
-            { content: 'Hit', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: i18next.t('scoring.hits'), styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
             { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
             { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
             { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
@@ -390,7 +391,7 @@ function drawZonePerTargetTable(doc: any, stage: Stage, y: number, col: Col): nu
         } else {
           paperBody.push([
             { content: `NPM (${stage.npm_targets})`, styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
-            { content: 'Hit', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: i18next.t('scoring.hits'), styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
             { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
             { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
             { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
@@ -409,7 +410,7 @@ function drawZonePerTargetTable(doc: any, stage: Stage, y: number, col: Col): nu
     const penaltyLabels = getPenaltyLabels(stage.scoring_type);
     if (penaltyLabels.length > 0) {
       // Add penalty labels as a row spanning the full table width
-      const penaltyText = 'Penalties:  ' + penaltyLabels.map(l => `${l} ____`).join('    ');
+      const penaltyText = `${i18next.t('scoring.penalties')}:  ` + penaltyLabels.map(l => `${l} ____`).join('    ');
       paperBody.push([{ content: penaltyText, colSpan: colCount, styles: { fontStyle: 'bold', fontSize: 9, minCellHeight: PENALTY_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
     }
 
@@ -417,7 +418,7 @@ function drawZonePerTargetTable(doc: any, stage: Stage, y: number, col: Col): nu
     // zone_per_target stages always have a time field (comstock, virginia, fixed_time, idpa, hit_factor)
     const hasTime = true;
     if (hasTime) {
-      const timeLabel = stage.scoring_type === 'fixed_time' ? `TIME (Par ${stage.par_time || 0}s)` : 'TIME';
+      const timeLabel = stage.scoring_type === 'fixed_time' ? `${i18next.t('results.time').toUpperCase()} (Par ${stage.par_time || 0}s)` : i18next.t('results.time').toUpperCase();
       paperBody.push([{ content: `${timeLabel}: __________ s`, colSpan: colCount, styles: { fontStyle: 'bold', fontSize: 9, minCellHeight: TIME_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
     }
 
@@ -449,7 +450,7 @@ function drawTimePlusTable(doc: any, stage: Stage, y: number, col: Col): number 
 function drawActionSteelTable(doc: any, stage: Stage, y: number, col: Col): number {
   const numStrings = stage.config?.number_of_strings || 5;
 
-  const head = [['#', 'Time (s)', 'Miss', 'Pen']];
+  const head = [['#', `${i18next.t('results.time')} (s)`, 'Miss', 'Pen']];
   const body: any[][] = [];
   for (let i = 1; i <= numStrings; i++) {
     body.push([String(i), '', '', '']);
@@ -459,11 +460,11 @@ function drawActionSteelTable(doc: any, stage: Stage, y: number, col: Col): numb
 
   // Penalties row
   const penaltyLabels = ['Proc', 'FTN'];
-  const penaltyText = 'Penalties:  ' + penaltyLabels.map(l => `${l} ____`).join('    ');
+  const penaltyText = `${i18next.t('scoring.penalties')}:  ` + penaltyLabels.map(l => `${l} ____`).join('    ');
   body.push([{ content: penaltyText, colSpan: 4, styles: { fontStyle: 'bold', fontSize: 8, minCellHeight: PENALTY_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
 
   // Time row
-  body.push([{ content: 'TIME: __________ s', colSpan: 4, styles: { fontStyle: 'bold', fontSize: 9, minCellHeight: TIME_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
+  body.push([{ content: `${i18next.t('results.time').toUpperCase()}: __________ s`, colSpan: 4, styles: { fontStyle: 'bold', fontSize: 9, minCellHeight: TIME_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
 
   (doc as any).autoTable({
     ...TABLE_STYLE,
@@ -500,12 +501,12 @@ function drawMultiGunTable(doc: any, stage: Stage, y: number, col: Col): number 
 
   // Penalties row
   const penaltyLabels = ['FTN', 'Miss', 'NS', 'Proc (s)'];
-  const penaltyText = 'Penalties:  ' + penaltyLabels.map(l => `${l} ____`).join('    ');
+  const penaltyText = `${i18next.t('scoring.penalties')}:  ` + penaltyLabels.map(l => `${l} ____`).join('    ');
   const penaltyColSpan = hasNoShoot ? 3 : 2;
   body.push([{ content: penaltyText, colSpan: penaltyColSpan, styles: { fontStyle: 'bold', fontSize: 8, minCellHeight: PENALTY_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
 
   // Time row
-  body.push([{ content: 'TIME: __________ s', colSpan: penaltyColSpan, styles: { fontStyle: 'bold', fontSize: 9, minCellHeight: TIME_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
+  body.push([{ content: `${i18next.t('results.time').toUpperCase()}: __________ s`, colSpan: penaltyColSpan, styles: { fontStyle: 'bold', fontSize: 9, minCellHeight: TIME_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
 
   const colW0 = 10;
   const colW1 = hasNoShoot ? col.width * 0.55 : col.width * 0.8;
@@ -584,13 +585,13 @@ function drawHitCountTable(doc: any, stage: Stage, y: number, col: Col): number 
   // Penalties row
   const penaltyLabels = getPenaltyLabels(stage.scoring_type);
   if (penaltyLabels.length > 0) {
-    const penaltyText = 'Penalties:  ' + penaltyLabels.map(l => `${l} ____`).join('    ');
+    const penaltyText = `${i18next.t('scoring.penalties')}:  ` + penaltyLabels.map(l => `${l} ____`).join('    ');
     body.push([{ content: penaltyText, colSpan: 2, styles: { fontStyle: 'bold', fontSize: 8, minCellHeight: PENALTY_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
   }
 
   // Time row
   if (hasTime) {
-    body.push([{ content: 'TIME: __________ s', colSpan: 2, styles: { fontStyle: 'bold', fontSize: 9, minCellHeight: TIME_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
+    body.push([{ content: `${i18next.t('results.time').toUpperCase()}: __________ s`, colSpan: 2, styles: { fontStyle: 'bold', fontSize: 9, minCellHeight: TIME_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
   }
 
   (doc as any).autoTable({

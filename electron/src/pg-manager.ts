@@ -148,9 +148,10 @@ export class PgManager {
       );
     }
 
-    // On Windows ARM64, warn if running x64 binaries under emulation
+    // On Windows ARM64, note that we're running x64 binaries under emulation
+    // (no native ARM64 PG binaries exist for Windows)
     if (isWin32 && process.arch === 'arm64') {
-      log('[PgManager] Running on Windows ARM64 with x64 PostgreSQL binaries (emulation required)');
+      log('[PgManager] Running on Windows ARM64 with x64 PostgreSQL binaries (x64 emulation)');
     }
 
     // Check if the data directory is already a valid PG cluster
@@ -202,9 +203,10 @@ export class PgManager {
       // On Windows ARM64, provide a helpful hint about x64 emulation
       if (isWin32 && process.arch === 'arm64') {
         throw new Error(
-          `initdb failed on Windows ARM64. This may be because x64 emulation is not available.\n` +
+          `initdb failed on Windows ARM64. No native ARM64 PostgreSQL binaries exist for Windows,\n` +
+          `so the app uses x64 binaries under Windows x64 emulation.\n` +
           `Error: ${err?.message || String(err)}${initdbErr}\n\n` +
-          `Make sure Windows x64 emulation is enabled (Settings > Apps > Optional features > X64 emulation).\n\n` +
+          `Make sure Windows x64 emulation is enabled (Settings > System > Optional features).\n\n` +
           `Alternatively, set DATABASE_URL to use an external PostgreSQL server.`
         );
       }

@@ -180,10 +180,25 @@ function startBackend(port: number): Promise<void> {
 
     log(`[Main] Starting backend server from ${entryPoint}`);
     log(`[Main] Frontend dist path: ${frontendDistPath}`);
+    log(`[Main] DATABASE_URL set: ${!!env.DATABASE_URL}`);
 
     const isDev = process.env.ELECTRON_DEV === 'true';
 
-    let started = false;
+    let settled = false;
+
+    const doResolve = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+
+    const doReject = (err: Error) => {
+      if (!settled) {
+        settled = true;
+        reject(err);
+      }
+    };
 
     if (isDev) {
       // Development: use system node via child_process.spawn
@@ -196,9 +211,8 @@ function startBackend(port: number): Promise<void> {
       child.stdout?.on('data', (data: Buffer) => {
         const output = data.toString().trim();
         log(`[Backend] ${output}`);
-        if (!started && (output.includes('Server running') || output.includes('listening'))) {
-          started = true;
-          resolve();
+        if (!settled && (output.includes('Server running') || output.includes('listening'))) {
+          doResolve();
         }
       });
 
@@ -208,12 +222,15 @@ function startBackend(port: number): Promise<void> {
 
       child.on('error', (err: Error) => {
         logError('[Main] Backend process error', err);
-        if (!started) reject(err);
+        doReject(err);
       });
 
       child.on('exit', (code: number | null) => {
         log(`[Main] Backend process exited with code ${code}`);
         backendProcess = null;
+        if (!settled) {
+          doReject(new Error(`Backend process exited unexpectedly with code ${code}. Check log for details: ${getLogPath()}`));
+        }
       });
     } else {
       // Production: use Electron's utilityProcess.fork()
@@ -222,18 +239,32 @@ function startBackend(port: number): Promise<void> {
       // Note: NODE_PATH doesn't work with ESM imports, so we don't set it.
       // The backend is bundled with esbuild and has all deps inlined.
 
-      const child = utilityProcess.fork(entryPoint, [], {
-        env,
-        stdio: 'pipe',
-      });
+      // Verify the entry point exists before forking
+      try {
+        require('fs').accessSync(entryPoint);
+      } catch {
+        doReject(new Error(`Backend entry point not found: ${entryPoint}`));
+        return;
+      }
+
+      let child: Electron.UtilityProcess;
+      try {
+        child = utilityProcess.fork(entryPoint, [], {
+          env,
+          stdio: 'pipe',
+        });
+      } catch (forkErr: any) {
+        logError('[Main] utilityProcess.fork() failed', forkErr);
+        doReject(new Error(`Failed to fork backend process: ${forkErr.message || String(forkErr)}`));
+        return;
+      }
       backendProcess = child;
 
       child.stdout?.on('data', (data: Buffer) => {
         const output = data.toString().trim();
         log(`[Backend] ${output}`);
-        if (!started && (output.includes('Server running') || output.includes('listening'))) {
-          started = true;
-          resolve();
+        if (!settled && (output.includes('Server running') || output.includes('listening'))) {
+          doResolve();
         }
       });
 
@@ -244,22 +275,39 @@ function startBackend(port: number): Promise<void> {
       child.on('exit', (code: number) => {
         log(`[Main] Backend process exited with code ${code}`);
         backendProcess = null;
+        // If the process exits before we detected startup, reject immediately
+        // instead of waiting for the 15-second timeout.
+        if (!settled) {
+          doReject(new Error(`Backend process exited unexpectedly with code ${code}. Check log for details: ${getLogPath()}`));
+        }
+      });
+
+      // Handle V8 fatal errors in the utility process
+      child.on('error', (type: string, location: string, report: string) => {
+        logError(`[Main] Backend process fatal error: ${type} at ${location}`, report);
+        if (!settled) {
+          doReject(new Error(`Backend process fatal error: ${type} at ${location}`));
+        }
+      });
+
+      // Log when the process actually spawns (useful for debugging slow starts)
+      child.on('spawn', () => {
+        log('[Main] Backend process spawned successfully');
       });
     }
 
     // Timeout: if server doesn't start within 15 seconds, check health endpoint
     setTimeout(() => {
-      if (!started) {
+      if (!settled) {
         const http = require('http');
         http.get(`http://localhost:${port}/api/health`, (res: any) => {
           if (res.statusCode === 200) {
-            started = true;
-            resolve();
+            doResolve();
           } else {
-            reject(new Error('Backend server did not start within timeout'));
+            doReject(new Error('Backend server did not start within timeout'));
           }
         }).on('error', () => {
-          reject(new Error('Backend server did not start within timeout'));
+          doReject(new Error('Backend server did not start within timeout'));
         });
       }
     }, 15000);
@@ -376,6 +424,30 @@ async function showDatabaseConfigDialog(errorMsg: string): Promise<string | null
 }
 
 /**
+ * Test if a PostgreSQL connection string is reachable by attempting
+ * a TCP connection to the host:port extracted from the URL.
+ */
+async function testDatabaseConnection(databaseUrl: string): Promise<boolean> {
+  try {
+    const url = new URL(databaseUrl);
+    const host = url.hostname || 'localhost';
+    const port = parseInt(url.port || '5432', 10);
+
+    return new Promise<boolean>((resolve) => {
+      const net = require('net');
+      const socket = new net.Socket();
+      socket.setTimeout(3000);
+      socket.on('connect', () => { socket.destroy(); resolve(true); });
+      socket.on('error', () => { socket.destroy(); resolve(false); });
+      socket.on('timeout', () => { socket.destroy(); resolve(false); });
+      socket.connect(port, host);
+    });
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Application entry point.
  */
 async function main(): Promise<void> {
@@ -396,6 +468,24 @@ async function main(): Promise<void> {
     if (externalDbUrl) {
       log('[Main] Using DATABASE_URL from saved config');
       process.env.DATABASE_URL = externalDbUrl;
+    }
+  }
+
+  // If we have an external DATABASE_URL, verify it's reachable before committing to it.
+  // A stale saved URL (e.g., from a previous session where bundled PG failed) will cause
+  // the backend to fail with an unhelpful "background server could not be started" error.
+  // If the external DB isn't reachable, fall through to try the bundled PostgreSQL.
+  if (externalDbUrl) {
+    const reachable = await testDatabaseConnection(externalDbUrl);
+    if (reachable) {
+      log(`[Main] Using external PostgreSQL: ${externalDbUrl.replace(/:([^@]+)@/, ':****@')}`);
+    } else {
+      log('[Main] Saved external DATABASE_URL is not reachable, trying bundled PostgreSQL instead');
+      externalDbUrl = undefined;
+      process.env.DATABASE_URL = '';
+      // Delete the stale config so we don't keep retrying a dead connection
+      const configPath = path.join(app.getPath('userData'), 'db-config.json');
+      try { await fs.unlink(configPath); } catch { /* ignore */ }
     }
   }
 
@@ -447,7 +537,12 @@ async function main(): Promise<void> {
     logError('[Main] Failed to start backend', err);
     flushLog();
     const backendError = err instanceof Error ? err.message : String(err);
-    dialog.showErrorBox('Startup Error', `Failed to start the backend server: ${backendError}\n\nLog file: ${getLogPath()}`);
+    const platformInfo = `Platform: ${process.platform} ${process.arch}`;
+    let helpText = '';
+    if (process.platform === 'win32' && process.arch === 'arm64') {
+      helpText = '\n\nYou are on Windows ARM64. If PostgreSQL failed to start, you may need to:\n1. Enable x64 emulation in Windows Settings\n2. Or connect to an external PostgreSQL server via the database config dialog';
+    }
+    dialog.showErrorBox('Startup Error', `Failed to start the backend server: ${backendError}\n\n${platformInfo}${helpText}\n\nLog file: ${getLogPath()}`);
     app.quit();
     return;
   }

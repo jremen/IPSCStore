@@ -9,7 +9,7 @@ export const ThemeToggle = memo(function ThemeToggle() {
       type="button"
       aria-label="Toggle dark mode"
       onClick={toggleMode}
-      className="text-sm text-gray-400 hover:text-white transition-colors"
+      className="cursor-pointer text-sm text-gray-400 hover:text-white transition-colors"
     >
       {isDark ? (
         <SunIcon className="size-5" />

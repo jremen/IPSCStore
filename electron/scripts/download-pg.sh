@@ -64,8 +64,14 @@ case "$PLATFORM" in
     EDB_EXTRACT_SUBDIR="bin"
     ;;
   win-arm64)
-    # EDB doesn't provide Windows ARM64 binaries, fall through to theseus-rs
-    EDB_OS=""
+    # EDB doesn't provide native Windows ARM64 binaries.
+    # No ARM64 PG binaries exist anywhere (not from EDB, theseus-rs, or Homebrew).
+    # Use the EDB x64 binaries which run under Windows x64 emulation on ARM64.
+    echo "NOTE: No native ARM64 PostgreSQL binaries exist for Windows."
+    echo "Using x64 binaries — these require Windows x64 emulation (built into Windows 11 ARM64)."
+    EDB_OS="windows-x64"
+    EDB_EXT="zip"
+    EDB_EXTRACT_SUBDIR="bin"
     ;;
   linux-x64)
     EDB_OS="linux-x64"

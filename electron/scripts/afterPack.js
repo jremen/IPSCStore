@@ -12,6 +12,9 @@
  * (arm64 for the arm64 build, x86_64 for the x64 build) using `lipo -thin`.
  * The universal merger then sees different binaries and correctly
  * LIPO-merges them back into universal binaries in the final app.
+ *
+ * For Windows builds, validates that the bundled PG binaries match the
+ * target architecture (x64 vs arm64).
  */
 
 const { execSync } = require('child_process');
@@ -31,9 +34,18 @@ exports.default = async function afterPack(context) {
   console.log('[afterPack] Platform:', context.electronPlatformName, 'Arch:', context.arch);
   console.log('[afterPack] appOutDir:', context.appOutDir);
 
-  // Only run for macOS builds during universal packaging
-  if (context.electronPlatformName !== 'darwin') return;
+  // macOS: thin universal Mach-O binaries for per-arch builds
+  if (context.electronPlatformName === 'darwin') {
+    await thinMacBinaries(context);
+  }
 
+  // Windows: validate PG binary architecture matches target
+  if (context.electronPlatformName === 'win32') {
+    validateWindowsPgArch(context);
+  }
+};
+
+async function thinMacBinaries(context) {
   const arch = context.arch;
   const lipoArch = LIPO_ARCH_MAP[arch];
   if (!lipoArch) {
@@ -95,4 +107,51 @@ exports.default = async function afterPack(context) {
   }
 
   console.log(`[afterPack] Done — thinned ${thinned} file(s)`);
-};
+}
+
+/**
+ * Validate that the bundled PostgreSQL binaries match the target Windows architecture.
+ * On Windows ARM64, x64 PG binaries require x64 emulation which may not be available.
+ * Detects mismatched DLLs (e.g., libcrypto-3-x64.dll in an arm64 build) and warns.
+ */
+function validateWindowsPgArch(context) {
+  const arch = context.arch;
+  // electron-builder arch: 1 = x64, 3 = arm64
+  const targetArch = arch === 3 ? 'arm64' : 'x64';
+
+  const pgDir = path.join(context.appOutDir, 'resources', 'pg');
+  if (!fs.existsSync(pgDir)) {
+    console.log('[afterPack] PG directory not found at', pgDir, ', skipping validation');
+    return;
+  }
+
+  const pgBinDir = path.join(pgDir, 'bin');
+  if (!fs.existsSync(pgBinDir)) {
+    console.log('[afterPack] PG bin directory not found, skipping validation');
+    return;
+  }
+
+  // Check for architecture markers in DLL filenames
+  // EDB x64 binaries have names like: libcrypto-3-x64.dll, libssl-3-x64.dll, wx*_x64_custom.dll
+  // ARM64 binaries from theseus-rs would NOT have "x64" in their DLL names
+  const x64Markers = fs.readdirSync(pgBinDir).filter(f =>
+    f.toLowerCase().includes('x64') && f.endsWith('.dll')
+  );
+
+  if (targetArch === 'arm64' && x64Markers.length > 0) {
+    // This is expected — no native ARM64 PG binaries exist for Windows.
+    // The download-pg:win-arm64 script intentionally uses x64 binaries
+    // which run under Windows x64 emulation on ARM64.
+    console.log(`[afterPack] Windows ARM64 build using x64 PG binaries (x64 emulation required)`);
+    x64Markers.forEach(f => console.log(`[afterPack]   - ${f}`));
+  } else if (targetArch === 'arm64' && x64Markers.length === 0) {
+    // Unexpected: ARM64 build with no x64 markers — maybe wrong binaries were downloaded
+    console.warn(`[afterPack] WARNING: Building for Windows ARM64 but no x64 DLL markers found in PG bin/`);
+    console.warn(`[afterPack] Expected x64 PG binaries (running under emulation). The PG binaries may be wrong.`);
+  } else if (targetArch === 'x64' && x64Markers.length === 0) {
+    console.warn(`[afterPack] WARNING: Building for Windows x64 but no x64 DLL markers found in PG bin/`);
+    console.warn(`[afterPack] The PG binaries may be for a different architecture.`);
+  } else {
+    console.log(`[afterPack] PG binary architecture looks correct for ${targetArch}`);
+  }
+}

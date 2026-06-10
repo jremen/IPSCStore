@@ -8,7 +8,7 @@ import path from 'path';
 export async function showDatabaseUrlDialog(errorMsg: string, logPath: string): Promise<string | null> {
   const isArm64 = process.platform === 'win32' && process.arch === 'arm64';
   const archNote = isArm64
-    ? 'You are on Windows ARM64, which does not support the bundled x64 PostgreSQL.'
+    ? 'You are on Windows ARM64. The bundled PostgreSQL uses x64 binaries which require Windows x64 emulation. If the emulation is unavailable, connect to an external PostgreSQL server instead.'
     : '';
 
   const html = `<!DOCTYPE html>

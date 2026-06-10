@@ -6,6 +6,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { SCORING_TYPES } from '../../utils/constants';
 import StageImageUpload from './StageImageUpload';
 import StageFormModal from './StageFormModal';
+import PrintScoreSheetButton from './PrintScoreSheetButton';
 import type { Stage } from '../../types/stage';
 
 function getScoringTypeLabel(type: string): string {
@@ -47,7 +48,10 @@ export default function StageList() {
     <div className="p-4 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold dark:text-white">{t('stages.title')}</h2>
-        <Button size="sm" color="green" onClick={() => setShowCreate(true)}>{t('stages.addStage')}</Button>
+        <div className="flex gap-2">
+          <PrintScoreSheetButton stages={stages} />
+          <Button size="sm" color="green" onClick={() => setShowCreate(true)}>{t('stages.addStage')}</Button>
+        </div>
       </div>
 
       {loading && <p className="text-gray-500">{t('common.loading')}</p>}

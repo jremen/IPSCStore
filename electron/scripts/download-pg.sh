@@ -63,6 +63,10 @@ case "$PLATFORM" in
     EDB_EXT="zip"
     EDB_EXTRACT_SUBDIR="bin"
     ;;
+  win-arm64)
+    # EDB doesn't provide Windows ARM64 binaries, fall through to theseus-rs
+    EDB_OS=""
+    ;;
   linux-x64)
     EDB_OS="linux-x64"
     EDB_EXT="tar.gz"
@@ -119,7 +123,7 @@ if [ -n "$EDB_OS" ]; then
     mkdir -p "$PG_BIN_DIR"
     for bin in initdb pg_ctl postgres createdb psql pg_dump pg_restore; do
       BIN_EXT=""
-      if [ "$PLATFORM" = "win-x64" ]; then
+      if [ "$PLATFORM" = "win-x64" ] || [ "$PLATFORM" = "win-arm64" ]; then
         BIN_EXT=".exe"
       fi
       SRC="$EXTRACTED_DIR/bin/${bin}${BIN_EXT}"
@@ -135,7 +139,7 @@ if [ -n "$EDB_OS" ]; then
     # These DLLs (libpq.dll, libssl-3-x64.dll, libintl-9.dll, etc.) are required
     # by postgres.exe and pg_ctl.exe at runtime. They MUST be in the same directory
     # as the EXEs or on the system PATH — the lib/ directory alone is not enough.
-    if [ "$PLATFORM" = "win-x64" ]; then
+    if [ "$PLATFORM" = "win-x64" ] || [ "$PLATFORM" = "win-arm64" ]; then
       find "$EXTRACTED_DIR/bin" -maxdepth 1 -name '*.dll' -exec cp {} "$PG_BIN_DIR/" \;
       echo "  Copied: bin/*.dll (Windows runtime DLLs)"
     fi
@@ -144,7 +148,7 @@ if [ -n "$EDB_OS" ]; then
     # Also copy the lib/postgresql/ subdirectory which contains extension modules
     if [ -d "$EXTRACTED_DIR/lib" ]; then
       mkdir -p "$PG_DIR/lib"
-      if [ "$PLATFORM" = "win-x64" ]; then
+      if [ "$PLATFORM" = "win-x64" ] || [ "$PLATFORM" = "win-arm64" ]; then
         # Windows: copy DLLs (extension modules like adminpack.dll, etc.)
         find "$EXTRACTED_DIR/lib" -maxdepth 1 -name '*.dll' -exec cp {} "$PG_DIR/lib/" \;
         echo "  Copied: lib/*.dll"
@@ -171,7 +175,7 @@ if [ -n "$EDB_OS" ]; then
     # We must preserve the platform-specific layout so PostgreSQL can find its files.
     if [ -d "$EXTRACTED_DIR/share" ]; then
       mkdir -p "$PG_DIR/share"
-      if [ "$PLATFORM" = "win-x64" ]; then
+      if [ "$PLATFORM" = "win-x64" ] || [ "$PLATFORM" = "win-arm64" ]; then
         # Windows: copy share/ contents directly to pg/share/ (matching EDB layout)
         # This includes: extension/, contrib/, postgres.bki, tsearch_data/, timezone/, etc.
         cp -r "$EXTRACTED_DIR/share"/* "$PG_DIR/share/" 2>/dev/null || true
@@ -302,6 +306,7 @@ if [ "$EDB_SUCCESS" = false ]; then
     mac-arm64)  TARGET="aarch64-apple-darwin" ;;
     mac-x64)    TARGET="x86_64-apple-darwin" ;;
     win-x64)    TARGET="x86_64-pc-windows-msvc" ;;
+    win-arm64)  TARGET="aarch64-pc-windows-msvc" ;;
     linux-x64)  TARGET="x86_64-unknown-linux-gnu" ;;
     linux-arm64) TARGET="aarch64-unknown-linux-gnu" ;;
   esac
@@ -329,7 +334,7 @@ if [ "$EDB_SUCCESS" = false ]; then
   mkdir -p "$PG_BIN_DIR"
   for bin in initdb pg_ctl postgres createdb psql pg_restore; do
     BIN_EXT=""
-    if [ "$PLATFORM" = "win-x64" ]; then
+    if [ "$PLATFORM" = "win-x64" ] || [ "$PLATFORM" = "win-arm64" ]; then
       BIN_EXT=".exe"
     fi
     SRC="$EXTRACTED_DIR/bin/${bin}${BIN_EXT}"
@@ -342,14 +347,14 @@ if [ "$EDB_SUCCESS" = false ]; then
   done
 
   # On Windows, copy required DLLs from bin/ (runtime dependencies)
-  if [ "$PLATFORM" = "win-x64" ]; then
+  if [ "$PLATFORM" = "win-x64" ] || [ "$PLATFORM" = "win-arm64" ]; then
     find "$EXTRACTED_DIR/bin" -maxdepth 1 -name '*.dll' -exec cp {} "$PG_BIN_DIR/" \; 2>/dev/null || true
     echo "  Copied: bin/*.dll (Windows runtime DLLs)"
   fi
 
   if [ -d "$EXTRACTED_DIR/lib" ]; then
     mkdir -p "$PG_DIR/lib"
-    if [ "$PLATFORM" = "win-x64" ]; then
+    if [ "$PLATFORM" = "win-x64" ] || [ "$PLATFORM" = "win-arm64" ]; then
       find "$EXTRACTED_DIR/lib" -maxdepth 1 -name '*.dll' -exec cp {} "$PG_DIR/lib/" \; 2>/dev/null || true
       echo "  Copied: lib/*.dll"
     else
@@ -378,6 +383,14 @@ fi
 if [ "$EDB_SUCCESS" = false ]; then
   echo "ERROR: Could not obtain PostgreSQL binaries from any source"
   exit 1
+fi
+
+# Remove macOS quarantine attributes from downloaded binaries.
+# When curl downloads .exe/.dll files, macOS marks them with com.apple.quarantine,
+# which prevents 7-Zip (used by electron-builder's NSIS installer) from reading them.
+if [ "$(uname -s)" = "Darwin" ]; then
+  echo "Removing macOS quarantine attributes..."
+  xattr -cr "$PG_DIR" 2>/dev/null || true
 fi
 
 echo ""

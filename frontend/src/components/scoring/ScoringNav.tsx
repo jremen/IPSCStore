@@ -9,6 +9,7 @@ import { divisionLabel, categoryLabel, powerFactorLabel } from '../../utils/cons
 import { isScoreComplete } from '../../utils/scoringValidation';
 import { useScoringReadOnly } from '../../hooks/useScoringReadOnly';
 import ScoringSheet from './ScoringSheet';
+import ScoreSummarySheet from './ScoreSummarySheet';
 import ShooterDropdown from './ShooterDropdown';
 import SquadFilterBar from './SquadFilterBar';
 
@@ -21,14 +22,17 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
   const { activeMatchId, addToast } = useUIStore();
   const { registrations, fetchRegistrations, currentRegistrationId, selectShooter,
           currentScore, loadScore, saveScore, validateScore, nextShooter, prevShooter,
-          activeStageId, setActiveStageId, fetchScoringProgress } = useScoringStore();
+          activeStageId, setActiveStageId, fetchScoringProgress, showSummary, setShowSummary } = useScoringStore();
   const { stages, fetchStages } = useStageStore();
-  const { authenticatedMatchId } = useAuthStore();
+  const { isAdmin } = useAuthStore();
   const isReadOnly = useScoringReadOnly();
   const { t } = useTranslation();
 
   // For remote scorers: fall back to authenticatedMatchId when activeMatchId isn't set yet
-  const effectiveMatchId = activeMatchId || (restrictedStageId ? authenticatedMatchId : null);
+  const effectiveMatchId = activeMatchId || (restrictedStageId ? useAuthStore.getState().authenticatedMatchId : null);
+
+  // Remote scorers see summary before saving; admins save directly
+  const requiresSummary = !isAdmin;
 
   const currentShooter = registrations.find(r => r.id === currentRegistrationId);
 
@@ -65,7 +69,7 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
     // Score load is handled by the useEffect above watching currentRegistrationId
   };
 
-  const handleSave = async () => {
+  const performSave = async () => {
     if (!effectiveMatchId || !activeStageId || !currentRegistrationId || !currentScore) return;
     const stage = stages.find((s) => s.id === activeStageId);
     if (!stage) return;
@@ -79,6 +83,8 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
     try {
       await saveScore(effectiveMatchId, activeStageId, currentRegistrationId, currentScore);
       addToast(t('scoring.saved'), 'success');
+      // Hide summary if it was showing
+      setShowSummary(false);
       // Refresh scoring progress after save (await so scoredIds is up-to-date)
       if (effectiveMatchId) await fetchScoringProgress(effectiveMatchId);
 
@@ -108,6 +114,20 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
     }
   };
 
+  const handleConfirm = () => {
+    if (requiresSummary) {
+      // Remote scorers: show summary sheet first
+      setShowSummary(true);
+    } else {
+      // Admin: save directly
+      performSave();
+    }
+  };
+
+  const handleSummaryBack = () => {
+    setShowSummary(false);
+  };
+
   const handleStageChange = (stageId: string) => {
     setActiveStageId(stageId);
     // Score load is handled by the useEffect above watching activeStageId
@@ -120,8 +140,26 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
   const currentStage = stages.find((s) => s.id === activeStageId);
   const canConfirm = currentScore && currentStage && isScoreComplete(currentStage, currentScore) && !isReadOnly;
 
+  // Summary view for remote scorers
+  if (showSummary && currentStage && currentScore && currentShooter) {
+    return (
+      <ScoreSummarySheet
+        stage={currentStage}
+        score={currentScore}
+        shooterName={`${currentShooter.first_name} ${currentShooter.last_name}`}
+        shooterDetails={{
+          division: currentShooter.effective_division,
+          category: currentShooter.effective_category,
+          powerFactor: currentShooter.effective_power_factor,
+        }}
+        onBack={handleSummaryBack}
+        onApprove={performSave}
+      />
+    );
+  }
+
   return (
-    <div className="flex flex-col h-full 2xl:gap-12">
+    <div className="scoring-nav-root">
       {/* Stage selector tabs — hidden for restricted (remote) scorers */}
       {!restrictedStageId && (
       <div className="flex overflow-x-auto border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-1 no-print" style={{ WebkitOverflowScrolling: 'touch' }}>
@@ -138,9 +176,9 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
       </div>
       )}
 
-      {/* Shooter selector with searchable dropdown */}
+      {/* Shooter selector with searchable dropdown — pinned at top on mobile */}
       {activeStageId && (
-        <div className="bg-white dark:bg-gray-800 p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 no-print">
+        <div className="bg-white dark:bg-gray-800 p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 no-print scoring-nav-pinned">
           <SquadFilterBar />
           <div className="flex items-center justify-between mb-2 gap-1">
             <button onClick={prevShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg disabled:opacity-30 min-h-11 min-w-11 flex items-center justify-center">◀</button>
@@ -158,8 +196,8 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
         </div>
       )}
 
-      {/* Scoring Sheet — scrollable area */}
-      <div className="scoring-scroll">
+      {/* Scoring Sheet — only this section scrolls on mobile */}
+      <div className="scoring-scroll-area">
         {activeStageId && currentRegistrationId && currentStage && currentScore ? (
           <ScoringSheet stage={currentStage} score={currentScore} />
         ) : (
@@ -169,11 +207,11 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
         )}
       </div>
 
-      {/* Sticky bottom bar — 44px touch targets, safe-area for notched devices */}
+      {/* Bottom bar — pinned at bottom on mobile */}
       {activeStageId && currentRegistrationId && (
-        <div className="sticky bottom-0 z-10 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-3 flex justify-between items-center no-print">
+        <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-3 flex justify-between items-center no-print scoring-nav-pinned">
           <Button color="gray" onClick={() => prevShooter()} className="min-h-11">{t('common.prev')}</Button>
-          <Button color="blue" onClick={handleSave} disabled={!canConfirm} className="min-h-11">
+          <Button color="blue" onClick={handleConfirm} disabled={!canConfirm} className="min-h-11">
             {t('common.confirm')}
           </Button>
           <Button color="gray" onClick={() => nextShooter()} className="min-h-11">{t('common.next')}</Button>

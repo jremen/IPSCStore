@@ -179,7 +179,12 @@
     "configTimedFire": "Časovaná streľba",
     "configRapidFire": "Rýchla streľba",
     "configArrowsPerEnd": "Šípy na sadu",
-    "configPointValue": "Bodová hodnota za zásah"
+    "configPointValue": "Bodová hodnota za zásah",
+    "printScoreSheets": "Tlač bodovacích hárkov",
+    "sheetsPerStage": "Hárky na situáciu",
+    "selectStages": "Vybrať situácie",
+    "selectAllStages": "Vybrať všetky",
+    "pdfGenerated": "Bodovací hárok bol vygenerovaný"
   },
   "shooters": {
     "title": "Databáza strelcov",
@@ -229,7 +234,9 @@
     "updated": "Registrácia aktualizovaná",
     "dq": "DQ",
     "active": "Aktívny",
-    "disqualified": "DISKVALIFIKOVANÝ"
+    "disqualified": "DISKVALIFIKOVANÝ",
+    "tag": "Štítok",
+    "tagPlaceholder": "napr. číslo člena"
   },
   "scoring": {
     "noMatch": "Najskôr vyberte súťaž.",
@@ -260,6 +267,7 @@
     "nsHits": "N/S zásahy (−10 každý)",
     "procedurals": "Procedúry",
     "proceduralsDesc": "(−10 každý)",
+    "ftsa": "FTSA",
     "extraShots": "Extra výstrely",
     "extraHits": "Extra zásahy",
     "stacking": "Stacking",
@@ -341,7 +349,11 @@
     "ringShotsEntered": "{{label}}s ({{entered}}/{{total}} zadaných)",
     "paperHitsEach": "× {{hpp}} zásahov každý",
     "npmTargets": "NPM",
-    "npmBonus": "+5 bonus, 0 pokuta"
+    "npmBonus": "+5 bonus, 0 pokuta",
+    "summary": "Súhrn skóre",
+    "totalPenalties": "Pokuty",
+    "approve": "Schváliť",
+    "backToScoring": "Späť na bodovanie"
   },
   "results": {
     "title": "Výsledky",
@@ -360,6 +372,7 @@
     "points": "Body",
     "stagePercent": "Situácia %",
     "netPoints": "Čisté body",
+    "time": "Čas",
     "tag": "Štítok: {{tag}}",
     "noTags": "Žiadni označení strelci v tejto súťaži.",
     "print": "Tlačiť",

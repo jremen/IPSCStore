@@ -8,6 +8,11 @@ export default defineConfig({
     tailwindcss(),
     flowbiteReact(),
     react()],
+  define: {
+    // Inject build timestamp so every build produces unique content hashes
+    // in the JS bundle, forcing browsers to fetch the new version
+    __APP_BUILD_TIME__: JSON.stringify(Date.now()),
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,

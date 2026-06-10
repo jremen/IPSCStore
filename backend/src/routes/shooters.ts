@@ -120,6 +120,7 @@ shooterRoutes.put('/bulk', async (c) => {
   if (updates.division) setClauses.push(`division = '${updates.division}'`);
   if (updates.category) setClauses.push(`category = '${updates.category}'`);
   if (updates.power_factor) setClauses.push(`power_factor = '${updates.power_factor}'`);
+  if (updates.tag !== undefined) setClauses.push(`tag = '${updates.tag || null}'`);
 
   if (setClauses.length === 0) {
     return c.json({ error: 'No valid fields to update' }, 400);

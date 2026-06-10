@@ -72,7 +72,9 @@ export function parseTimeString(raw: string): number | null {
  */
 export function formatTimeDisplay(time: number | null): string {
   if (time === null || time === undefined) return '';
-  return time.toFixed(2);
+  // API can return time as a string (e.g., "25.20"), coerce to number
+  const num = typeof time === 'string' ? parseFloat(time) : time;
+  return isNaN(num) ? '' : num.toFixed(2);
 }
 
 /**

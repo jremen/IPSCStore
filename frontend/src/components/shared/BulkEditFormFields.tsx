@@ -10,6 +10,8 @@ export interface BulkEditForm {
   category: string;
   changePowerFactor: boolean;
   powerFactor: string;
+  changeTag?: boolean;
+  tag: string;
   changeSquad?: boolean;
   squad: string;
 }
@@ -102,6 +104,26 @@ export default function BulkEditFormFields({ form, onChange, showSquad = false, 
                 <option key={pf.value} value={pf.value}>{pf.label}</option>
               ))}
             </Select>
+          )}
+        </div>
+      </div>
+
+      {/* Tag */}
+      <div className="flex items-center gap-3">
+        <ToggleSwitch
+          checked={form.changeTag ?? false}
+          onChange={(checked) => update({ changeTag: checked, tag: checked ? form.tag || '' : '' })}
+          label={t('bulkEdit.changeField', { field: t('registration.tag') })}
+        />
+        <div className="flex-1">
+          {(form.changeTag) && (
+            <InputField
+              sizing="sm"
+              value={form.tag}
+              onChange={(v) => update({ tag: v })}
+              placeholder={t('registration.tagPlaceholder')}
+              className="mt-1"
+            />
           )}
         </div>
       </div>

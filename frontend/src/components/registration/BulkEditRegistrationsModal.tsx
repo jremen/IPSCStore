@@ -25,12 +25,13 @@ export default function BulkEditRegistrationsModal({ show, onClose, selectedIds,
     changeDivision: false, division: 'standard',
     changeCategory: false, category: 'regular',
     changePowerFactor: false, powerFactor: 'minor',
+    changeTag: false, tag: '',
     changeSquad: false, squad: '',
   });
 
   const handleClose = () => {
     setResult(null);
-    setForm({ changeDivision: false, division: 'standard', changeCategory: false, category: 'regular', changePowerFactor: false, powerFactor: 'minor', changeSquad: false, squad: '' });
+    setForm({ changeDivision: false, division: 'standard', changeCategory: false, category: 'regular', changePowerFactor: false, powerFactor: 'minor', changeTag: false, tag: '', changeSquad: false, squad: '' });
     onClose();
   };
   useEscClose(handleClose);
@@ -40,6 +41,7 @@ export default function BulkEditRegistrationsModal({ show, onClose, selectedIds,
     if (form.changeDivision) updates.division = form.division;
     if (form.changeCategory) updates.category = form.category;
     if (form.changePowerFactor) updates.power_factor = form.powerFactor;
+    if (form.changeTag) updates.tag = form.tag || null;
     if (form.changeSquad) updates.squad = form.squad ? parseInt(form.squad) : null;
     if (Object.keys(updates).length === 0) return;
 
@@ -58,7 +60,7 @@ export default function BulkEditRegistrationsModal({ show, onClose, selectedIds,
     }
   };
 
-  const hasChanges = form.changeDivision || form.changeCategory || form.changePowerFactor || form.changeSquad;
+  const hasChanges = form.changeDivision || form.changeCategory || form.changePowerFactor || form.changeTag || form.changeSquad;
 
   return (
     <Modal show={show} onClose={handleClose} size="lg">

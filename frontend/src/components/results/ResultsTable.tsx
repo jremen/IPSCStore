@@ -4,7 +4,7 @@ import { divisionLabel } from '../../utils/constants';
 
 interface ResultsTableProps {
   results: any[];
-  columns: ('position' | 'shooter' | 'division' | 'matchPercent' | 'matchPoints' | 'stagePercent' | 'stagePoints' | 'hitFactor' | 'netPoints')[];
+  columns: ('position' | 'shooter' | 'division' | 'matchPercent' | 'matchPoints' | 'stagePercent' | 'stagePoints' | 'hitFactor' | 'netPoints' | 'time')[];
   showDqBadge?: boolean;
 }
 
@@ -25,6 +25,7 @@ export default function ResultsTable({ results, columns, showDqBadge = true }: R
           {columns.includes('stagePoints') && <TableHeadCell>{t('results.points')}</TableHeadCell>}
           {columns.includes('hitFactor') && <TableHeadCell>HF</TableHeadCell>}
           {columns.includes('netPoints') && <TableHeadCell>{t('results.netPoints')}</TableHeadCell>}
+          {columns.includes('time') && <TableHeadCell>{t('results.time', { defaultValue: 'Time' })}</TableHeadCell>}
         </TableRow>
       </TableHead>
       <TableBody>
@@ -44,6 +45,7 @@ export default function ResultsTable({ results, columns, showDqBadge = true }: R
             {columns.includes('stagePoints') && <TableCell className="font-mono font-bold">{r.stage_points?.toFixed(2)}</TableCell>}
             {columns.includes('hitFactor') && <TableCell className="font-mono">{r.hit_factor?.toFixed(4)}</TableCell>}
             {columns.includes('netPoints') && <TableCell className="font-mono">{r.net_points?.toFixed(2)}</TableCell>}
+            {columns.includes('time') && <TableCell className="font-mono">{r.time != null ? r.time.toFixed(2) : '—'}</TableCell>}
           </TableRow>
         ))}
       </TableBody>

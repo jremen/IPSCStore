@@ -179,7 +179,12 @@
     "configTimedFire": "Timed Fire",
     "configRapidFire": "Rapid Fire",
     "configArrowsPerEnd": "Arrows per End",
-    "configPointValue": "Point Value per Hit"
+    "configPointValue": "Point Value per Hit",
+    "printScoreSheets": "Print Score Sheets",
+    "sheetsPerStage": "Sheets per stage",
+    "selectStages": "Select stages",
+    "selectAllStages": "Select all",
+    "pdfGenerated": "Score sheet PDF generated"
   },
   "shooters": {
     "title": "Shooter Database",
@@ -229,7 +234,9 @@
     "updated": "Registration updated",
     "dq": "DQ",
     "active": "Active",
-    "disqualified": "DISQUALIFIED"
+    "disqualified": "DISQUALIFIED",
+    "tag": "Tag",
+    "tagPlaceholder": "e.g. member number"
   },
   "scoring": {
     "noMatch": "Select a match first to start scoring.",
@@ -260,6 +267,7 @@
     "nsHits": "N/S hits (−10 each)",
     "procedurals": "Procedurals",
     "proceduralsDesc": "(−10 each)",
+    "ftsa": "FTSA",
     "extraShots": "Extra Shots",
     "extraHits": "Extra Hits",
     "stacking": "Stacking",
@@ -341,7 +349,11 @@
     "ringShotsEntered": "{{label}}s ({{entered}}/{{total}} entered)",
     "paperHitsEach": "× {{hpp}} hits each",
     "npmTargets": "NPM",
-    "npmBonus": "+5 bonus, 0 penalty"
+    "npmBonus": "+5 bonus, 0 penalty",
+    "summary": "Score Summary",
+    "totalPenalties": "Penalties",
+    "approve": "Approve",
+    "backToScoring": "Back to scoring"
   },
   "results": {
     "title": "Results",
@@ -360,6 +372,7 @@
     "points": "Points",
     "stagePercent": "Stage %",
     "netPoints": "Net Pts",
+    "time": "Time",
     "tag": "Tag: {{tag}}",
     "noTags": "No tagged shooters in this match.",
     "print": "Print",

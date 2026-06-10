@@ -7423,6 +7423,18 @@ var bcryptjs_default = {
 
 // ../backend/src/routes/stages.ts
 var stageRoutes = new Hono2();
+function parseStageJsonb(stage) {
+  if (!stage) return stage;
+  const result = { ...stage };
+  if (typeof result.config === "string") {
+    try {
+      result.config = JSON.parse(result.config);
+    } catch {
+      result.config = {};
+    }
+  }
+  return result;
+}
 var STAGE_COLUMNS = `
   s.id, s.match_id, s.stage_number, s.name, s.scoring_type,
   s.paper_targets, s.steel_targets, s.no_shoot_targets, s.npm_targets, s.hits_per_paper,
@@ -7438,7 +7450,7 @@ stageRoutes.get("/matches/:matchId/stages", async (c) => {
     WHERE s.match_id = ${matchId}
     ORDER BY s.stage_number
   `;
-  return c.json(stages);
+  return c.json(stages.map(parseStageJsonb));
 });
 function calcStageParams(scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, config) {
   switch (scoring_type) {
@@ -7517,7 +7529,7 @@ stageRoutes.post("/matches/:matchId/stages", async (c) => {
               password_hash IS NOT NULL AS has_password,
               created_at, updated_at
   `;
-  return c.json(stage, 201);
+  return c.json(parseStageJsonb(stage), 201);
 });
 stageRoutes.get("/stages/:id", async (c) => {
   const id = c.req.param("id");
@@ -7527,7 +7539,7 @@ stageRoutes.get("/stages/:id", async (c) => {
     WHERE s.id = ${id}
   `;
   if (!stage) return c.json({ error: "Stage not found" }, 404);
-  return c.json(stage);
+  return c.json(parseStageJsonb(stage));
 });
 stageRoutes.put("/stages/:id", async (c) => {
   const id = c.req.param("id");
@@ -7573,7 +7585,7 @@ stageRoutes.put("/stages/:id", async (c) => {
               password_hash IS NOT NULL AS has_password,
               created_at, updated_at
   `;
-  return c.json(updated);
+  return c.json(parseStageJsonb(updated));
 });
 stageRoutes.delete("/stages/:id", async (c) => {
   const id = c.req.param("id");
@@ -7729,6 +7741,7 @@ shooterRoutes.put("/bulk", async (c) => {
   if (updates.division) setClauses.push(`division = '${updates.division}'`);
   if (updates.category) setClauses.push(`category = '${updates.category}'`);
   if (updates.power_factor) setClauses.push(`power_factor = '${updates.power_factor}'`);
+  if (updates.tag !== void 0) setClauses.push(`tag = '${updates.tag || null}'`);
   if (setClauses.length === 0) {
     return c.json({ error: "No valid fields to update" }, 400);
   }
@@ -7894,7 +7907,7 @@ registrationRoutes.put("/matches/:matchId/registrations/bulk", async (c) => {
   if (!updates || typeof updates !== "object") {
     return c.json({ error: "updates object is required" }, 400);
   }
-  const allowedFields = ["division", "category", "power_factor", "squad"];
+  const allowedFields = ["division", "category", "power_factor", "squad", "tag"];
   const updateFields = {};
   for (const field of allowedFields) {
     if (updates[field] !== void 0) {
@@ -7904,12 +7917,13 @@ registrationRoutes.put("/matches/:matchId/registrations/bulk", async (c) => {
   if (Object.keys(updateFields).length === 0) {
     return c.json({ error: "No fields to update" }, 400);
   }
+  const shooterPropagateFields = ["division", "category", "power_factor", "tag"];
   let updated = 0;
   const failed = [];
   for (const regId of registrationIds) {
     try {
       const [reg] = await sql`
-        SELECT mr.id, s.first_name, s.last_name
+        SELECT mr.id, mr.shooter_id, s.first_name, s.last_name
         FROM match_registrations mr
         JOIN shooters s ON s.id = mr.shooter_id
         WHERE mr.id = ${regId} AND mr.match_id = ${matchId}
@@ -7926,6 +7940,25 @@ registrationRoutes.put("/matches/:matchId/registrations/bulk", async (c) => {
             squad = ${updateFields.squad !== void 0 ? updateFields.squad : sql`squad`}
         WHERE id = ${regId}
       `;
+      const shooterUpdates = [];
+      const shooterValues = [];
+      for (const field of shooterPropagateFields) {
+        if (updateFields[field] !== void 0) {
+          if (field === "tag") {
+            shooterUpdates.push("tag");
+            shooterValues.push(updateFields.tag);
+          } else if (updateFields[field] !== null && updateFields[field] !== "") {
+            shooterUpdates.push(field);
+            shooterValues.push(updateFields[field]);
+          }
+        }
+      }
+      if (shooterUpdates.length > 0 && reg.shooter_id) {
+        const setClauses = shooterUpdates.map((f, i) => `${f} = $${i + 1}`).join(", ");
+        shooterValues.push(reg.shooter_id, (/* @__PURE__ */ new Date()).toISOString());
+        const query = `UPDATE shooters SET ${setClauses}, updated_at = $${shooterValues.length} WHERE id = $${shooterValues.length - 1}`;
+        await sql.unsafe(query, shooterValues);
+      }
       updated++;
     } catch {
       const [reg] = await sql`
@@ -7979,7 +8012,7 @@ registrationRoutes.delete("/matches/:matchId/registrations/bulk", async (c) => {
 registrationRoutes.put("/matches/:matchId/registrations/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
-  const { division, category, power_factor, squad } = body;
+  const { division, category, power_factor, squad, tag } = body;
   const [updated] = await sql`
     UPDATE match_registrations
     SET division = ${division !== void 0 ? division : sql`division`},
@@ -7990,6 +8023,30 @@ registrationRoutes.put("/matches/:matchId/registrations/:id", async (c) => {
     RETURNING *
   `;
   if (!updated) return c.json({ error: "Registration not found" }, 404);
+  const shooterUpdates = [];
+  const shooterValues = [];
+  if (division !== void 0 && division !== null && division !== "") {
+    shooterUpdates.push("division");
+    shooterValues.push(division);
+  }
+  if (category !== void 0 && category !== null && category !== "") {
+    shooterUpdates.push("category");
+    shooterValues.push(category);
+  }
+  if (power_factor !== void 0 && power_factor !== null && power_factor !== "") {
+    shooterUpdates.push("power_factor");
+    shooterValues.push(power_factor);
+  }
+  if (tag !== void 0) {
+    shooterUpdates.push("tag");
+    shooterValues.push(tag);
+  }
+  if (shooterUpdates.length > 0 && updated.shooter_id) {
+    const setClauses = shooterUpdates.map((field, i) => `${field} = $${i + 1}`).join(", ");
+    shooterValues.push(updated.shooter_id, (/* @__PURE__ */ new Date()).toISOString());
+    const query = `UPDATE shooters SET ${setClauses}, updated_at = $${shooterValues.length} WHERE id = $${shooterValues.length - 1}`;
+    await sql.unsafe(query, shooterValues);
+  }
   return c.json(updated);
 });
 registrationRoutes.delete("/matches/:matchId/registrations/:id", async (c) => {
@@ -8141,6 +8198,37 @@ registrationRoutes.put("/matches/:matchId/registrations/:id/undq", async (c) => 
 // ../backend/src/routes/scoring.ts
 init_scoringCalc();
 var scoringRoutes = new Hono2();
+function parseJsonbFields(score) {
+  if (!score) return score;
+  const result = { ...score };
+  if (typeof result.score_data === "string") {
+    try {
+      result.score_data = JSON.parse(result.score_data);
+    } catch {
+      result.score_data = {};
+    }
+  }
+  if (typeof result.config === "string") {
+    try {
+      result.config = JSON.parse(result.config);
+    } catch {
+      result.config = {};
+    }
+  }
+  return result;
+}
+function parseTargetJsonbFields(target) {
+  if (!target) return target;
+  const result = { ...target };
+  if (typeof result.target_data === "string") {
+    try {
+      result.target_data = JSON.parse(result.target_data);
+    } catch {
+      result.target_data = {};
+    }
+  }
+  return result;
+}
 scoringRoutes.get("/matches/:matchId/scoring-progress", async (c) => {
   const matchId = c.req.param("matchId");
   const scored = await sql`
@@ -8169,7 +8257,7 @@ scoringRoutes.get("/matches/:matchId/stages/:stageId/scores", async (c) => {
     WHERE ss.stage_id = ${stageId} AND ss.match_id = ${matchId}
     ORDER BY s.last_name, s.first_name
   `;
-  return c.json(scores);
+  return c.json(scores.map(parseJsonbFields));
 });
 scoringRoutes.get("/matches/:matchId/stages/:stageId/scores/:registrationId", async (c) => {
   const { matchId, stageId, registrationId } = c.req.param();
@@ -8184,7 +8272,7 @@ scoringRoutes.get("/matches/:matchId/stages/:stageId/scores/:registrationId", as
   const [chrono] = await sql`
     SELECT * FROM chrono_results WHERE stage_score_id = ${score.id}
   `;
-  return c.json({ ...score, targets: targetScores, chrono: chrono || null });
+  return c.json({ ...parseJsonbFields(score), targets: targetScores.map(parseTargetJsonbFields), chrono: chrono || null });
 });
 scoringRoutes.put("/matches/:matchId/stages/:stageId/scores/:registrationId", async (c) => {
   const { matchId, stageId, registrationId } = c.req.param();
@@ -8437,7 +8525,7 @@ scoringRoutes.put("/matches/:matchId/stages/:stageId/scores/:registrationId", as
     return score;
   });
   await recalculateStage(matchId, stageId);
-  return c.json({ ...scoreResult, targets, calcResult });
+  return c.json({ ...parseJsonbFields(scoreResult), targets: targets.map(parseTargetJsonbFields), calcResult });
 });
 scoringRoutes.post("/matches/:matchId/stages/:stageId/recalculate", async (c) => {
   const { matchId, stageId } = c.req.param();
@@ -8799,7 +8887,7 @@ resultsRoutes.get("/matches/:matchId/results/stages", async (c) => {
   const stageResults = [];
   for (const stage of stages) {
     const scores = await sql`
-      SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points,
+      SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points, ss.time,
              s.first_name, s.last_name,
              COALESCE(mr.division, s.division) as division,
              mr.is_dq
@@ -8827,6 +8915,7 @@ resultsRoutes.get("/matches/:matchId/results/stages", async (c) => {
           net_points: Number(s.net_points),
           stage_percent: Number(s.stage_percent),
           stage_points: Number(s.stage_points),
+          time: s.time !== null && s.time !== void 0 ? Number(s.time) : null,
           position: i + 1,
           division_position: i + 1
         });
@@ -8874,6 +8963,7 @@ resultsRoutes.get("/matches/:matchId/results/stages", async (c) => {
             net_points: Number(s.net_points),
             stage_percent: Number(s.stage_percent),
             stage_points: Number(s.stage_points),
+            time: s.time !== null && s.time !== void 0 ? Number(s.time) : null,
             position: i + 1
           }))
         ])
@@ -8885,7 +8975,7 @@ resultsRoutes.get("/matches/:matchId/results/stages", async (c) => {
 resultsRoutes.get("/matches/:matchId/results/stages/:stageId", async (c) => {
   const { matchId, stageId } = c.req.param();
   const scores = await sql`
-    SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points,
+    SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points, ss.time,
            s.first_name, s.last_name,
            COALESCE(mr.division, s.division) as division,
            COALESCE(mr.category, s.category) as category,
@@ -8915,7 +9005,8 @@ resultsRoutes.get("/matches/:matchId/results/stages/:stageId", async (c) => {
       hit_factor: Number(s.hit_factor),
       net_points: Number(s.net_points),
       stage_percent: Number(s.stage_percent),
-      stage_points: Number(s.stage_points)
+      stage_points: Number(s.stage_points),
+      time: s.time !== null && s.time !== void 0 ? Number(s.time) : null
     })),
     dq: dqScores.map((s) => ({
       ...s,
@@ -18140,7 +18231,6 @@ function enableStaticServing(frontendDistPath) {
     return;
   }
   console.log(`[Static] Found index.html at: ${indexPath}`);
-  const htmlTemplate = fs4.readFileSync(indexPath, "utf-8");
   app.use("*", async (c, next) => {
     const urlPath = c.req.path;
     if (urlPath.startsWith("/api/")) {
@@ -18150,7 +18240,7 @@ function enableStaticServing(frontendDistPath) {
       return next();
     }
     try {
-      let html = htmlTemplate;
+      let html = fs4.readFileSync(indexPath, "utf-8");
       const domainMode = c.get("domainMode");
       if (domainMode && domainMode !== "admin") {
         html = html.replace(

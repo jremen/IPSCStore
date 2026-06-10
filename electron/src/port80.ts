@@ -4,6 +4,7 @@ import { app } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
+import { log, logError } from './logger.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -73,13 +74,13 @@ async function runAsAdmin(command: string): Promise<{ stdout: string; stderr: st
  */
 export async function setupPort80Redirect(targetPort: number): Promise<boolean> {
   if (process.platform !== 'darwin') {
-    console.log('[Port80] Port 80 redirect is only supported on macOS');
+    log('[Port80] Port 80 redirect is only supported on macOS');
     return false;
   }
 
   try {
     const interfaces = getRedirectInterfaces();
-    console.log(`[Port80] Setting up redirect on interfaces: ${interfaces.join(', ')}`);
+    log(`[Port80] Setting up redirect on interfaces: ${interfaces.join(', ')}`);
 
     // Step 1: Write the redirect rules (per-interface for reliability)
     const rulesPath = path.join(app.getPath('userData'), 'pf-port80-rules.conf');
@@ -87,7 +88,7 @@ export async function setupPort80Redirect(targetPort: number): Promise<boolean> 
       .map(iface => `rdr pass on ${iface} inet proto tcp from any to any port 80 -> 127.0.0.1 port ${targetPort}`)
       .join('\n') + '\n';
     await fs.writeFile(rulesPath, rules, 'utf-8');
-    console.log(`[Port80] Redirect rules:\n${rules.trim()}`);
+    log(`[Port80] Redirect rules:\n${rules.trim()}`);
 
     // Step 2: Write the main pf ruleset
     // This preserves Apple's anchors and adds our own.
@@ -118,7 +119,7 @@ anchor "${PF_ANCHOR}"
     ].join('; ');
 
     const { stdout, stderr } = await runAsAdmin(loadCmd);
-    console.log(`[Port80] pfctl load result: ${stdout || stderr}`);
+    log(`[Port80] pfctl load result: ${stdout || stderr}`);
 
     // Step 4: Verify the redirect is working
     // We test by making an actual HTTP request to port 80
@@ -145,22 +146,22 @@ anchor "${PF_ANCHOR}"
       });
 
       port80RedirectActive = true;
-      console.log(`[Port80] ✓ Redirect active: port 80 → port ${targetPort}`);
+      log(`[Port80] ✓ Redirect active: port 80 → port ${targetPort}`);
       return true;
     } catch (verifyErr: any) {
       // The HTTP test failed, but the rule might still be loaded
       // (e.g. backend not yet started on port 3001)
-      console.warn(`[Port80] Verification test failed: ${verifyErr.message}`);
-      console.log(`[Port80] Assuming redirect is active (rules were loaded successfully)`);
+      logError(`[Port80] Verification test failed: ${verifyErr.message}`);
+      log('[Port80] Assuming redirect is active (rules were loaded successfully)');
       port80RedirectActive = true;
       return true;
     }
 
   } catch (err: any) {
     if (err?.code === 'USER_CANCELED') {
-      console.log('[Port80] User cancelled the administrator password dialog');
+      log('[Port80] User cancelled the administrator password dialog');
     } else {
-      console.warn('[Port80] Failed to set up port 80 redirect:', err?.message || err);
+      logError('[Port80] Failed to set up port 80 redirect', err?.message || err);
     }
     port80RedirectActive = false;
     return false;
@@ -175,7 +176,7 @@ anchor "${PF_ANCHOR}"
  */
 export async function removePort80Redirect(): Promise<void> {
   if (!port80RedirectActive) {
-    console.log('[Port80] No redirect to remove');
+    log('[Port80] No redirect to remove');
     return;
   }
 
@@ -200,15 +201,15 @@ anchor "com.apple/*"
     await fs.unlink(path.join(app.getPath('userData'), 'pf-port80-rules.conf')).catch(() => {});
     await fs.unlink(path.join(app.getPath('userData'), 'pf-main.conf')).catch(() => {});
 
-    console.log('[Port80] Redirect rule removed and default pf configuration restored');
+    log('[Port80] Redirect rule removed and default pf configuration restored');
   } catch (err: any) {
     if (err?.code === 'USER_CANCELED') {
-      console.log('[Port80] User cancelled — redirect rule will persist until reboot');
+      log('[Port80] User cancelled — redirect rule will persist until reboot');
     } else {
-      console.warn('[Port80] Could not remove redirect rule:', err?.message || err);
-      console.warn('[Port80] The rule will be removed on reboot or you can remove it manually:');
-      console.warn('[Port80]   sudo pfctl -a ipscscore -F all');
-      console.warn('[Port80]   sudo pfctl -f /etc/pf.conf');
+      logError('[Port80] Could not remove redirect rule', err?.message || err);
+      log('[Port80] The rule will be removed on reboot or you can remove it manually:');
+      log('[Port80]   sudo pfctl -a ipscscore -F all');
+      log('[Port80]   sudo pfctl -f /etc/pf.conf');
     }
   } finally {
     port80RedirectActive = false;

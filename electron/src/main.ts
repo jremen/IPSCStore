@@ -5,6 +5,13 @@ import fs from 'fs/promises';
 import { spawn, ChildProcess } from 'child_process';
 import { PgManager } from './pg-manager.js';
 import { setupPort80Redirect, removePort80Redirect, isPort80RedirectActive } from './port80.js';
+import { initLogger, log, logError, flushLog, getLogPath } from './logger.js';
+import { showDatabaseUrlDialog } from './db-config-dialog.js';
+
+// Initialize the logger IMMEDIATELY — before any async operations or event handlers.
+// Uses a fallback directory (not app.getPath) since the app isn't ready yet.
+// After app is ready, we'll reinitialize with the correct path.
+initLogger();
 
 /**
  * Safe console.log that catches EPIPE errors.
@@ -19,6 +26,22 @@ console.log = (...args: any[]) => {
 console.error = (...args: any[]) => {
   try { origError.apply(console, args); } catch (e: any) { if (e.code !== 'EPIPE') throw e; }
 };
+
+// Catch ALL unhandled promise rejections — this is the most common cause of
+// silent crashes on Windows. Without this handler, unhandled rejections crash
+// the process with no error dialog and no useful output.
+process.on('unhandledRejection', (reason: any) => {
+  logError('[Main] Unhandled promise rejection', reason);
+  // Try to show an error dialog if the app is running
+  if (app.isReady()) {
+    dialog.showErrorBox(
+      'Unexpected Error',
+      `An unexpected error occurred: ${reason instanceof Error ? reason.message : String(reason)}\n\nLog file: ${getLogPath()}`
+    );
+  }
+  // Don't quit — some rejections are non-fatal (e.g., mDNS socket errors)
+  // If the app is truly broken, the user can close it manually.
+});
 
 let mainWindow: BrowserWindow | null = null;
 let pgManager: PgManager | null = null;
@@ -97,7 +120,7 @@ function startMDns(port: number): void {
       hostname: 'vysledky',
     });
     mDnsStopFunctions.push(stop1);
-    console.log('[mDNS] Advertised: vysledky.local');
+    log('[mDNS] Advertised: vysledky.local');
 
     // Advertise scoring service (hodnotenie.local)
     const stop2 = advertise({
@@ -108,9 +131,9 @@ function startMDns(port: number): void {
       hostname: 'hodnotenie',
     });
     mDnsStopFunctions.push(stop2);
-    console.log('[mDNS] Advertised: hodnotenie.local');
+    log('[mDNS] Advertised: hodnotenie.local');
   } catch (err) {
-    console.error('[mDNS] Failed to start mDNS advertising:', err);
+    logError('[mDNS] Failed to start mDNS advertising', err);
   }
 }
 
@@ -126,7 +149,7 @@ function stopMDns(): void {
     }
   }
   mDnsStopFunctions = [];
-  console.log('[mDNS] Services unregistered');
+  log('[mDNS] Services unregistered');
 }
 
 /**
@@ -155,8 +178,8 @@ function startBackend(port: number): Promise<void> {
       MIGRATIONS_DIR: path.join(backendDistPath, 'db', 'migrations'),
     };
 
-    console.log(`[Main] Starting backend server from ${entryPoint}`);
-    console.log(`[Main] Frontend dist path: ${frontendDistPath}`);
+    log(`[Main] Starting backend server from ${entryPoint}`);
+    log(`[Main] Frontend dist path: ${frontendDistPath}`);
 
     const isDev = process.env.ELECTRON_DEV === 'true';
 
@@ -172,7 +195,7 @@ function startBackend(port: number): Promise<void> {
 
       child.stdout?.on('data', (data: Buffer) => {
         const output = data.toString().trim();
-        console.log(`[Backend] ${output}`);
+        log(`[Backend] ${output}`);
         if (!started && (output.includes('Server running') || output.includes('listening'))) {
           started = true;
           resolve();
@@ -180,16 +203,16 @@ function startBackend(port: number): Promise<void> {
       });
 
       child.stderr?.on('data', (data: Buffer) => {
-        console.error(`[Backend] ${data.toString().trim()}`);
+        logError(`[Backend] ${data.toString().trim()}`);
       });
 
       child.on('error', (err: Error) => {
-        console.error('[Main] Backend process error:', err);
+        logError('[Main] Backend process error', err);
         if (!started) reject(err);
       });
 
       child.on('exit', (code: number | null) => {
-        console.log(`[Main] Backend process exited with code ${code}`);
+        log(`[Main] Backend process exited with code ${code}`);
         backendProcess = null;
       });
     } else {
@@ -207,7 +230,7 @@ function startBackend(port: number): Promise<void> {
 
       child.stdout?.on('data', (data: Buffer) => {
         const output = data.toString().trim();
-        console.log(`[Backend] ${output}`);
+        log(`[Backend] ${output}`);
         if (!started && (output.includes('Server running') || output.includes('listening'))) {
           started = true;
           resolve();
@@ -215,11 +238,11 @@ function startBackend(port: number): Promise<void> {
       });
 
       child.stderr?.on('data', (data: Buffer) => {
-        console.error(`[Backend] ${data.toString().trim()}`);
+        logError(`[Backend] ${data.toString().trim()}`);
       });
 
       child.on('exit', (code: number) => {
-        console.log(`[Main] Backend process exited with code ${code}`);
+        log(`[Main] Backend process exited with code ${code}`);
         backendProcess = null;
       });
     }
@@ -248,6 +271,7 @@ function startBackend(port: number): Promise<void> {
  */
 function createWindow(port: number, lanIp: string, port80Active: boolean): void {
   const isDev = process.env.ELECTRON_DEV === 'true';
+  const isDebug = process.argv.includes('--debug') || process.argv.includes('--devtools');
   const portSuffix = port80Active ? '' : `:${port}`;
 
   mainWindow = new BrowserWindow({
@@ -280,6 +304,12 @@ function createWindow(port: number, lanIp: string, port80Active: boolean): void 
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadURL(`http://localhost:${port}`);
+    // Open DevTools in production when --debug flag is provided
+    // This helps diagnose issues on Windows where there's no console
+    if (isDebug) {
+      mainWindow.webContents.openDevTools();
+      log('[Main] Debug mode: DevTools opened');
+    }
   }
 
   mainWindow.on('closed', () => {
@@ -308,18 +338,66 @@ function createWindow(port: number, lanIp: string, port80Active: boolean): void 
 }
 
 /**
+ * Read persisted database config from the app's user data directory.
+ * Returns the DATABASE_URL if previously saved, or null.
+ */
+async function readDbConfig(): Promise<string | null> {
+  const configPath = path.join(app.getPath('userData'), 'db-config.json');
+  try {
+    const data = await fs.readFile(configPath, 'utf-8');
+    const config = JSON.parse(data);
+    return config.databaseUrl || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persist the DATABASE_URL to a config file so it survives app restarts.
+ */
+async function writeDbConfig(databaseUrl: string): Promise<void> {
+  const configPath = path.join(app.getPath('userData'), 'db-config.json');
+  try {
+    await fs.writeFile(configPath, JSON.stringify({ databaseUrl }, null, 2), 'utf-8');
+    log(`[Main] Database config saved to: ${configPath}`);
+  } catch (err) {
+    logError('[Main] Failed to save database config', err);
+  }
+}
+
+/**
+ * Show a dialog when bundled PostgreSQL fails, allowing the user to
+ * configure an external PostgreSQL connection.
+ * Returns the DATABASE_URL to use, or null if the user chose to quit.
+ */
+async function showDatabaseConfigDialog(errorMsg: string): Promise<string | null> {
+  flushLog();
+  return showDatabaseUrlDialog(errorMsg, getLogPath());
+}
+
+/**
  * Application entry point.
  */
 async function main(): Promise<void> {
+  // Reinitialize logger with the proper app data path now that the app is ready
+  initLogger(app.getPath('userData'));
+
   const port = 3001;
   const lanIp = getLanIp();
 
-  console.log('[Main] Starting IPSC Score...');
-  console.log(`[Main] LAN IP: ${lanIp}`);
-  console.log(`[Main] Platform: ${process.platform} ${process.arch}`);
+  log('[Main] Starting IPSC Score...');
+  log(`[Main] LAN IP: ${lanIp}`);
+  log(`[Main] Platform: ${process.platform} ${process.arch}`);
 
-  // Check if we should use an external PostgreSQL
-  const externalDbUrl = process.env.DATABASE_URL;
+  // Check for DATABASE_URL from: environment variable > persisted config
+  let externalDbUrl: string | undefined = process.env.DATABASE_URL;
+  if (!externalDbUrl) {
+    externalDbUrl = (await readDbConfig()) || undefined;
+    if (externalDbUrl) {
+      log('[Main] Using DATABASE_URL from saved config');
+      process.env.DATABASE_URL = externalDbUrl;
+    }
+  }
 
   if (!externalDbUrl) {
     // Initialize and start bundled PostgreSQL
@@ -330,32 +408,30 @@ async function main(): Promise<void> {
       await pgManager.start();
       await pgManager.waitReady();
       process.env.DATABASE_URL = pgManager.getConnectionString();
-      console.log('[Main] Bundled PostgreSQL started');
+      log('[Main] Bundled PostgreSQL started');
     } catch (err) {
-      console.error('[Main] Failed to start PostgreSQL:', err);
+      logError('[Main] Failed to start PostgreSQL', err);
 
       const errorMessage = err instanceof Error ? err.message : String(err);
       const errorStack = err instanceof Error ? err.stack : undefined;
       if (errorStack) {
-        console.error('[Main] Stack trace:', errorStack);
+        logError('[Main] Stack trace', errorStack);
       }
 
-      const result = await dialog.showMessageBox({
-        type: 'error',
-        title: 'Database Error',
-        message: 'Failed to start the built-in database.',
-        detail: `${errorMessage}\n\nYou can try using an external PostgreSQL server by setting the DATABASE_URL environment variable.`,
-        buttons: ['Try Anyway', 'Quit'],
-        defaultId: 1,
-      });
-
-      if (result.response === 1) {
+      // Show database configuration dialog
+      const dbUrl = await showDatabaseConfigDialog(errorMessage);
+      if (dbUrl === null) {
         app.quit();
         return;
       }
+
+      // Save the external DATABASE_URL and set it
+      process.env.DATABASE_URL = dbUrl;
+      await writeDbConfig(dbUrl);
+      log(`[Main] Using external PostgreSQL: ${dbUrl.replace(/:([^@]+)@/, ':****@')}`);
     }
   } else {
-    console.log(`[Main] Using external PostgreSQL: ${externalDbUrl.replace(/:([^@]+)@/, ':****@')}`);
+    log(`[Main] Using external PostgreSQL: ${externalDbUrl.replace(/:([^@]+)@/, ':****@')}`);
   }
 
   // Ensure upload directory exists
@@ -366,11 +442,12 @@ async function main(): Promise<void> {
   // Start the backend server (which runs migrations on startup)
   try {
     await startBackend(port);
-    console.log('[Main] Backend server started successfully');
+    log('[Main] Backend server started successfully');
   } catch (err) {
-    console.error('[Main] Failed to start backend:', err);
+    logError('[Main] Failed to start backend', err);
+    flushLog();
     const backendError = err instanceof Error ? err.message : String(err);
-    dialog.showErrorBox('Startup Error', `Failed to start the backend server: ${backendError}`);
+    dialog.showErrorBox('Startup Error', `Failed to start the backend server: ${backendError}\n\nLog file: ${getLogPath()}`);
     app.quit();
     return;
   }
@@ -380,7 +457,7 @@ async function main(): Promise<void> {
     try {
       await pgManager.importSeedData();
     } catch (err) {
-      console.error('[Main] Failed to import seed data:', err);
+      logError('[Main] Failed to import seed data', err);
       // Non-fatal — the app works with an empty database
     }
   }
@@ -395,30 +472,31 @@ async function main(): Promise<void> {
   const mDnsPort = port80Active ? 80 : port;
   startMDns(mDnsPort);
 
-  // Show LAN access info in console
+  // Show LAN access info in console and log
   const portSuffix = port80Active ? '' : `:${port}`;
-  console.log('');
-  console.log('========================================');
-  console.log('  Mobile devices can connect to:');
-  console.log(`  http://${lanIp}${portSuffix}`);
-  console.log('');
-  console.log('  .local domains on this network:');
+  log('');
+  log('========================================');
+  log('  Mobile devices can connect to:');
+  log(`  http://${lanIp}${portSuffix}`);
+  log('');
+  log('  .local domains on this network:');
   if (port80Active) {
-    console.log('  http://vysledky.local     (public results)');
-    console.log('  http://hodnotenie.local   (range master scoring)');
+    log('  http://vysledky.local     (public results)');
+    log('  http://hodnotenie.local   (range master scoring)');
   } else {
-    console.log(`  http://vysledky.local:${port}   (public results)`);
-    console.log(`  http://hodnotenie.local:${port}  (range master scoring)`);
+    log(`  http://vysledky.local:${port}   (public results)`);
+    log(`  http://hodnotenie.local:${port}  (range master scoring)`);
   }
-  console.log('========================================');
-  console.log('');
+  log('========================================');
+  log('');
 }
 
 // App lifecycle
 app.on('ready', () => {
   main().catch((err) => {
-    console.error('[Main] Failed to start:', err);
-    dialog.showErrorBox('Startup Error', `Failed to start: ${err}`);
+    logError('[Main] Failed to start', err);
+    flushLog();
+    dialog.showErrorBox('Startup Error', `Failed to start: ${err}\n\nLog file: ${getLogPath()}`);
     app.quit();
   });
 });
@@ -427,8 +505,9 @@ app.on('ready', () => {
 // (e.g. when the app is launched by double-clicking, not from a terminal).
 process.on('uncaughtException', (err: any) => {
   if (err?.code === 'EPIPE') return;
-  console.error('[Main] Uncaught exception:', err);
-  dialog.showErrorBox('Unexpected Error', err?.message || String(err));
+  logError('[Main] Uncaught exception', err);
+  flushLog();
+  dialog.showErrorBox('Unexpected Error', `${err?.message || String(err)}\n\nLog file: ${getLogPath()}`);
   app.quit();
 });
 
@@ -446,14 +525,14 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', () => {
-  console.log('[Main] Shutting down...');
+  log('[Main] Shutting down...');
 
   // Stop mDNS advertising
   stopMDns();
 
   // Remove port 80 redirect
   removePort80Redirect().catch((err) => {
-    console.error('[Main] Error removing port 80 redirect:', err);
+    logError('[Main] Error removing port 80 redirect', err);
   });
 
   // Kill the backend process
@@ -462,7 +541,7 @@ app.on('before-quit', () => {
   // Stop PostgreSQL
   if (pgManager) {
     pgManager.stop().catch((err) => {
-      console.error('[Main] Error stopping PostgreSQL:', err);
+      logError('[Main] Error stopping PostgreSQL', err);
     });
   }
 });

@@ -138,3 +138,35 @@
   background: theme(colors.gray.800);
   border-bottom-color: theme(colors.blue.800);
 }
+
+/* Scoring navigation — sticky header/footer on mobile, normal scroll on desktop */
+.scoring-nav-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Pinned elements — don't shrink, stay in place */
+.scoring-nav-pinned {
+  flex-shrink: 0;
+}
+
+/* Scrollable scoring sheet — takes remaining space, scrolls on mobile */
+.scoring-scroll-area {
+  flex: 1;
+  min-height: 0; /* Critical: allows flex child to shrink below content height */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+/* On desktop (lg+), let everything scroll naturally */
+@media (min-width: 1024px) {
+  .scoring-nav-root {
+    height: auto; /* Don't constrain height on desktop */
+  }
+  .scoring-scroll-area {
+    flex: none;
+    min-height: auto;
+    overflow-y: visible; /* No separate scroll on desktop */
+  }
+}

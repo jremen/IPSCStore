@@ -23,21 +23,23 @@ export default function BulkEditShootersModal({ show, onClose, selectedIds, sele
     changeDivision: false, division: 'standard',
     changeCategory: false, category: 'regular',
     changePowerFactor: false, powerFactor: 'minor',
+    changeTag: false, tag: '',
     changeSquad: false, squad: '',
   });
 
   const handleClose = () => {
     setResult(null);
-    setForm({ changeDivision: false, division: 'standard', changeCategory: false, category: 'regular', changePowerFactor: false, powerFactor: 'minor', changeSquad: false, squad: '' });
+    setForm({ changeDivision: false, division: 'standard', changeCategory: false, category: 'regular', changePowerFactor: false, powerFactor: 'minor', changeTag: false, tag: '', changeSquad: false, squad: '' });
     onClose();
   };
   useEscClose(handleClose);
 
   const handleSave = async () => {
-    const updates: Record<string, string> = {};
+    const updates: Record<string, string | null> = {};
     if (form.changeDivision) updates.division = form.division;
     if (form.changeCategory) updates.category = form.category;
     if (form.changePowerFactor) updates.power_factor = form.powerFactor;
+    if (form.changeTag) updates.tag = form.tag || null;
     if (Object.keys(updates).length === 0) return;
 
     setLoading(true);
@@ -56,7 +58,7 @@ export default function BulkEditShootersModal({ show, onClose, selectedIds, sele
     }
   };
 
-  const hasChanges = form.changeDivision || form.changeCategory || form.changePowerFactor;
+  const hasChanges = form.changeDivision || form.changeCategory || form.changePowerFactor || form.changeTag;
 
   return (
     <Modal show={show} onClose={handleClose} size="lg">

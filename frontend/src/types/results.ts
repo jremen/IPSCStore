@@ -23,7 +23,9 @@ export interface StageResult {
   net_points: number;
   stage_percent: number;
   stage_points: number;
+  time: number | null;
   position: number;
+  division_position?: number;
 }
 
 export interface StageResultGroup {

@@ -23,7 +23,7 @@ export default function EditRegistrationModal({ show, onClose, registration, mat
   useEscClose(onClose);
   const matchOrganization = matches.find((m: any) => m.id === matchId)?.organization;
   const divisions = getDivisionsForOrganization(matchOrganization);
-  const [form, setForm] = useState({ squad: '', division: '', category: '', power_factor: '' });
+  const [form, setForm] = useState({ squad: '', division: '', category: '', power_factor: '', tag: '' });
 
   // Sync form when registration changes or modal opens
   useEffect(() => {
@@ -33,6 +33,7 @@ export default function EditRegistrationModal({ show, onClose, registration, mat
         division: registration.reg_division || '',
         category: registration.reg_category || '',
         power_factor: registration.reg_power_factor || '',
+        tag: registration.tag || '',
       });
     }
   }, [registration]);
@@ -44,6 +45,7 @@ export default function EditRegistrationModal({ show, onClose, registration, mat
       division: form.division || null,
       category: form.category || null,
       power_factor: form.power_factor || null,
+      tag: form.tag || null,
     });
     addToast(t('registration.updated'), 'success');
     onClose();
@@ -79,6 +81,10 @@ export default function EditRegistrationModal({ show, onClose, registration, mat
               <option value="">{t('registration.defaultOption')}</option>
               {POWER_FACTORS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </Select>
+          </div>
+          <div>
+            <Label>{t('registration.tag')}</Label>
+            <InputField value={form.tag} onChange={(v) => setForm({ ...form, tag: v })} placeholder={t('registration.tagPlaceholder')} />
           </div>
         </div>
       </ModalBody>

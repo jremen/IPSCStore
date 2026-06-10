@@ -198,13 +198,13 @@ export const api = {
   deleteShooter: (id: string) => request<any>(`/api/shooters/${id}`, { method: 'DELETE' }),
 
   // Bulk shooter operations
-  bulkUpdateShooters: (shooterIds: string[], updates: { division?: string; category?: string; power_factor?: string }) =>
+  bulkUpdateShooters: (shooterIds: string[], updates: { division?: string; category?: string; power_factor?: string; tag?: string | null }) =>
     request<{ updated: number; failed: Array<{ id: string; reason: string }> }>('/api/shooters/bulk', { method: 'PUT', body: JSON.stringify({ shooterIds, updates }) }),
   bulkDeleteShooters: (shooterIds: string[]) =>
     request<{ deleted: number; failed: Array<{ id: string; name: string; reason: string }> }>('/api/shooters/bulk', { method: 'DELETE', body: JSON.stringify({ shooterIds }) }),
 
   // Bulk registration operations
-  bulkUpdateRegistrations: (matchId: string, registrationIds: string[], updates: { division?: string; category?: string; power_factor?: string; squad?: number | null }) =>
+  bulkUpdateRegistrations: (matchId: string, registrationIds: string[], updates: { division?: string; category?: string; power_factor?: string; tag?: string | null; squad?: number | null }) =>
     request<{ updated: number; failed: Array<{ id: string; name: string; reason: string }> }>(`/api/matches/${matchId}/registrations/bulk`, { method: 'PUT', body: JSON.stringify({ registrationIds, updates }) }),
   bulkRemoveRegistrations: (matchId: string, registrationIds: string[]) =>
     request<{ removed: number; failed: Array<{ id: string; name: string; reason: string }> }>(`/api/matches/${matchId}/registrations/bulk`, { method: 'DELETE', body: JSON.stringify({ registrationIds }) }),

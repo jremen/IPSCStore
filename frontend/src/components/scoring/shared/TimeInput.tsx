@@ -6,6 +6,8 @@ interface TimeInputProps {
   onChange: (value: number | null) => void;
   disabled?: boolean;
   className?: string;
+  /** Debounce delay in ms for the onChange callback. Default: 300ms */
+  debounceMs?: number;
 }
 
 /**
@@ -16,12 +18,16 @@ interface TimeInputProps {
  * after auto-format (e.g. "1153" → "11.53" then "4"), we re-extract the
  * digits ("11534") and re-format correctly ("115.34").
  *
+ * The onChange callback is debounced so rapid typing doesn't trigger
+ * full store updates on every keystroke. The local display updates
+ * immediately for responsive typing feel.
+ *
  * - Typing "2520" → display "25.20" on 4th digit
  * - Typing "11534" → "11.53" on 4th digit, then "115.34" on 5th digit
  * - Typing "25.20" directly works
  * - Always shows 2 decimal places on blur
  */
-export default function TimeInput({ value, onChange, disabled, className }: TimeInputProps) {
+export default function TimeInput({ value, onChange, disabled, className, debounceMs = 600 }: TimeInputProps) {
   const [displayValue, setDisplayValue] = useState(() => formatTimeDisplay(value));
   const inputRef = useRef<HTMLInputElement>(null);
   const isEditing = useRef(false);
@@ -29,6 +35,10 @@ export default function TimeInput({ value, onChange, disabled, className }: Time
   const rawDigits = useRef('');
   // Track if the dot in the current display was auto-inserted (vs user-typed)
   const dotAutoInserted = useRef(false);
+  // Debounce timer for onChange
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Latest parsed value to send on debounce flush
+  const pendingValueRef = useRef<number | null>(value);
 
   // Sync external value changes (e.g., from reset) — only when not actively editing
   useEffect(() => {
@@ -36,8 +46,30 @@ export default function TimeInput({ value, onChange, disabled, className }: Time
       setDisplayValue(formatTimeDisplay(value));
       rawDigits.current = '';
       dotAutoInserted.current = false;
+      pendingValueRef.current = value;
     }
   }, [value]);
+
+  // Flush any pending debounced onChange on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current !== null) {
+        clearTimeout(debounceRef.current);
+        onChange(pendingValueRef.current);
+      }
+    };
+  }, [onChange]);
+
+  const flushDebouncedOnChange = useCallback((parsed: number | null) => {
+    pendingValueRef.current = parsed;
+    if (debounceRef.current !== null) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
+      onChange(pendingValueRef.current);
+    }, debounceMs);
+  }, [onChange, debounceMs]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
@@ -48,6 +80,11 @@ export default function TimeInput({ value, onChange, disabled, className }: Time
       setDisplayValue('');
       rawDigits.current = '';
       dotAutoInserted.current = false;
+      // Clear any pending debounce and notify parent immediately for empty
+      if (debounceRef.current !== null) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
       onChange(null);
       return;
     }
@@ -61,7 +98,7 @@ export default function TimeInput({ value, onChange, disabled, className }: Time
       setDisplayValue(cleaned);
       rawDigits.current = ''; // clear raw digits tracking
       const val = parseFloat(cleaned);
-      onChange(isNaN(val) ? null : val);
+      flushDebouncedOnChange(isNaN(val) ? null : val);
       return;
     }
 
@@ -71,6 +108,10 @@ export default function TimeInput({ value, onChange, disabled, className }: Time
       setDisplayValue('');
       rawDigits.current = '';
       dotAutoInserted.current = false;
+      if (debounceRef.current !== null) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
       onChange(null);
       return;
     }
@@ -98,23 +139,31 @@ export default function TimeInput({ value, onChange, disabled, className }: Time
       });
 
       const parsed = parseFloat(formatted);
-      onChange(isNaN(parsed) ? null : parsed);
+      flushDebouncedOnChange(isNaN(parsed) ? null : parsed);
     } else {
       // 1-3 digits: just show raw digits, no auto-format
       dotAutoInserted.current = false;
       setDisplayValue(digits);
       const val = parseFloat(digits);
-      onChange(isNaN(val) ? null : val);
+      flushDebouncedOnChange(isNaN(val) ? null : val);
     }
-  }, [onChange]);
+  }, [flushDebouncedOnChange, onChange]);
 
   const handleBlur = useCallback(() => {
     isEditing.current = false;
+
+    // Flush any pending debounced onChange immediately
+    if (debounceRef.current !== null) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+
     dotAutoInserted.current = false;
     rawDigits.current = '';
     const formatted = formatTimeOnBlur(displayValue);
     setDisplayValue(formatted);
     const parsed = parseTimeString(formatted);
+    pendingValueRef.current = parsed;
     onChange(parsed);
   }, [displayValue, onChange]);
 

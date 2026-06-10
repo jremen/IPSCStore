@@ -118,11 +118,11 @@ export default function ResultsOverview() {
                   .map(([division, scores]) => (
                     <div key={division} className="division-results-section mb-4 ml-2">
                       <h4 className="font-medium text-sm text-gray-600 dark:text-gray-400 mb-1">{divisionLabel(division)}</h4>
-                      <ResultsTable results={scores as any[]} columns={['position', 'shooter', 'stagePercent', 'stagePoints', 'hitFactor', 'netPoints']} />
+                      <ResultsTable results={scores as any[]} columns={['position', 'shooter', 'stagePercent', 'stagePoints', 'hitFactor', 'netPoints', 'time']} />
                     </div>
                   ))
               ) : (
-                <ResultsTable results={stage.scores as any[]} columns={['position', 'shooter', 'division', 'stagePercent', 'stagePoints', 'hitFactor', 'netPoints']} />
+                <ResultsTable results={stage.scores as any[]} columns={['position', 'shooter', 'division', 'stagePercent', 'stagePoints', 'hitFactor', 'netPoints', 'time']} />
               )}
               {stage.dq_scores && stage.dq_scores.length > 0 && (
                 <div className="mt-2 border border-red-300 rounded-lg overflow-hidden">

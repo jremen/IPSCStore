@@ -186,7 +186,7 @@ resultsRoutes.get('/matches/:matchId/results/stages', async (c) => {
   for (const stage of stages) {
     // Non-DQ scores
     const scores = await sql`
-      SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points,
+      SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points, ss.time,
              s.first_name, s.last_name,
              COALESCE(mr.division, s.division) as division,
              mr.is_dq
@@ -218,6 +218,7 @@ resultsRoutes.get('/matches/:matchId/results/stages', async (c) => {
           net_points: Number(s.net_points),
           stage_percent: Number(s.stage_percent),
           stage_points: Number(s.stage_points),
+          time: s.time !== null && s.time !== undefined ? Number(s.time) : null,
           position: i + 1,
           division_position: i + 1,
         });
@@ -269,6 +270,7 @@ resultsRoutes.get('/matches/:matchId/results/stages', async (c) => {
             net_points: Number(s.net_points),
             stage_percent: Number(s.stage_percent),
             stage_points: Number(s.stage_points),
+            time: s.time !== null && s.time !== undefined ? Number(s.time) : null,
             position: i + 1,
           })),
         ])
@@ -284,7 +286,7 @@ resultsRoutes.get('/matches/:matchId/results/stages/:stageId', async (c) => {
   const { matchId, stageId } = c.req.param();
 
   const scores = await sql`
-    SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points,
+    SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points, ss.time,
            s.first_name, s.last_name,
            COALESCE(mr.division, s.division) as division,
            COALESCE(mr.category, s.category) as category,
@@ -318,6 +320,7 @@ resultsRoutes.get('/matches/:matchId/results/stages/:stageId', async (c) => {
       net_points: Number(s.net_points),
       stage_percent: Number(s.stage_percent),
       stage_points: Number(s.stage_points),
+      time: s.time !== null && s.time !== undefined ? Number(s.time) : null,
     })),
     dq: dqScores.map((s: any) => ({
       ...s,

@@ -10,6 +10,9 @@ import type { ScoreInput } from '../types/scoring';
 export function isScoreComplete(stage: Stage, score: ScoreInput | null): boolean {
   if (!score) return false;
 
+  // DNF scores are always valid — a DNF is intentionally incomplete
+  if (score.is_dnf) return true;
+
   const scoringType = stage.scoring_type;
   const config = stage.config || {};
 

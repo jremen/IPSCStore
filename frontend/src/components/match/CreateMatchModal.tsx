@@ -14,7 +14,7 @@ interface CreateMatchModalProps {
 
 export default function CreateMatchModal({ show, onClose }: CreateMatchModalProps) {
   const { createMatch } = useMatchStore();
-  const { setActiveMatch } = useUIStore();
+  const { setActiveMatch, addToast } = useUIStore();
   const { t } = useTranslation();
   const [form, setForm] = useState({
     name: '', date: '', organization: 'IPSC' as Organization, firearm_type: 'handgun' as FirearmType
@@ -22,10 +22,14 @@ export default function CreateMatchModal({ show, onClose }: CreateMatchModalProp
 
   const handleCreate = async () => {
     if (!form.name || !form.date) return;
-    const match = await createMatch(form);
-    onClose();
-    setForm({ name: '', date: '', organization: 'IPSC', firearm_type: 'handgun' });
-    await setActiveMatch(match.id);
+    try {
+      const match = await createMatch(form);
+      onClose();
+      setForm({ name: '', date: '', organization: 'IPSC', firearm_type: 'handgun' });
+      await setActiveMatch(match.id);
+    } catch (err: any) {
+      addToast(err.message || t('common.error'), 'error');
+    }
   };
 
   const handleClose = () => {

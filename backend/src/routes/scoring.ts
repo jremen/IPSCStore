@@ -8,6 +8,32 @@ import {
 
 export const scoringRoutes = new Hono();
 
+/**
+ * Parse JSONB columns that come back as strings from the postgres driver.
+ * The `postgres` npm package returns JSONB values as JSON strings rather than
+ * parsed objects. This helper ensures they're always proper JS objects.
+ */
+function parseJsonbFields(score: any): any {
+  if (!score) return score;
+  const result = { ...score };
+  if (typeof result.score_data === 'string') {
+    try { result.score_data = JSON.parse(result.score_data); } catch { result.score_data = {}; }
+  }
+  if (typeof result.config === 'string') {
+    try { result.config = JSON.parse(result.config); } catch { result.config = {}; }
+  }
+  return result;
+}
+
+function parseTargetJsonbFields(target: any): any {
+  if (!target) return target;
+  const result = { ...target };
+  if (typeof result.target_data === 'string') {
+    try { result.target_data = JSON.parse(result.target_data); } catch { result.target_data = {}; }
+  }
+  return result;
+}
+
 // Get scoring progress for a match — which shooters have been scored on which stages
 scoringRoutes.get('/matches/:matchId/scoring-progress', async (c) => {
   const matchId = c.req.param('matchId');
@@ -41,7 +67,7 @@ scoringRoutes.get('/matches/:matchId/stages/:stageId/scores', async (c) => {
     WHERE ss.stage_id = ${stageId} AND ss.match_id = ${matchId}
     ORDER BY s.last_name, s.first_name
   `;
-  return c.json(scores);
+  return c.json(scores.map(parseJsonbFields));
 });
 
 // Get single shooter's score for a stage
@@ -62,7 +88,7 @@ scoringRoutes.get('/matches/:matchId/stages/:stageId/scores/:registrationId', as
     SELECT * FROM chrono_results WHERE stage_score_id = ${score.id}
   `;
 
-  return c.json({ ...score, targets: targetScores, chrono: chrono || null });
+  return c.json({ ...parseJsonbFields(score), targets: targetScores.map(parseTargetJsonbFields), chrono: chrono || null });
 });
 
 // Save/update score for a shooter on a stage
@@ -340,7 +366,7 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
   // Recalculate stage rankings (outside transaction — reads committed data)
   await recalculateStage(matchId, stageId);
 
-  return c.json({ ...scoreResult, targets, calcResult });
+  return c.json({ ...parseJsonbFields(scoreResult), targets: targets.map(parseTargetJsonbFields), calcResult });
 });
 
 // Recalculate all scores for a stage

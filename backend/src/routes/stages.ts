@@ -4,6 +4,16 @@ import bcrypt from 'bcryptjs';
 
 export const stageRoutes = new Hono();
 
+/** Parse JSONB config field that comes back as string from postgres driver */
+function parseStageJsonb(stage: any): any {
+  if (!stage) return stage;
+  const result = { ...stage };
+  if (typeof result.config === 'string') {
+    try { result.config = JSON.parse(result.config); } catch { result.config = {}; }
+  }
+  return result;
+}
+
 // Columns to select from stages — excludes password_hash for security
 const STAGE_COLUMNS = `
   s.id, s.match_id, s.stage_number, s.name, s.scoring_type,
@@ -22,7 +32,7 @@ stageRoutes.get('/matches/:matchId/stages', async (c) => {
     WHERE s.match_id = ${matchId}
     ORDER BY s.stage_number
   `;
-  return c.json(stages);
+  return c.json(stages.map(parseStageJsonb));
 });
 
 // Calculate min_rounds and max_points based on scoring_type and config
@@ -113,7 +123,7 @@ stageRoutes.post('/matches/:matchId/stages', async (c) => {
               password_hash IS NOT NULL AS has_password,
               created_at, updated_at
   `;
-  return c.json(stage, 201);
+  return c.json(parseStageJsonb(stage), 201);
 });
 
 // Get stage detail
@@ -125,7 +135,7 @@ stageRoutes.get('/stages/:id', async (c) => {
     WHERE s.id = ${id}
   `;
   if (!stage) return c.json({ error: 'Stage not found' }, 404);
-  return c.json(stage);
+  return c.json(parseStageJsonb(stage));
 });
 
 // Update stage
@@ -179,7 +189,7 @@ stageRoutes.put('/stages/:id', async (c) => {
               password_hash IS NOT NULL AS has_password,
               created_at, updated_at
   `;
-  return c.json(updated);
+  return c.json(parseStageJsonb(updated));
 });
 
 // Delete stage

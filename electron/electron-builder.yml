@@ -1,6 +1,6 @@
 appId: com.ipscscore.app
 productName: IPSCScore
-copyright: Copyright © 2025 IPSCScore
+copyright: Copyright © 2026 IPSCScore
 
 directories:
   output: ../dist-electron
@@ -34,7 +34,7 @@ mac:
   target:
     - target: dmg
       arch:
-        - universal
+        - arm64
   icon: resources/icon.icns
   category: public.app-category.utilities
   # Hardened runtime needed for macOS distribution
@@ -46,6 +46,7 @@ win:
     - target: nsis
       arch:
         - x64
+        - arm64
   icon: resources/icon.ico
 
 linux:

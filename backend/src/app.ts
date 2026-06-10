@@ -124,14 +124,13 @@ export function enableStaticServing(frontendDistPath: string) {
 
   console.log(`[Static] Found index.html at: ${indexPath}`);
 
-  // Cache the index.html content (without domain mode injection) to avoid reading from disk on every request.
-  // We inject domain mode per-request by modifying the cached template.
-  const htmlTemplate = fs.readFileSync(indexPath, 'utf-8');
-
   // SPA fallback middleware: serve index.html for non-API, non-asset routes.
   // This MUST run before serveStatic so that the root path "/" and SPA routes
   // get domain mode injection. If the request has a file extension and the file
   // exists, we skip this handler and let serveStatic handle it.
+  // NOTE: We re-read index.html from disk on each request (not cached) so that
+  // after a frontend rebuild with new asset hashes, the new index.html is served
+  // immediately without requiring a backend restart.
   app.use('*', async (c, next) => {
     const urlPath = c.req.path;
 
@@ -149,7 +148,7 @@ export function enableStaticServing(frontendDistPath: string) {
     // This is an SPA route (root path or client-side route) — serve index.html
     // with domain mode injection.
     try {
-      let html = htmlTemplate;
+      let html = fs.readFileSync(indexPath, 'utf-8');
       const domainMode = c.get('domainMode') as string | undefined;
       if (domainMode && domainMode !== 'admin') {
         html = html.replace(

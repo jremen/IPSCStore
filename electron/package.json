@@ -14,11 +14,14 @@
     "download-pg": "bash scripts/download-pg.sh",
     "download-pg:mac": "bash scripts/download-pg.sh mac-arm64",
     "download-pg:win": "bash scripts/download-pg.sh win-x64",
+    "download-pg:win-arm64": "bash scripts/download-pg.sh win-arm64",
     "download-pg:linux": "bash scripts/download-pg.sh linux-x64",
-    "build:mac": "tsc && npm run bundle-backend && npm run download-pg:mac && electron-builder --mac",
-    "build:win": "tsc && npm run bundle-backend && npm run download-pg:win && electron-builder --win --x64",
-    "build:linux": "tsc && npm run bundle-backend && npm run download-pg:linux && electron-builder --linux --x64",
-    "build:all": "tsc && npm run bundle-backend && npm run download-pg:mac && electron-builder --mac && npm run download-pg:win && electron-builder --win --x64",
+    "build:mac": "npm run build:all-deps && npm run bundle-backend && npm run download-pg:mac && electron-builder --mac",
+    "build:win": "npm run build:all-deps && npm run bundle-backend && npm run download-pg:win && electron-builder --win --x64",
+    "build:win-arm64": "npm run build:all-deps && npm run bundle-backend && npm run download-pg:win-arm64 && electron-builder --win --arm64",
+    "build:linux": "npm run build:all-deps && npm run bundle-backend && npm run download-pg:linux && electron-builder --linux --x64",
+    "build:all": "npm run build:all-deps && npm run bundle-backend && npm run download-pg:mac && electron-builder --mac && npm run download-pg:win && electron-builder --win --x64",
+    "build:all-deps": "cd ../backend && npm run build && cd ../frontend && rm -rf dist && npm run build",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

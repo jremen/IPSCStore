@@ -18,6 +18,8 @@ interface ScoringState {
   squadFilter: number | null; // null = show all squads
   activeStageId: string | null;
   scoringProgress: ScoringProgress | null;
+  /** Whether the summary confirmation view is showing (remote scorers only) */
+  showSummary: boolean;
 }
 
 interface ScoringActions {
@@ -32,6 +34,7 @@ interface ScoringActions {
   prevShooter: () => void;
   setSquadFilter: (squad: number | null) => void;
   setActiveStageId: (stageId: string | null) => void;
+  setShowSummary: (show: boolean) => void;
   fetchScoringProgress: (matchId: string) => Promise<void>;
   /** Get registrations filtered by the current squad filter */
   filteredRegistrations: () => RegistrationWithShooter[];
@@ -53,6 +56,7 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   squadFilter: null,
   activeStageId: null,
   scoringProgress: null,
+  showSummary: false,
 
   fetchRegistrations: async (matchId) => {
     set({ loading: true, error: null });
@@ -65,35 +69,54 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   },
 
   selectShooter: (registrationId) => {
-    set({ currentRegistrationId: registrationId, alerts: [], isExistingScore: false });
+    set({ currentRegistrationId: registrationId, alerts: [], isExistingScore: false, showSummary: false });
   },
 
   loadScore: async (matchId, stageId, registrationId, stage) => {
     try {
       const result = await api.getShooterScore(matchId, stageId, registrationId);
+
+      // Parse score_data: postgres driver may return JSONB as a string
+      let parsedScoreData: any = result.score_data || {};
+      if (typeof parsedScoreData === 'string') {
+        try { parsedScoreData = JSON.parse(parsedScoreData); } catch { parsedScoreData = {}; }
+      }
+
+      // Parse target_data for each target: same JSONB string issue
+      const targets = (result.targets || []).map((t: any) => {
+        let targetData = t.target_data || {};
+        if (typeof targetData === 'string') {
+          try { targetData = JSON.parse(targetData); } catch { targetData = {}; }
+        }
+        return {
+          target_index: t.target_index,
+          target_type: t.target_type,
+          alpha: Number(t.alpha),
+          charlie: Number(t.charlie),
+          delta: Number(t.delta),
+          miss: Number(t.miss),
+          no_shoot_hits: Number(t.no_shoot_hits),
+          steel_hit: t.steel_hit,
+          target_data: targetData,
+        };
+      });
+
       set({
         currentScore: {
-          time: result.time,
-          targets: (result.targets || []).map((t: any) => ({
-            target_index: t.target_index,
-            target_type: t.target_type,
-            alpha: t.alpha,
-            charlie: t.charlie,
-            delta: t.delta,
-            miss: t.miss,
-            no_shoot_hits: t.no_shoot_hits,
-            steel_hit: t.steel_hit,
-            target_data: t.target_data || {},
-          })),
-          procedural_count: result.procedural_count,
-          ftsa_count: result.ftsa_count,
-          extra_shot_count: result.extra_shot_count,
-          extra_hit_count: result.extra_hit_count,
-          stacking_count: result.stacking_count,
-          overtime_shot_count: result.overtime_shot_count,
+          time: result.time != null ? Number(result.time) : null,
+          targets,
+          procedural_count: Number(result.procedural_count) || 0,
+          ftsa_count: Number(result.ftsa_count) || 0,
+          extra_shot_count: Number(result.extra_shot_count) || 0,
+          extra_hit_count: Number(result.extra_hit_count) || 0,
+          stacking_count: Number(result.stacking_count) || 0,
+          overtime_shot_count: Number(result.overtime_shot_count) || 0,
           is_dnf: result.is_dnf,
           chrono: result.chrono,
-          score_data: result.score_data || {},
+          score_data: {
+            ...parsedScoreData,
+            string_times: parsedScoreData.string_times?.map((t: any) => Number(t)),
+          },
         },
         isExistingScore: true,
       });
@@ -120,6 +143,10 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
 
   validateScore: (stage, score) => {
     const alerts: ScoringAlert[] = [];
+
+    // DNF scores are always valid — skip validation errors
+    if (score.is_dnf) return alerts;
+
     const scoringType = stage.scoring_type;
     const config = stage.config || {};
 
@@ -227,7 +254,11 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   },
 
   setActiveStageId: (stageId) => {
-    set({ activeStageId: stageId });
+    set({ activeStageId: stageId, showSummary: false });
+  },
+
+  setShowSummary: (show) => {
+    set({ showSummary: show });
   },
 
   fetchScoringProgress: async (matchId) => {

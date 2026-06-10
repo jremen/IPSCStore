@@ -88,6 +88,7 @@ registrationRoutes.post('/matches/:matchId/registrations/create-and-add', async 
 });
 
 // Bulk update registrations (division, category, power_factor, squad overrides)
+// Also propagates division/category/power_factor/tag changes to the shooters table
 registrationRoutes.put('/matches/:matchId/registrations/bulk', async (c) => {
   const matchId = c.req.param('matchId');
   const body = await c.req.json();
@@ -100,7 +101,7 @@ registrationRoutes.put('/matches/:matchId/registrations/bulk', async (c) => {
     return c.json({ error: 'updates object is required' }, 400);
   }
 
-  const allowedFields = ['division', 'category', 'power_factor', 'squad'];
+  const allowedFields = ['division', 'category', 'power_factor', 'squad', 'tag'];
   const updateFields: Record<string, any> = {};
   for (const field of allowedFields) {
     if (updates[field] !== undefined) {
@@ -112,14 +113,18 @@ registrationRoutes.put('/matches/:matchId/registrations/bulk', async (c) => {
     return c.json({ error: 'No fields to update' }, 400);
   }
 
+  // Determine which fields should be propagated to the shooters table
+  // (everything except squad, and only non-null/non-empty values)
+  const shooterPropagateFields = ['division', 'category', 'power_factor', 'tag'] as const;
+
   let updated = 0;
   const failed: Array<{ id: string; name: string; reason: string }> = [];
 
   for (const regId of registrationIds) {
     try {
-      // Verify registration belongs to this match
+      // Verify registration belongs to this match and get shooter_id
       const [reg] = await sql`
-        SELECT mr.id, s.first_name, s.last_name
+        SELECT mr.id, mr.shooter_id, s.first_name, s.last_name
         FROM match_registrations mr
         JOIN shooters s ON s.id = mr.shooter_id
         WHERE mr.id = ${regId} AND mr.match_id = ${matchId}
@@ -129,6 +134,7 @@ registrationRoutes.put('/matches/:matchId/registrations/bulk', async (c) => {
         continue;
       }
 
+      // Update match_registrations (squad is per-match, not propagated)
       await sql`
         UPDATE match_registrations
         SET division = ${updateFields.division !== undefined ? updateFields.division : sql`division`},
@@ -137,6 +143,31 @@ registrationRoutes.put('/matches/:matchId/registrations/bulk', async (c) => {
             squad = ${updateFields.squad !== undefined ? updateFields.squad : sql`squad`}
         WHERE id = ${regId}
       `;
+
+      // Propagate to shooters table (division, category, power_factor, tag — not squad)
+      const shooterUpdates: string[] = [];
+      const shooterValues: any[] = [];
+
+      for (const field of shooterPropagateFields) {
+        if (updateFields[field] !== undefined) {
+          // For tag, allow null (clearing the tag). For others, skip null/empty.
+          if (field === 'tag') {
+            shooterUpdates.push('tag');
+            shooterValues.push(updateFields.tag);
+          } else if (updateFields[field] !== null && updateFields[field] !== '') {
+            shooterUpdates.push(field);
+            shooterValues.push(updateFields[field]);
+          }
+        }
+      }
+
+      if (shooterUpdates.length > 0 && reg.shooter_id) {
+        const setClauses = shooterUpdates.map((f, i) => `${f} = $${i + 1}`).join(', ');
+        shooterValues.push(reg.shooter_id, new Date().toISOString());
+        const query = `UPDATE shooters SET ${setClauses}, updated_at = $${shooterValues.length} WHERE id = $${shooterValues.length - 1}`;
+        await sql.unsafe(query, shooterValues);
+      }
+
       updated++;
     } catch {
       const [reg] = await sql`
@@ -198,11 +229,11 @@ registrationRoutes.delete('/matches/:matchId/registrations/bulk', async (c) => {
   return c.json({ removed, failed });
 });
 
-// Update registration (overrides, squad)
+// Update registration (overrides, squad) and propagate shooter data changes to shooters table
 registrationRoutes.put('/matches/:matchId/registrations/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json();
-  const { division, category, power_factor, squad } = body;
+  const { division, category, power_factor, squad, tag } = body;
 
   const [updated] = await sql`
     UPDATE match_registrations
@@ -214,6 +245,36 @@ registrationRoutes.put('/matches/:matchId/registrations/:id', async (c) => {
     RETURNING *
   `;
   if (!updated) return c.json({ error: 'Registration not found' }, 404);
+
+  // Propagate changes to the shooters table (not squad — that's per-match)
+  const shooterUpdates: string[] = [];
+  const shooterValues: any[] = [];
+
+  if (division !== undefined && division !== null && division !== '') {
+    shooterUpdates.push('division');
+    shooterValues.push(division);
+  }
+  if (category !== undefined && category !== null && category !== '') {
+    shooterUpdates.push('category');
+    shooterValues.push(category);
+  }
+  if (power_factor !== undefined && power_factor !== null && power_factor !== '') {
+    shooterUpdates.push('power_factor');
+    shooterValues.push(power_factor);
+  }
+  if (tag !== undefined) {
+    shooterUpdates.push('tag');
+    shooterValues.push(tag);
+  }
+
+  if (shooterUpdates.length > 0 && updated.shooter_id) {
+    // Build dynamic UPDATE for the changed fields
+    const setClauses = shooterUpdates.map((field, i) => `${field} = $${i + 1}`).join(', ');
+    shooterValues.push(updated.shooter_id, new Date().toISOString());
+    const query = `UPDATE shooters SET ${setClauses}, updated_at = $${shooterValues.length} WHERE id = $${shooterValues.length - 1}`;
+    await sql.unsafe(query, shooterValues);
+  }
+
   return c.json(updated);
 });
 

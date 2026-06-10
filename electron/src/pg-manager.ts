@@ -3,6 +3,7 @@ import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
+import { log, logError, getLogPath } from './logger.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -76,7 +77,7 @@ export class PgManager {
       }
     }
 
-    console.log(`[PgManager] Using PostgreSQL binaries from: ${this.pgBinDir}`);
+    log(`[PgManager] Using PostgreSQL binaries from: ${this.pgBinDir}`);
   }
 
   /** Search common system paths for PostgreSQL binaries */
@@ -93,7 +94,7 @@ export class PgManager {
       if (result) {
         // pg_ctl is in PATH — return its directory
         const binDir = path.dirname(result.split('\n')[0].trim());
-        console.log(`[PgManager] Found pg_ctl in PATH: ${binDir}`);
+        log(`[PgManager] Found pg_ctl in PATH: ${binDir}`);
         return binDir;
       }
     } catch {
@@ -105,7 +106,7 @@ export class PgManager {
       const pgCtlPath = path.join(dir, process.platform === 'win32' ? 'pg_ctl.exe' : 'pg_ctl');
       try {
         require('fs').accessSync(pgCtlPath);
-        console.log(`[PgManager] Found pg_ctl at: ${pgCtlPath}`);
+        log(`[PgManager] Found pg_ctl at: ${pgCtlPath}`);
         return dir;
       } catch {
         continue;
@@ -113,7 +114,7 @@ export class PgManager {
     }
 
     // Last resort: return a reasonable default and let it fail with a clear error
-    console.warn('[PgManager] Could not find PostgreSQL binaries in system paths');
+    log('[PgManager] Could not find PostgreSQL binaries in system paths');
     return paths[0];
   }
 
@@ -147,19 +148,24 @@ export class PgManager {
       );
     }
 
+    // On Windows ARM64, warn if running x64 binaries under emulation
+    if (isWin32 && process.arch === 'arm64') {
+      log('[PgManager] Running on Windows ARM64 with x64 PostgreSQL binaries (emulation required)');
+    }
+
     // Check if the data directory is already a valid PG cluster
     // (has PG_VERSION file, not just an empty directory)
     const pgVersionFile = path.join(this.config.dataDir, 'PG_VERSION');
     try {
       await fs.access(pgVersionFile);
       // PG_VERSION exists — already initialized
-      console.log('[PgManager] Data directory already initialized');
+      log('[PgManager] Data directory already initialized');
       return;
     } catch {
       // Not initialized — proceed with initdb
     }
 
-    console.log('[PgManager] Initializing PostgreSQL data directory...');
+    log('[PgManager] Initializing PostgreSQL data directory...');
 
     // Clean up any leftover directory if it exists
     try {
@@ -168,7 +174,7 @@ export class PgManager {
       // Directory may not exist, that's fine
     }
 
-    console.log('[PgManager] Initializing PostgreSQL data directory...');
+    log('[PgManager] Initializing PostgreSQL data directory...');
 
     // Create data directory
     await fs.mkdir(this.config.dataDir, { recursive: true });
@@ -176,12 +182,38 @@ export class PgManager {
     // Run initdb
     const initdb = this.getBin('initdb');
     const env = this.getEnvWithBinPath();
-    await execFileAsync(initdb, [
-      '-D', this.config.dataDir,
-      '-U', this.config.user,
-      '--auth=trust',
-      '--encoding=UTF8',
-    ], { env });
+    log(`[PgManager] Running initdb: ${initdb} -D "${this.config.dataDir}" -U ${this.config.user} --auth=trust --encoding=UTF8`);
+
+    try {
+      const { stdout, stderr } = await execFileAsync(initdb, [
+        '-D', this.config.dataDir,
+        '-U', this.config.user,
+        '--auth=trust',
+        '--encoding=UTF8',
+      ], { env, timeout: 60000 });
+      if (stdout) log(`[PgManager] initdb stdout: ${stdout.substring(0, 500)}`);
+      if (stderr) log(`[PgManager] initdb stderr: ${stderr.substring(0, 500)}`);
+    } catch (err: any) {
+      // Capture initdb output for better error reporting
+      const initdbOut = err?.stdout ? `\nOutput: ${err.stdout.substring(0, 500)}` : '';
+      const initdbErr = err?.stderr ? `\nError output: ${err.stderr.substring(0, 500)}` : '';
+      logError(`[PgManager] initdb failed${initdbOut}${initdbErr}`, err?.message || String(err));
+
+      // On Windows ARM64, provide a helpful hint about x64 emulation
+      if (isWin32 && process.arch === 'arm64') {
+        throw new Error(
+          `initdb failed on Windows ARM64. This may be because x64 emulation is not available.\n` +
+          `Error: ${err?.message || String(err)}${initdbErr}\n\n` +
+          `Make sure Windows x64 emulation is enabled (Settings > Apps > Optional features > X64 emulation).\n\n` +
+          `Alternatively, set DATABASE_URL to use an external PostgreSQL server.`
+        );
+      }
+
+      throw new Error(
+        `initdb failed: ${err?.message || String(err)}${initdbOut}${initdbErr}\n\n` +
+        `Log file: ${getLogPath()}`
+      );
+    }
 
     // Start temporarily to create database
     await this.start();
@@ -200,13 +232,13 @@ export class PgManager {
       ], { env });
     } catch (err) {
       // Database might already exist, that's OK
-      console.log('[PgManager] Database may already exist, continuing...');
+      log('[PgManager] Database may already exist, continuing...');
     }
 
     // Stop PostgreSQL after initialization
     await this.stop();
 
-    console.log('[PgManager] PostgreSQL initialized successfully');
+    log('[PgManager] PostgreSQL initialized successfully');
   }
 
   /**
@@ -225,7 +257,7 @@ export class PgManager {
     // Check if seed data was already imported
     try {
       await fs.access(seededMarker);
-      console.log('[PgManager] Seed data already imported, skipping');
+      log('[PgManager] Seed data already imported, skipping');
       return;
     } catch {
       // Not seeded yet — proceed
@@ -238,17 +270,17 @@ export class PgManager {
       : '';
 
     if (!seedDataPath || !await this.fileExists(seedDataPath)) {
-      console.log('[PgManager] No seed data file found, skipping import');
+      log('[PgManager] No seed data file found, skipping import');
       // Write the marker even without seed data so we don't retry on every launch
       await fs.writeFile(seededMarker, new Date().toISOString());
       return;
     }
 
-    console.log(`[PgManager] Importing seed data from: ${seedDataPath}`);
+    log(`[PgManager] Importing seed data from: ${seedDataPath}`);
 
     // Check that pg_restore exists
     if (!await this.binExists('pg_restore')) {
-      console.warn('[PgManager] pg_restore not found, cannot import seed data');
+      log('[PgManager] pg_restore not found, cannot import seed data');
       await fs.writeFile(seededMarker, new Date().toISOString());
       return;
     }
@@ -274,12 +306,12 @@ export class PgManager {
       ], { env, timeout: 120000 });
 
       if (stderr && !stderr.includes('WARNING')) {
-        console.warn('[PgManager] pg_restore warnings:', stderr);
+        log(`[PgManager] pg_restore warnings: ${stderr}`);
       }
 
       // Mark as seeded
       await fs.writeFile(seededMarker, new Date().toISOString());
-      console.log('[PgManager] Seed data imported successfully');
+      log('[PgManager] Seed data imported successfully');
     } catch (err: any) {
       // pg_restore exits with code 1 even for non-fatal errors (like duplicate keys).
       // Since we're importing into a fresh database after migrations, errors here
@@ -289,16 +321,16 @@ export class PgManager {
       const output = err?.stdout || err?.stderr || String(err);
       const errorCount = (output.match(/ERROR/g) || []).length;
       if (errorCount > 0) {
-        console.warn(`[PgManager] pg_restore completed with ${errorCount} error(s). ` +
+        log(`[PgManager] pg_restore completed with ${errorCount} error(s). ` +
           'This is normal if data already exists in the database.');
-        console.warn('[PgManager] Error details:', output.substring(0, 500));
+        log(`[PgManager] Error details: ${output.substring(0, 500)}`);
       } else {
-        console.warn('[PgManager] pg_restore completed with warnings:', output.substring(0, 500));
+        log(`[PgManager] pg_restore completed with warnings: ${output.substring(0, 500)}`);
       }
 
       // Always write the marker to prevent repeated import attempts
       await fs.writeFile(seededMarker, new Date().toISOString());
-      console.log('[PgManager] Seed data import finished (marker written to prevent retries)');
+      log('[PgManager] Seed data import finished (marker written to prevent retries)');
     }
   }
 
@@ -314,7 +346,7 @@ export class PgManager {
 
   /** Start PostgreSQL */
   async start(): Promise<void> {
-    console.log('[PgManager] Starting PostgreSQL...');
+    log('[PgManager] Starting PostgreSQL...');
 
     // Ensure data directory exists
     await fs.mkdir(this.config.dataDir, { recursive: true });
@@ -338,7 +370,7 @@ export class PgManager {
       if (!existingConf.includes('dynamic_library_path')) {
         // Append the setting if it's missing (upgrades from older versions)
         await fs.appendFile(postgresConf, `\n${dynamicLibraryPathLine}\n`);
-        console.log('[PgManager] Added dynamic_library_path to existing postgresql.conf');
+        log('[PgManager] Added dynamic_library_path to existing postgresql.conf');
       }
     } catch {
       // Create minimal postgresql.conf
@@ -372,16 +404,25 @@ export class PgManager {
     }
 
     try {
-      await execFileAsync(pgCtl, args, { env, timeout: 30000 });
+      const { stdout, stderr } = await execFileAsync(pgCtl, args, { env, timeout: 30000 });
+      if (stdout) log(`[PgManager] pg_ctl stdout: ${stdout.substring(0, 300)}`);
+      if (stderr) log(`[PgManager] pg_ctl stderr: ${stderr.substring(0, 300)}`);
     } catch (err: any) {
+      // Log pg_ctl output for debugging
+      const ctlOut = err?.stdout ? `\nOutput: ${err.stdout.substring(0, 300)}` : '';
+      const ctlErr = err?.stderr ? `\nError: ${err.stderr.substring(0, 300)}` : '';
       // On Windows, pg_ctl start without -w returns immediately, so this
       // shouldn't timeout. On Unix with -w, a timeout means PG didn't start.
       if (isWin32 && err?.killed) {
         // Timeout on Windows — pg_ctl might not have started yet, but that's OK
         // We'll check readiness in waitReady()
-        console.log('[PgManager] pg_ctl start timed out (Windows), checking readiness...');
+        log(`[PgManager] pg_ctl start timed out (Windows), checking readiness...${ctlOut}${ctlErr}`);
       } else if (!isWin32) {
+        logError(`[PgManager] pg_ctl start failed${ctlOut}${ctlErr}`, err);
         throw err;
+      } else {
+        // Windows non-timeout error — log but continue to readiness check
+        logError(`[PgManager] pg_ctl start error (continuing)${ctlOut}${ctlErr}`, err?.message || String(err));
       }
     }
 
@@ -390,12 +431,12 @@ export class PgManager {
       await this.waitReady(60, 1000);
     }
 
-    console.log('[PgManager] PostgreSQL started');
+    log('[PgManager] PostgreSQL started');
   }
 
   /** Stop PostgreSQL gracefully */
   async stop(): Promise<void> {
-    console.log('[PgManager] Stopping PostgreSQL...');
+    log('[PgManager] Stopping PostgreSQL...');
     const pgCtl = this.getBin('pg_ctl');
     const env = this.getEnvWithBinPath();
 
@@ -406,9 +447,9 @@ export class PgManager {
         '-m', 'fast',
         '-w',
       ], { env });
-      console.log('[PgManager] PostgreSQL stopped');
+      log('[PgManager] PostgreSQL stopped');
     } catch (err) {
-      console.error('[PgManager] Error stopping PostgreSQL:', err);
+      logError('[PgManager] Error stopping PostgreSQL:', err);
     }
   }
 
@@ -427,7 +468,7 @@ export class PgManager {
           socket.on('timeout', () => { socket.destroy(); reject(); });
           socket.connect(this.config.port, this.config.host);
         });
-        console.log('[PgManager] PostgreSQL is ready');
+        log('[PgManager] PostgreSQL is ready');
         return;
       } catch {
         await new Promise(resolve => setTimeout(resolve, delayMs));

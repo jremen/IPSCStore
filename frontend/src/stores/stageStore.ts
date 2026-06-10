@@ -2,6 +2,16 @@ import { create } from 'zustand';
 import { api } from '../services/api';
 import type { Stage, CreateStageInput } from '../types/stage';
 
+/** Parse stage.config if it came back as a JSON string from postgres driver */
+function parseStageConfig(stage: any): Stage {
+  if (!stage) return stage;
+  const result = { ...stage };
+  if (typeof result.config === 'string') {
+    try { result.config = JSON.parse(result.config); } catch { result.config = {}; }
+  }
+  return result as Stage;
+}
+
 interface StageState {
   stages: Stage[];
   currentStage: Stage | null;
@@ -28,7 +38,7 @@ export const useStageStore = create<StageState & StageActions>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const stages = await api.getStages(matchId);
-      set({ stages, loading: false });
+      set({ stages: stages.map(parseStageConfig), loading: false });
     } catch (err: any) {
       set({ error: err.message, loading: false });
     }
@@ -36,15 +46,17 @@ export const useStageStore = create<StageState & StageActions>((set, get) => ({
 
   createStage: async (matchId, data) => {
     const stage = await api.createStage(matchId, data);
-    set((state) => ({ stages: [...state.stages, stage] }));
-    return stage;
+    const parsed = parseStageConfig(stage);
+    set((state) => ({ stages: [...state.stages, parsed] }));
+    return parsed;
   },
 
   updateStage: async (id, data) => {
     const updated = await api.updateStage(id, data);
+    const parsed = parseStageConfig(updated);
     set((state) => ({
-      stages: state.stages.map((s) => (s.id === id ? updated : s)),
-      currentStage: state.currentStage?.id === id ? updated : state.currentStage,
+      stages: state.stages.map((s) => (s.id === id ? parsed : s)),
+      currentStage: state.currentStage?.id === id ? parsed : state.currentStage,
     }));
   },
 

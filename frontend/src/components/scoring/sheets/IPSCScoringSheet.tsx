@@ -39,7 +39,7 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
     showExtraPenalties, hasSidebar, hpp,
   } = useIPSCScoring(stage, score);
 
-  const timeInput = (
+  const TimeInputBlock = () => (
     <>
       <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
       <TimeInput
@@ -65,10 +65,10 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
   const subtitle = subtitleParts.join(' • ');
 
   return (
-    <div className="p-2 sm:p-4 max-lg:max-w-3xl mx-auto lg:grid grid-cols-2 gap-6">
+    <div className="p-2 sm:p-4 max-w-7xl mx-auto lg:grid grid-cols-2 gap-6">
       {/* TIME INPUT — ALWAYS VISIBLE AT TOP (mobile) */}
       <div className="my-3 lg:hidden">
-        {timeInput}
+        <TimeInputBlock />
       </div>
       {/* SCORING SHEET — two-column on desktop when sidebar exists */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 max-lg:mb-3 shadow-sm overflow-hidden -order-1">
@@ -202,9 +202,9 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
       )}
 
       {/* DNF + DQ toggles */}
-      <div className="lg:flex flex-col justify-between">
+      <div className="lg:flex flex-col gap-6">
         <div className="my-3 max-lg:hidden">
-          {timeInput}
+          <TimeInputBlock />
         </div>
 
         <div className="flex items-center gap-4 mb-3 flex-wrap">

@@ -231,8 +231,9 @@ winmssImportRoutes.post('/winmss', async (c) => {
           }
 
           // Look up by WinMSS MemberId ONLY — this is the unique key
+          // Exclude soft-deleted shooters to prevent re-linking to deleted records
           const existing = await sql`
-            SELECT id FROM shooters WHERE winmss_member_id = ${memberIdNum} LIMIT 1
+            SELECT id FROM shooters WHERE winmss_member_id = ${memberIdNum} AND deleted_at IS NULL LIMIT 1
           `;
 
           if (existing.length > 0) {
@@ -246,7 +247,7 @@ winmssImportRoutes.post('/winmss', async (c) => {
                 SET tag = COALESCE(${tag || null}, tag),
                     region = CASE WHEN region = '' OR region IS NULL THEN ${region} ELSE region END,
                     updated_at = NOW()
-                WHERE id = ${existing[0].id}
+                WHERE id = ${existing[0].id} AND deleted_at IS NULL
               `;
             }
             result.shooters.skipped++;
@@ -869,6 +870,7 @@ winmssImportRoutes.post('/winmss', async (c) => {
           GROUP BY shooter_id
         ) latest ON mr.shooter_id = latest.shooter_id AND mr.created_at = latest.max_created
         WHERE s.id = mr.shooter_id
+          AND s.deleted_at IS NULL
           AND mr.division IS NOT NULL
       `;
       console.log(`[WinMSS Import] Updated ${updatedShooters.count} shooter defaults from registrations`);

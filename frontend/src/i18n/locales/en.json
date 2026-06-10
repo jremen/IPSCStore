@@ -41,6 +41,7 @@
     "success": "{{count}} shooter(s) deleted successfully.",
     "partialSuccess": "{{deleted}} deleted, {{failed}} could not be deleted.",
     "cannotBeUndone": "This action cannot be undone.",
+    "softDeleteNote": "Shooters will be removed from the global database but will remain visible in match registrations and scores.",
     "andMore": "...and {{count}} more"
   },
   "bulkEdit": {
@@ -206,7 +207,16 @@
     "createTitle": "New Shooter",
     "created": "Shooter created",
     "updated": "Shooter updated",
-    "deleted": "Shooter deleted"
+    "deleted": "Shooter deleted",
+    "deleteTitle": "Delete Shooter",
+    "deleteConfirm": "Are you sure you want to delete {{name}}?",
+    "deleteRegisteredWarning": "{{name}} is registered in {{count}} match(es). They will still appear in match data, but will be removed from the global database.",
+    "deleteNoMatches": "This shooter is not registered in any matches.",
+    "alreadyDeleted": "This shooter has already been deleted.",
+    "showDeleted": "Show deleted",
+    "restore": "Restore",
+    "restored": "Shooter restored",
+    "deletedBadge": "Deleted"
   },
   "registration": {
     "title": "Registration",

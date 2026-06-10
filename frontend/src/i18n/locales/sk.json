@@ -41,6 +41,7 @@
     "success": "{{count}} strelcov úspešne odstránených.",
     "partialSuccess": "{{deleted}} odstránených, {{failed}} sa nepodarilo odstrániť.",
     "cannotBeUndone": "Túto akciu nie je možné vrátiť späť.",
+    "softDeleteNote": "Strelci budú odstránení z globálnej databázy, ale zostanú viditeľní v registráciách a skóre súťaží.",
     "andMore": "...a {{count}} ďalších"
   },
   "bulkEdit": {
@@ -206,7 +207,16 @@
     "createTitle": "Nový strelec",
     "created": "Strelec vytvorený",
     "updated": "Strelec aktualizovaný",
-    "deleted": "Strelec odstránený"
+    "deleted": "Strelec odstránený",
+    "deleteTitle": "Odstrániť strelca",
+    "deleteConfirm": "Naozaj chcete odstrániť {{name}}?",
+    "deleteRegisteredWarning": "{{name}} je zaregistrovaný(á) v {{count}} súťažiach. Stále sa bude zobrazovať v údajoch o súťažiach, ale bude odstránený(á) z globálnej databázy.",
+    "deleteNoMatches": "Tento strelec nie je zaregistrovaný v žiadnej súťaži.",
+    "alreadyDeleted": "Tento strelec už bol odstránený.",
+    "showDeleted": "Zobraziť zmazané",
+    "restore": "Obnoviť",
+    "restored": "Strelec obnovený",
+    "deletedBadge": "Zmazaný"
   },
   "registration": {
     "title": "Registrácia",

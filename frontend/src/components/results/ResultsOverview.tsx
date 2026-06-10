@@ -289,7 +289,7 @@ export default function ResultsOverview() {
       </div>
 
       {/* Sticky header + tab bar */}
-      <div className="sticky top-4 before:bg-white pb-3 dark:before:bg-gray-900 before:absolute before:h-4 before:w-full before:-top-4 bg-white dark:bg-gray-900 z-100">
+      <div className="sticky top-4 before:bg-gray-200 pb-3 dark:before:bg-gray-900 before:absolute before:h-4 before:w-full before:-top-4 bg-gray-200 dark:bg-gray-900 z-100">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="text-xl font-bold dark:text-white">{t('results.title')}</h2>
           <ExportButtons activeTab={activeTab} />

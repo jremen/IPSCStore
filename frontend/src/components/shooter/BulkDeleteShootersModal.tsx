@@ -75,8 +75,8 @@ export default function BulkDeleteShootersModal({ show, onClose, shooterIds, sho
                 <div className="italic">...{t('bulkDelete.andMore', { count: shooterNames.length - 10 })}</div>
               )}
             </div>
-            <Alert color="warning">
-              <span className="text-sm">{t('bulkDelete.conflictWarning')}</span>
+            <Alert color="info">
+              <span className="text-sm">{t('bulkDelete.softDeleteNote')}</span>
             </Alert>
             <p className="text-sm text-red-600 dark:text-red-400">{t('bulkDelete.cannotBeUndone')}</p>
           </div>

@@ -105,7 +105,7 @@ export default function AppLayout() {
   const isScoringTab = activeTab === 'scoring';
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+    <div className="h-screen flex flex-col bg-gray-200 dark:bg-gray-900">
       <Header />
       <TabBar />
       <main className={`flex-1 min-h-0 ${isScoringTab ? 'overflow-hidden lg:overflow-auto' : 'overflow-auto'}`}>

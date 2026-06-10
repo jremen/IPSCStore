@@ -208,7 +208,7 @@ export const customTheme: DeepPartial<FlowbiteTheme> = createTheme({
     toggle: {
       base: twMerge(
         theme.toggleSwitch.toggle.base,
-        "toggle-bg rounded-full border-none group-focus:ring-0",
+        "toggle-bg rounded-full outline-2 outline-blue-700 group-focus:ring-0",
       ),
       checked: {
         color: {

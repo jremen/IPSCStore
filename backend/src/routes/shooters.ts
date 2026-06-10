@@ -5,11 +5,31 @@ import { isUnaccentAvailable } from '../utils/unaccent.js';
 export const shooterRoutes = new Hono();
 
 // List/search shooters
+// Query params:
+//   search - search by name/email
+//   limit/offset - pagination
+//   include_deleted - if "true", include soft-deleted shooters in results
+//   deleted_only - if "true", return only soft-deleted shooters
 shooterRoutes.get('/', async (c) => {
   const search = c.req.query('search') || '';
   const limitParam = c.req.query('limit');
   const limit = limitParam ? parseInt(limitParam, 10) : 0;
   const offset = parseInt(c.req.query('offset') || '0', 10);
+  const includeDeleted = c.req.query('include_deleted') === 'true';
+  const deletedOnly = c.req.query('deleted_only') === 'true';
+
+  // Build the deleted_at filter condition
+  // deletedOnly: show only deleted shooters (WHERE deleted_at IS NOT NULL)
+  // includeDeleted: show all shooters (no filter)
+  // default: show only active shooters (WHERE deleted_at IS NULL)
+  let deletedFilter: string;
+  if (deletedOnly) {
+    deletedFilter = 'AND deleted_at IS NOT NULL';
+  } else if (includeDeleted) {
+    deletedFilter = ''; // no filter — show all
+  } else {
+    deletedFilter = 'AND deleted_at IS NULL';
+  }
 
   let shooters;
   let total;
@@ -23,26 +43,29 @@ shooterRoutes.get('/', async (c) => {
       if (limit > 0) {
         shooters = await sql`
           SELECT * FROM shooters
-          WHERE unaccent(first_name) ILIKE unaccent(${pattern})
+          WHERE (unaccent(first_name) ILIKE unaccent(${pattern})
              OR unaccent(last_name) ILIKE unaccent(${pattern})
-             OR email ILIKE ${pattern}
+             OR email ILIKE ${pattern})
+          ${sql.unsafe(deletedFilter)}
           ORDER BY last_name, first_name
           LIMIT ${limit} OFFSET ${offset}
         `;
       } else {
         shooters = await sql`
           SELECT * FROM shooters
-          WHERE unaccent(first_name) ILIKE unaccent(${pattern})
+          WHERE (unaccent(first_name) ILIKE unaccent(${pattern})
              OR unaccent(last_name) ILIKE unaccent(${pattern})
-             OR email ILIKE ${pattern}
+             OR email ILIKE ${pattern})
+          ${sql.unsafe(deletedFilter)}
           ORDER BY last_name, first_name
         `;
       }
       const [count] = await sql`
         SELECT COUNT(*) as count FROM shooters
-        WHERE unaccent(first_name) ILIKE unaccent(${pattern})
+        WHERE (unaccent(first_name) ILIKE unaccent(${pattern})
            OR unaccent(last_name) ILIKE unaccent(${pattern})
-           OR email ILIKE ${pattern}
+           OR email ILIKE ${pattern})
+        ${sql.unsafe(deletedFilter)}
       `;
       total = Number(count.count);
     } else {
@@ -50,44 +73,54 @@ shooterRoutes.get('/', async (c) => {
       if (limit > 0) {
         shooters = await sql`
           SELECT * FROM shooters
-          WHERE first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern}
+          WHERE (first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern})
+          ${sql.unsafe(deletedFilter)}
           ORDER BY last_name, first_name
           LIMIT ${limit} OFFSET ${offset}
         `;
       } else {
         shooters = await sql`
           SELECT * FROM shooters
-          WHERE first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern}
+          WHERE (first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern})
+          ${sql.unsafe(deletedFilter)}
           ORDER BY last_name, first_name
         `;
       }
       const [count] = await sql`
         SELECT COUNT(*) as count FROM shooters
-        WHERE first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern}
+        WHERE (first_name ILIKE ${pattern} OR last_name ILIKE ${pattern} OR email ILIKE ${pattern})
+        ${sql.unsafe(deletedFilter)}
       `;
       total = Number(count.count);
     }
   } else {
     if (limit > 0) {
       shooters = await sql`
-        SELECT * FROM shooters ORDER BY last_name, first_name LIMIT ${limit} OFFSET ${offset}
+        SELECT * FROM shooters
+        WHERE 1=1 ${sql.unsafe(deletedFilter)}
+        ORDER BY last_name, first_name
+        LIMIT ${limit} OFFSET ${offset}
       `;
     } else {
       shooters = await sql`
-        SELECT * FROM shooters ORDER BY last_name, first_name
+        SELECT * FROM shooters
+        WHERE 1=1 ${sql.unsafe(deletedFilter)}
+        ORDER BY last_name, first_name
       `;
     }
-    const [count] = await sql`SELECT COUNT(*) as count FROM shooters`;
+    const [count] = await sql`SELECT COUNT(*) as count FROM shooters WHERE 1=1 ${sql.unsafe(deletedFilter)}`;
     total = Number(count.count);
   }
 
   return c.json({ shooters, total, limit, offset });
 });
 
-// Get all distinct tags for autocomplete
+// Get all distinct tags for autocomplete (excludes soft-deleted shooters)
 shooterRoutes.get('/tags', async (c) => {
   const tags = await sql`
-    SELECT DISTINCT tag FROM shooters WHERE tag IS NOT NULL AND tag != '' ORDER BY tag
+    SELECT DISTINCT tag FROM shooters
+    WHERE tag IS NOT NULL AND tag != '' AND deleted_at IS NULL
+    ORDER BY tag
   `;
   return c.json(tags.map((t: any) => t.tag));
 });
@@ -109,7 +142,7 @@ shooterRoutes.post('/', async (c) => {
   return c.json(shooter, 201);
 });
 
-// Bulk update shooters
+// Bulk update shooters (only non-deleted)
 shooterRoutes.put('/bulk', async (c) => {
   const { shooterIds, updates } = await c.req.json();
   if (!Array.isArray(shooterIds) || shooterIds.length === 0) {
@@ -128,54 +161,67 @@ shooterRoutes.put('/bulk', async (c) => {
 
   const updated = await sql`
     UPDATE shooters SET ${sql.unsafe(setClauses.join(', '))}, updated_at = NOW()
-    WHERE id = ANY(${shooterIds}::uuid[])
+    WHERE id = ANY(${shooterIds}::uuid[]) AND deleted_at IS NULL
     RETURNING id, first_name, last_name
   `;
 
   const failedIds = shooterIds.filter((id: string) => !updated.find((u: any) => u.id === id));
-  const failed = failedIds.map((id: string) => ({ id, name: '', reason: 'Update failed' }));
+  const failed = failedIds.map((id: string) => ({ id, name: '', reason: 'Shooter not found or already deleted' }));
 
   return c.json({ updated: updated.length, failed });
 });
 
-// Bulk delete shooters
+// Bulk soft-delete shooters
 shooterRoutes.delete('/bulk', async (c) => {
   const { shooterIds } = await c.req.json();
   if (!Array.isArray(shooterIds) || shooterIds.length === 0) {
     return c.json({ error: 'shooterIds must be a non-empty array' }, 400);
   }
 
-  // Check which shooters are registered in matches (cannot delete)
-  const registered = await sql`
-    SELECT DISTINCT shooter_id FROM match_registrations WHERE shooter_id = ANY(${shooterIds}::uuid[])
+  // Soft-delete all specified shooters that are not already deleted
+  const result = await sql`
+    UPDATE shooters SET deleted_at = NOW()
+    WHERE id = ANY(${shooterIds}::uuid[]) AND deleted_at IS NULL
+    RETURNING id, first_name, last_name
   `;
-  const registeredIds = new Set(registered.map((r: any) => r.shooter_id));
 
-  const deletableIds = shooterIds.filter((id: string) => !registeredIds.has(id));
-  const failedIds = shooterIds.filter((id: string) => !deletableIds.includes(id));
+  // Identify any IDs that were not found or already deleted
+  const updatedIds = new Set(result.map((r: any) => r.id));
+  const failedIds = shooterIds.filter((id: string) => !updatedIds.has(id));
 
-  let deleted = 0;
-  if (deletableIds.length > 0) {
-    const result = await sql`
-      DELETE FROM shooters WHERE id = ANY(${deletableIds}::uuid[]) RETURNING id, first_name, last_name
+  // Get names for failed entries (either not found or already deleted)
+  let failed: Array<{ id: string; name: string; reason: string }> = [];
+  if (failedIds.length > 0) {
+    const failedShooters = await sql`
+      SELECT id, first_name, last_name, deleted_at FROM shooters WHERE id = ANY(${failedIds}::uuid[])
     `;
-    deleted = result.length;
+    failed = failedShooters.map((s: any) => ({
+      id: s.id,
+      name: `${s.first_name} ${s.last_name}`,
+      reason: s.deleted_at ? 'Already deleted' : 'Not found',
+    }));
   }
 
-  // Get names for failed deletions
-  const failedShooters = await sql`
-    SELECT id, first_name, last_name FROM shooters WHERE id = ANY(${failedIds}::uuid[])
-  `;
-  const failed = failedShooters.map((s: any) => ({
-    id: s.id,
-    name: `${s.first_name} ${s.last_name}`,
-    reason: 'Shooter is registered in one or more matches',
-  }));
-
-  return c.json({ deleted, failed });
+  return c.json({ deleted: result.length, failed });
 });
 
-// Get shooter detail
+// Get matches a shooter is registered in (for confirmation dialog)
+shooterRoutes.get('/:id/matches', async (c) => {
+  const id = c.req.param('id');
+  const registrations = await sql`
+    SELECT mr.id as registration_id, m.id as match_id, m.name as match_name, m.date,
+           COALESCE(mr.division, s.division) as division,
+           COALESCE(mr.category, s.category) as category
+    FROM match_registrations mr
+    JOIN matches m ON m.id = mr.match_id
+    JOIN shooters s ON s.id = mr.shooter_id
+    WHERE mr.shooter_id = ${id}
+    ORDER BY m.date DESC
+  `;
+  return c.json(registrations);
+});
+
+// Get shooter detail (works for both active and soft-deleted shooters)
 shooterRoutes.get('/:id', async (c) => {
   const id = c.req.param('id');
   const [shooter] = await sql`SELECT * FROM shooters WHERE id = ${id}`;
@@ -193,7 +239,7 @@ shooterRoutes.get('/:id', async (c) => {
   return c.json({ ...shooter, match_history: history });
 });
 
-// Update shooter
+// Update shooter (only non-deleted)
 shooterRoutes.put('/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json();
@@ -210,24 +256,47 @@ shooterRoutes.put('/:id', async (c) => {
         region = COALESCE(${region}, region),
         email = ${email !== undefined ? email : sql`email`},
         updated_at = NOW()
-    WHERE id = ${id}
+    WHERE id = ${id} AND deleted_at IS NULL
     RETURNING *
   `;
-  if (!updated) return c.json({ error: 'Shooter not found' }, 404);
+  if (!updated) {
+    // Check if shooter exists but is deleted
+    const [existing] = await sql`SELECT id FROM shooters WHERE id = ${id}`;
+    if (!existing) return c.json({ error: 'Shooter not found' }, 404);
+    return c.json({ error: 'Shooter is deleted and cannot be edited' }, 410);
+  }
   return c.json(updated);
 });
 
-// Delete shooter
+// Soft-delete shooter
 shooterRoutes.delete('/:id', async (c) => {
   const id = c.req.param('id');
-  try {
-    const result = await sql`DELETE FROM shooters WHERE id = ${id} RETURNING id`;
-    if (result.length === 0) return c.json({ error: 'Shooter not found' }, 404);
-    return c.json({ deleted: true });
-  } catch (err: any) {
-    if (err.code === '23503') {
-      return c.json({ error: 'Cannot delete shooter — registered in one or more matches' }, 409);
-    }
-    throw err;
+  const result = await sql`
+    UPDATE shooters SET deleted_at = NOW()
+    WHERE id = ${id} AND deleted_at IS NULL
+    RETURNING id, first_name, last_name
+  `;
+  if (result.length === 0) {
+    // Check if shooter exists but is already deleted
+    const [existing] = await sql`SELECT id FROM shooters WHERE id = ${id}`;
+    if (!existing) return c.json({ error: 'Shooter not found' }, 404);
+    return c.json({ error: 'Shooter already deleted' }, 410);
   }
+  return c.json({ deleted: true });
+});
+
+// Restore a soft-deleted shooter
+shooterRoutes.post('/:id/restore', async (c) => {
+  const id = c.req.param('id');
+  const [shooter] = await sql`
+    UPDATE shooters SET deleted_at = NULL, updated_at = NOW()
+    WHERE id = ${id} AND deleted_at IS NOT NULL
+    RETURNING *
+  `;
+  if (!shooter) {
+    const [existing] = await sql`SELECT id, deleted_at FROM shooters WHERE id = ${id}`;
+    if (!existing) return c.json({ error: 'Shooter not found' }, 404);
+    return c.json({ error: 'Shooter is not deleted' }, 400);
+  }
+  return c.json(shooter);
 });

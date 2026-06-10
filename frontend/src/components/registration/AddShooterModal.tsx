@@ -15,9 +15,10 @@ interface AddShooterModalProps {
   /** IDs of shooters already registered in this match — they will be hidden from the list */
   registeredShooterIds: string[];
   onAdded: () => void;
+  onCreate: () => void;
 }
 
-export default function AddShooterModal({ show, onClose, matchId, registeredShooterIds, onAdded }: AddShooterModalProps) {
+export default function AddShooterModal({ show, onClose, matchId, registeredShooterIds, onAdded, onCreate }: AddShooterModalProps) {
   const { addToast } = useUIStore();
   const { t } = useTranslation();
   const [squad, setSquad] = useState('');
@@ -53,7 +54,10 @@ export default function AddShooterModal({ show, onClose, matchId, registeredShoo
           <Label>{t('registration.squadOptional')}</Label>
           <InputField type="number" step="1" min="0" value={squad} onChange={setSquad} placeholder={t('registration.squadPlaceholder')} />
         </div>
-        <TextInput placeholder={t('registration.search')} value={search} onChange={(e) => setSearch(e.target.value)} className="mb-3" />
+        <div className="flex gap-2">
+          <TextInput placeholder={t('registration.search')} value={search} onChange={(e) => setSearch(e.target.value)} className="mb-3 flex-1" />
+          <Button color="green" onClick={() => onCreate()}>{t('shooters.newShooter')}</Button>
+        </div>
         <div className="max-h-128 overflow-y-auto space-y-1">
           {loading && <div className="text-center py-4"><Spinner size="sm" /> {t('common.loading')}</div>}
           {!loading && shooters.slice(0, 50).map((s) => (

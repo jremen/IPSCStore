@@ -185,17 +185,21 @@ export const api = {
   deleteStageImage: (stageId: string) => request<any>(`/api/stages/${stageId}/image`, { method: 'DELETE' }),
 
   // Shooters
-  getShooters: (params?: { search?: string; limit?: number; offset?: number }) => {
+  getShooters: (params?: { search?: string; limit?: number; offset?: number; include_deleted?: boolean; deleted_only?: boolean }) => {
     const qs = new URLSearchParams();
     if (params?.search) qs.set('search', params.search);
     if (params?.limit) qs.set('limit', String(params.limit));
     if (params?.offset) qs.set('offset', String(params.offset));
+    if (params?.include_deleted) qs.set('include_deleted', 'true');
+    if (params?.deleted_only) qs.set('deleted_only', 'true');
     return request<any>(`/api/shooters?${qs.toString()}`);
   },
   getShooter: (id: string) => request<any>(`/api/shooters/${id}`),
+  getShooterMatches: (id: string) => request<any[]>(`/api/shooters/${id}/matches`),
   createShooter: (data: any) => request<any>('/api/shooters', { method: 'POST', body: JSON.stringify(data) }),
   updateShooter: (id: string, data: any) => request<any>(`/api/shooters/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteShooter: (id: string) => request<any>(`/api/shooters/${id}`, { method: 'DELETE' }),
+  restoreShooter: (id: string) => request<any>(`/api/shooters/${id}/restore`, { method: 'POST' }),
 
   // Bulk shooter operations
   bulkUpdateShooters: (shooterIds: string[], updates: { division?: string; category?: string; power_factor?: string; tag?: string | null }) =>

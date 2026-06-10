@@ -3,6 +3,7 @@ import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from 'flowbite-rea
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { useMatchStore } from '../../stores/matchStore';
+import { useShooterStore } from '../../stores/shooterStore';
 import { api } from '../../services/api';
 import ShooterFormFields, { type ShooterFormData } from '../shared/ShooterFormFields';
 import type { Category, Division, PowerFactor } from '../../types/shooter';
@@ -18,6 +19,7 @@ interface CreateShooterModalProps {
 export default function CreateShooterModal({ show, onClose, matchId, onCreated }: CreateShooterModalProps) {
   const { addToast } = useUIStore();
   const { matches } = useMatchStore();
+  const { fetchShooters } = useShooterStore();
   const { t } = useTranslation();
   useEscClose(onClose);
   const matchOrganization = matches.find((m: any) => m.id === matchId)?.organization;
@@ -39,6 +41,7 @@ export default function CreateShooterModal({ show, onClose, matchId, onCreated }
       setForm({ first_name: '', last_name: '', category: 'regular', tag: null, division: 'standard', power_factor: 'minor', region: '', email: null });
       setSquad('');
       onCreated();
+      fetchShooters();
     } catch (err: any) {
       addToast(err.message, 'error');
     }

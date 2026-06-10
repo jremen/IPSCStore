@@ -124,11 +124,12 @@ importRoutes.post('/shooters', async (c) => {
       continue;
     }
 
-    // Check for duplicate by name + email
+    // Check for duplicate by name + email (exclude soft-deleted shooters)
     const existing = await sql`
       SELECT id FROM shooters
       WHERE first_name = ${first_name} AND last_name = ${last_name}
       AND (email = ${email || null} OR (email IS NULL AND ${email || null} IS NULL))
+      AND deleted_at IS NULL
     `;
     if (existing.length > 0) {
       skipped++;
@@ -187,12 +188,14 @@ importRoutes.post('/matches/:matchId/registrations', async (c) => {
           SELECT id FROM shooters
           WHERE unaccent(first_name) ILIKE unaccent(${shooter_first_name})
             AND unaccent(last_name) ILIKE unaccent(${shooter_last_name})
+            AND deleted_at IS NULL
           LIMIT 1
         `
       : await sql`
           SELECT id FROM shooters
           WHERE first_name ILIKE ${shooter_first_name}
             AND last_name ILIKE ${shooter_last_name}
+            AND deleted_at IS NULL
           LIMIT 1
         `;
     if (!shooter) {

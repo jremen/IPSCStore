@@ -16,7 +16,7 @@ export default function PrintScoreSheetButton({ stages }: { stages: Stage[] }) {
 
   const activeMatch = matches?.find((m: any) => m.id === activeMatchId);
 
-  const handleGenerate = useCallback(async (stageIds: string[], sheetCount: number) => {
+  const handleGenerate = useCallback(async () => {
     if (!activeMatch || !activeMatchId) return;
     setGenerating(true);
     setShowModal(false);
@@ -29,15 +29,14 @@ export default function PrintScoreSheetButton({ stages }: { stages: Stage[] }) {
           })
         : '';
       const organization = activeMatch.organization || '';
-      const selectedStages = stages.filter(s => stageIds.includes(s.id));
 
-      // Generate one PDF with all stages per shooter page
+      // Include all non-chrono stages, 1 copy per page (user sets copies in print dialog)
       const doc = await generateScoreSheetPdf({
         matchName,
         matchDate,
         organization,
-        stages: selectedStages,
-        sheetCount,
+        stages,
+        sheetCount: 1,
       });
 
       const baseName = (matchName).replace(/[^a-zA-Z0-9]/g, '_');

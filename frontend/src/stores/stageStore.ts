@@ -35,7 +35,7 @@ export const useStageStore = create<StageState & StageActions>((set, get) => ({
   error: null,
 
   fetchStages: async (matchId) => {
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, stages: [] });
     try {
       const stages = await api.getStages(matchId);
       set({ stages: stages.map(parseStageConfig), loading: false });

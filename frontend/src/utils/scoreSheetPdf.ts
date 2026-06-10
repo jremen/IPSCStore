@@ -5,7 +5,7 @@
  *
  * Layout: 2 columns per page, stages side by side.
  * Full-width: page header, shooter name, signatures.
- * Per-column: stage header, target table, penalties, time.
+ * Per-column: stage header, target table (with penalties/time inside).
  *
  * Reuses: loadPdfFonts, setBoldFont, setRegularFont from pdfFont.ts
  *         getScoringCategoryConfig from constants.ts
@@ -73,11 +73,12 @@ const MARGIN = 8;
 const USABLE_W = PAGE_W - 2 * MARGIN;
 
 const ROW_H = 6;
+const STEEL_ROW_H = 9;       // taller row for pen-friendly steel/NPM fields
 const PAGE_HEADER_H = 10;
-const SHOOTER_PER_STAGE_H = 5;  // shooter name line per stage block
-const STAGE_HEADER_H = 6;
-const PENALTY_H = 6;
-const TIME_H = 8;
+const SHOOTER_PER_STAGE_H = 10;
+const STAGE_HEADER_H = 8;    // taller for bold "Stage N" header
+const PENALTY_ROW_H = 10;     // height of a single penalty row inside the table
+const TIME_ROW_H = 10;        // height of the time row inside the table
 const SIGNATURE_H = 10;
 const STAGE_GAP = 2;
 const MINI_HEADER_H = 5;
@@ -102,11 +103,13 @@ function stageBlockHeight(stage: Stage): number {
   if (stage.scoring_type === 'chrono') return 0;
 
   let tableRows = 1; // header row
+  let steelRows = 0;
   switch (category) {
     case 'zone_per_target': {
       const hasSteel = stage.steel_targets > 0;
       const hasNpm = stage.npm_targets > 0;
-      tableRows += stage.paper_targets + (hasSteel || hasNpm ? 1 : 0);
+      tableRows += stage.paper_targets;
+      if (hasSteel || hasNpm) steelRows = 1;
       break;
     }
     case 'time_plus': {
@@ -128,12 +131,15 @@ function stageBlockHeight(stage: Stage): number {
     }
   }
 
-  const tableH = tableRows * ROW_H;
+  const tableH = tableRows * ROW_H + steelRows * STEEL_ROW_H;
+
+  // Penalty and time rows are now inside the table
   const penaltyLabels = getPenaltyLabels(stage.scoring_type);
-  const penaltyH = penaltyLabels.length > 0 ? PENALTY_H : 0;
+  const penaltyRows = penaltyLabels.length > 0 ? Math.ceil(penaltyLabels.length / 3) : 0;
+  const penaltyH = penaltyRows * PENALTY_ROW_H;
   const hasTime = category !== 'ring_per_shot' &&
     !(category === 'hit_count' && (stage.config?.variant === 'prs' || stage.scoring_type === 'nrl22'));
-  const timeH = hasTime ? TIME_H : 0;
+  const timeH = hasTime ? TIME_ROW_H : 0;
 
   return SHOOTER_PER_STAGE_H + STAGE_HEADER_H + tableH + penaltyH + timeH + STAGE_GAP;
 }
@@ -249,46 +255,12 @@ function drawPageHeader(doc: any, input: ScoreSheetInput, y: number, isContinuat
 
 function drawShooterInfo(doc: any, y: number, col?: Col): number {
   const c = col || FULL_COL;
-  setRegularFont(doc); doc.setFontSize(7);
-  doc.text('Shooter:', c.leftX, y + 3);
+  setRegularFont(doc); doc.setFontSize(10);
+  doc.text('Shooter:', c.leftX, y + 8);
   doc.setLineWidth(0.2);
   const labelW = doc.getTextWidth('Shooter:') + 1;
-  doc.line(c.leftX + labelW, y + 3.5, c.rightX, y + 3.5);
-  return y + 5;
-}
-
-function drawPenaltyRow(doc: any, y: number, labels: string[], col: Col): number {
-  if (labels.length === 0) return y;
-
-  setBoldFont(doc); doc.setFontSize(8);
-  doc.text('Penalties:', col.leftX, y + 3.5);
-  setRegularFont(doc); doc.setFontSize(8);
-
-  let x = col.leftX + 20;
-  const fieldW = 25;
-  for (const label of labels) {
-    // Wrap to next line if exceeding column width
-    if (x + fieldW > col.rightX) { x = col.leftX + 18; y += 4; }
-    doc.text(`${label}:`, x, y + 3.5);
-    doc.setLineWidth(0.15);
-    const labelW = doc.getTextWidth(`${label}:`) + 1;
-    doc.line(x + labelW, y + 4, x + fieldW, y + 4);
-    x += fieldW + 2;
-  }
-
-  return y + PENALTY_H;
-}
-
-function drawTimeRow(doc: any, y: number, label: string | undefined, col: Col): number {
-  const timeLabel = label || 'TIME';
-  setBoldFont(doc); doc.setFontSize(8);
-  doc.text(`${timeLabel}:`, col.leftX, y + 5);
-  doc.setLineWidth(0.3);
-  const labelW = doc.getTextWidth(`${timeLabel}:`) + 2;
-  doc.line(col.leftX + labelW, y + 5.5, col.rightX, y + 5.5);
-  setRegularFont(doc); doc.setFontSize(6);
-  doc.text('s', col.rightX - 2, y + 5);
-  return y + TIME_H;
+  doc.line(c.leftX + labelW, y + 8, c.rightX, y + 8);
+  return y + 10;
 }
 
 function drawSignatureLines(doc: any, y: number): number {
@@ -309,9 +281,9 @@ function drawSignatureLines(doc: any, y: number): number {
 // ── Stage block drawing ────────────────────────────────────────────────
 
 function drawStageHeader(doc: any, stage: Stage, y: number, col: Col): number {
-  setBoldFont(doc); doc.setFontSize(7);
-  const stageLabel = `Stg ${stage.stage_number}: ${stage.name}`;
-  doc.text(stageLabel, col.leftX, y + 3.5);
+  setBoldFont(doc); doc.setFontSize(9);
+  const stageLabel = `Stage ${stage.stage_number}: ${stage.name}`;
+  doc.text(stageLabel, col.leftX, y + 4.5);
 
   setRegularFont(doc); doc.setFontSize(5.5);
   const scoringLabel = getScoringTypeLabel(stage.scoring_type);
@@ -321,13 +293,13 @@ function drawStageHeader(doc: any, stage: Stage, y: number, col: Col): number {
   if (stage.npm_targets > 0) targetParts.push(`${stage.npm_targets}npm`);
   const rightText = targetParts.length > 0 ? `${scoringLabel} ${targetParts.join(' ')}` : scoringLabel;
   if (stage.par_time) {
-    doc.text(`${rightText} • Par ${stage.par_time}s`, col.rightX, y + 3.5, { align: 'right' });
+    doc.text(`${rightText} • Par ${stage.par_time}s`, col.rightX, y + 4.5, { align: 'right' });
   } else {
-    doc.text(rightText, col.rightX, y + 3.5, { align: 'right' });
+    doc.text(rightText, col.rightX, y + 4.5, { align: 'right' });
   }
 
   doc.setDrawColor(0); doc.setLineWidth(0.15);
-  doc.line(col.leftX, y + 5, col.rightX, y + 5);
+  doc.line(col.leftX, y + 6, col.rightX, y + 6);
 
   return y + STAGE_HEADER_H;
 }
@@ -378,23 +350,75 @@ function drawZonePerTargetTable(doc: any, stage: Stage, y: number, col: Col): nu
     const colCount = hasNoShoot ? 6 : 5;
     const paperBody: any[][] = [];
 
+    // Steel/NPM row with larger writable fields
     if (hasSteel || hasNpm) {
-      let content = '';
+      // Build steel/NPM content — separate rows for steel and NPM for better writability
       if (hasSteel) {
-        content += `Steel (${stage.steel_targets}): Hit __ Miss __`;
-        if (hasNoShoot) content += ' NS __';
+        // Build a row with dedicated columns for Hit, Miss, and optionally NS
+        if (hasNoShoot) {
+          // 6 columns: Tgt=Steel, A=Hit, C=Miss, D=_, M=_, NS=NS
+          paperBody.push([
+            { content: `Steel (${stage.steel_targets})`, styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: 'Hit', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: 'Miss', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: 'NS', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+          ]);
+        } else {
+          // 5 columns: Tgt=Steel, A=Hit, C=Miss, D=_, M=_
+          paperBody.push([
+            { content: `Steel (${stage.steel_targets})`, styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: 'Hit', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: 'Miss', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+          ]);
+        }
       }
+
       if (hasNpm) {
-        if (hasSteel) content += '  ';
-        content += `NPM (${stage.npm_targets}): Hit __`;
+        if (hasNoShoot) {
+          paperBody.push([
+            { content: `NPM (${stage.npm_targets})`, styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: 'Hit', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+          ]);
+        } else {
+          paperBody.push([
+            { content: `NPM (${stage.npm_targets})`, styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: 'Hit', styles: { fontStyle: 'bold', fontSize: 9, fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+            { content: '', styles: { fillColor: [245, 245, 245], minCellHeight: STEEL_ROW_H } },
+          ]);
+        }
       }
-      paperBody.push([{ content, colSpan: colCount, styles: { fontStyle: 'bold', fontSize: 8, fillColor: [245, 245, 245] } }]);
     }
 
     for (let i = 1; i <= stage.paper_targets; i++) {
       const row: string[] = [String(i), '', '', '', ''];
       if (hasNoShoot) row.push('');
       paperBody.push(row);
+    }
+
+    // ── Penalties row inside the table ──
+    const penaltyLabels = getPenaltyLabels(stage.scoring_type);
+    if (penaltyLabels.length > 0) {
+      // Add penalty labels as a row spanning the full table width
+      const penaltyText = 'Penalties:  ' + penaltyLabels.map(l => `${l} ____`).join('    ');
+      paperBody.push([{ content: penaltyText, colSpan: colCount, styles: { fontStyle: 'bold', fontSize: 9, minCellHeight: PENALTY_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
+    }
+
+    // ── Time row inside the table ──
+    // zone_per_target stages always have a time field (comstock, virginia, fixed_time, idpa, hit_factor)
+    const hasTime = true;
+    if (hasTime) {
+      const timeLabel = stage.scoring_type === 'fixed_time' ? `TIME (Par ${stage.par_time || 0}s)` : 'TIME';
+      paperBody.push([{ content: `${timeLabel}: __________ s`, colSpan: colCount, styles: { fontStyle: 'bold', fontSize: 9, minCellHeight: TIME_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
     }
 
     const colWidths = getPaperColumnWidths(hasNoShoot, col.width);
@@ -409,12 +433,6 @@ function drawZonePerTargetTable(doc: any, stage: Stage, y: number, col: Col): nu
     });
     y = (doc as any).lastAutoTable.finalY + 1;
   }
-
-  const penaltyLabels = getPenaltyLabels(stage.scoring_type);
-  y = drawPenaltyRow(doc, y, penaltyLabels, col);
-
-  const timeLabel = stage.scoring_type === 'fixed_time' ? `TIME (Par ${stage.par_time || 0}s)` : undefined;
-  y = drawTimeRow(doc, y, timeLabel, col);
 
   return y;
 }
@@ -432,10 +450,20 @@ function drawActionSteelTable(doc: any, stage: Stage, y: number, col: Col): numb
   const numStrings = stage.config?.number_of_strings || 5;
 
   const head = [['#', 'Time (s)', 'Miss', 'Pen']];
-  const body: string[][] = [];
+  const body: any[][] = [];
   for (let i = 1; i <= numStrings; i++) {
     body.push([String(i), '', '', '']);
   }
+  // Total row
+  body.push([{ content: 'Total:', styles: { fontStyle: 'bold' } }, '', '', '']);
+
+  // Penalties row
+  const penaltyLabels = ['Proc', 'FTN'];
+  const penaltyText = 'Penalties:  ' + penaltyLabels.map(l => `${l} ____`).join('    ');
+  body.push([{ content: penaltyText, colSpan: 4, styles: { fontStyle: 'bold', fontSize: 8, minCellHeight: PENALTY_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
+
+  // Time row
+  body.push([{ content: 'TIME: __________ s', colSpan: 4, styles: { fontStyle: 'bold', fontSize: 9, minCellHeight: TIME_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
 
   (doc as any).autoTable({
     ...TABLE_STYLE,
@@ -453,12 +481,6 @@ function drawActionSteelTable(doc: any, stage: Stage, y: number, col: Col): numb
   });
   y = (doc as any).lastAutoTable.finalY + 1;
 
-  setBoldFont(doc); doc.setFontSize(7);
-  doc.text('Total:', col.leftX, y + 3.5);
-  doc.setLineWidth(0.3);
-  doc.line(col.leftX + 14, y + 4, col.rightX, y + 4);
-  y += 5;
-
   return y;
 }
 
@@ -469,12 +491,21 @@ function drawMultiGunTable(doc: any, stage: Stage, y: number, col: Col): number 
   const headCols = ['Tgt', 'Neutralized'];
   if (hasNoShoot) headCols.push('NS');
   const head = [headCols];
-  const body: string[][] = [];
+  const body: any[][] = [];
   for (let i = 1; i <= numTargets; i++) {
-    const row = [String(i), ''];
+    const row: string[] = [String(i), ''];
     if (hasNoShoot) row.push('');
     body.push(row);
   }
+
+  // Penalties row
+  const penaltyLabels = ['FTN', 'Miss', 'NS', 'Proc (s)'];
+  const penaltyText = 'Penalties:  ' + penaltyLabels.map(l => `${l} ____`).join('    ');
+  const penaltyColSpan = hasNoShoot ? 3 : 2;
+  body.push([{ content: penaltyText, colSpan: penaltyColSpan, styles: { fontStyle: 'bold', fontSize: 8, minCellHeight: PENALTY_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
+
+  // Time row
+  body.push([{ content: 'TIME: __________ s', colSpan: penaltyColSpan, styles: { fontStyle: 'bold', fontSize: 9, minCellHeight: TIME_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
 
   const colW0 = 10;
   const colW1 = hasNoShoot ? col.width * 0.55 : col.width * 0.8;
@@ -492,10 +523,6 @@ function drawMultiGunTable(doc: any, stage: Stage, y: number, col: Col): number 
     tableWidth: col.width,
   });
   y = (doc as any).lastAutoTable.finalY + 1;
-
-  const penaltyLabels = ['FTN', 'Miss', 'NS', 'Proc (s)'];
-  y = drawPenaltyRow(doc, y, penaltyLabels, col);
-  y = drawTimeRow(doc, y, undefined, col);
 
   return y;
 }
@@ -546,9 +573,24 @@ function drawHitCountTable(doc: any, stage: Stage, y: number, col: Col): number 
   const numTargets = stage.config?.num_targets || stage.npm_targets || stage.steel_targets || 10;
 
   const head = [['Tgt', 'Hit']];
-  const body: string[][] = [];
+  const body: any[][] = [];
   for (let i = 1; i <= numTargets; i++) {
     body.push([String(i), '']);
+  }
+
+  const isPrs = stage.config?.variant === 'prs' || stage.scoring_type === 'nrl22';
+  const hasTime = isPrs && stage.scoring_type !== 'nrl22';
+
+  // Penalties row
+  const penaltyLabels = getPenaltyLabels(stage.scoring_type);
+  if (penaltyLabels.length > 0) {
+    const penaltyText = 'Penalties:  ' + penaltyLabels.map(l => `${l} ____`).join('    ');
+    body.push([{ content: penaltyText, colSpan: 2, styles: { fontStyle: 'bold', fontSize: 8, minCellHeight: PENALTY_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
+  }
+
+  // Time row
+  if (hasTime) {
+    body.push([{ content: 'TIME: __________ s', colSpan: 2, styles: { fontStyle: 'bold', fontSize: 9, minCellHeight: TIME_ROW_H, fillColor: [248, 248, 248], valign: 'bottom' } }]);
   }
 
   (doc as any).autoTable({
@@ -561,12 +603,6 @@ function drawHitCountTable(doc: any, stage: Stage, y: number, col: Col): number 
     tableWidth: col.width,
   });
   y = (doc as any).lastAutoTable.finalY + 1;
-
-  const isPrs = stage.config?.variant === 'prs' || stage.scoring_type === 'nrl22';
-  const hasTime = isPrs && stage.scoring_type !== 'nrl22';
-  if (hasTime) {
-    y = drawTimeRow(doc, y, undefined, col);
-  }
 
   return y;
 }

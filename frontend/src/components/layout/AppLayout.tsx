@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import Header from './Header';
 import TabBar from './TabBar';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuthStore } from '../../stores/authStore';
+import { api } from '../../services/api';
 import Matches from '../match/MatchList';
 import Stages from '../stage/StageList';
 import ShooterDatabase from '../shooter/ShooterDatabase';
@@ -14,8 +15,9 @@ import StageLoginPage from '../auth/StageLoginPage';
 import PublicResultsView from '../results/PublicResultsView';
 
 export default function AppLayout() {
-  const { activeTab, setActiveMatch } = useUIStore();
-  const { isAuthenticated, isAdmin, isLocalNetwork, domainMode, authenticatedStageId, authenticatedMatchId, restoreSession } = useAuthStore();
+  const { activeTab, activeMatchId, setActiveMatch } = useUIStore();
+  const { isAuthenticated, isAdmin, isLocalNetwork, domainMode, authenticatedStageId, authenticatedMatchId, restoreSession, logout } = useAuthStore();
+  const sessionValidated = useRef(false);
 
   // Restore auth session on mount
   useEffect(() => {
@@ -30,6 +32,41 @@ export default function AppLayout() {
       setActiveMatch(null);
     }
   }, [isAuthenticated, isAdmin, authenticatedMatchId, setActiveMatch]);
+
+  // On domain-specific views, validate the session against the currently running match.
+  // If a scorer's session is from an old (non-running) match, clear it so they re-authenticate.
+  // On admin view, auto-select the running match when entering scoring/results tabs with no match selected.
+  useEffect(() => {
+    if (domainMode === 'scoring' || domainMode === 'results') {
+      if (sessionValidated.current) return;
+      sessionValidated.current = true;
+
+      (async () => {
+        try {
+          const currentMatch = await api.getCurrentMatch();
+          if (!currentMatch?.id) return;
+
+          // On domain views, always use the running match
+          setActiveMatch(currentMatch.id);
+
+          // If a scorer is authenticated but for a different (old) match, clear their session
+          if (isAuthenticated && !isAdmin && authenticatedMatchId && authenticatedMatchId !== currentMatch.id) {
+            logout();
+          }
+        } catch {
+          // No current match — leave state as-is
+        }
+      })();
+    } else if (isAuthenticated && isAdmin && !activeMatchId && (activeTab === 'scoring' || activeTab === 'results')) {
+      // Admin: auto-select the running match when entering scoring/results tabs with no match selected
+      (async () => {
+        try {
+          const currentMatch = await api.getCurrentMatch();
+          if (currentMatch?.id) setActiveMatch(currentMatch.id);
+        } catch { /* no current match — user must select manually */ }
+      })();
+    }
+  }, [domainMode, isAuthenticated, isAdmin, activeTab, activeMatchId, authenticatedMatchId, setActiveMatch, logout]);
 
   // Domain mode: vysledky.local → show public results (no login needed)
   if (domainMode === 'results') {

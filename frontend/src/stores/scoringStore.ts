@@ -24,11 +24,11 @@ interface ScoringState {
 
 interface ScoringActions {
   fetchRegistrations: (matchId: string) => Promise<void>;
-  selectShooter: (registrationId: string) => void;
+  selectShooter: (registrationId: string | null) => void;
   loadScore: (matchId: string, stageId: string, registrationId: string, stage: Stage) => Promise<void>;
   saveScore: (matchId: string, stageId: string, registrationId: string, data: ScoreInput) => Promise<void>;
   validateScore: (stage: Stage, score: ScoreInput) => ScoringAlert[];
-  setScore: (score: ScoreInput) => void;
+  setScore: (score: ScoreInput | null) => void;
   setIsExistingScore: (value: boolean) => void;
   nextShooter: () => void;
   prevShooter: () => void;
@@ -59,7 +59,7 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   showSummary: false,
 
   fetchRegistrations: async (matchId) => {
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, registrations: [] });
     try {
       const regs = await api.getRegistrations(matchId);
       set({ registrations: regs, loading: false });
@@ -262,6 +262,7 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   },
 
   fetchScoringProgress: async (matchId) => {
+    set({ scoringProgress: null });
     try {
       const progress = await api.getScoringProgress(matchId);
       set({ scoringProgress: progress });

@@ -78,8 +78,8 @@ export default function CreateMatchModal({ show, onClose }: CreateMatchModalProp
         </div>
       </ModalBody>
       <ModalFooter>
-        <Button color="blue" onClick={handleCreate} disabled={!form.name || !form.date}>{t('common.create')}</Button>
         <Button color="gray" onClick={handleClose}>{t('common.cancel')}</Button>
+        <Button color="blue" onClick={handleCreate} disabled={!form.name || !form.date}>{t('common.create')}</Button>
       </ModalFooter>
     </Modal>
   );

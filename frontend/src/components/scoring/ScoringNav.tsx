@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Button, Badge } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
@@ -23,11 +23,13 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
   const { activeMatchId, addToast } = useUIStore();
   const { registrations, fetchRegistrations, currentRegistrationId, selectShooter,
           currentScore, loadScore, saveScore, validateScore, nextShooter, prevShooter,
-          activeStageId, setActiveStageId, fetchScoringProgress, showSummary, setShowSummary } = useScoringStore();
+          activeStageId, setActiveStageId, fetchScoringProgress, showSummary, setShowSummary,
+          setScore, setSquadFilter } = useScoringStore();
   const { stages, fetchStages } = useStageStore();
   const { isAdmin } = useAuthStore();
   const isReadOnly = useScoringReadOnly();
   const { t } = useTranslation();
+  const prevMatchIdRef = useRef<string | null>(null);
 
   // For remote scorers: fall back to authenticatedMatchId when activeMatchId isn't set yet
   const effectiveMatchId = activeMatchId || (restrictedStageId ? useAuthStore.getState().authenticatedMatchId : null);
@@ -37,14 +39,27 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
 
   const currentShooter = registrations.find(r => r.id === currentRegistrationId);
 
+  // When the match changes, reset all scoring state so stale data from the old match
+  // doesn't cause race conditions (wrong registrations, missing stages, failed loadScore)
+  useEffect(() => {
+    if (effectiveMatchId && effectiveMatchId !== prevMatchIdRef.current) {
+      prevMatchIdRef.current = effectiveMatchId;
+      selectShooter(null);
+      setActiveStageId(null);
+      setScore(null);
+      setSquadFilter(null);
+    }
+  }, [effectiveMatchId, selectShooter, setActiveStageId, setScore, setSquadFilter]);
+
   useEffect(() => {
     if (effectiveMatchId) {
       fetchRegistrations(effectiveMatchId);
       fetchStages(effectiveMatchId);
       fetchScoringProgress(effectiveMatchId);
     }
-  }, [effectiveMatchId]);
+  }, [effectiveMatchId, fetchRegistrations, fetchStages, fetchScoringProgress]);
 
+  // Auto-select first stage once stages are loaded (only when no stage is selected)
   useEffect(() => {
     if (stages.length > 0 && !activeStageId) {
       if (restrictedStageId) {
@@ -53,17 +68,18 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
         setActiveStageId(stages[0].id);
       }
     }
-  }, [stages, activeStageId, restrictedStageId]);
+  }, [stages, activeStageId, restrictedStageId, setActiveStageId]);
 
-  // Load score whenever the current shooter changes (next/prev, dropdown, auto-advance)
+  // Load score whenever the current shooter or stage changes.
+  // Guard: only fire when stages are loaded (stage lookup must succeed)
   useEffect(() => {
-    if (effectiveMatchId && activeStageId && currentRegistrationId) {
+    if (effectiveMatchId && activeStageId && currentRegistrationId && stages.length > 0) {
       const stage = stages.find((s) => s.id === activeStageId);
       if (stage) {
         loadScore(effectiveMatchId, activeStageId, currentRegistrationId, stage);
       }
     }
-  }, [currentRegistrationId, activeStageId, effectiveMatchId]);
+  }, [currentRegistrationId, activeStageId, effectiveMatchId, stages, loadScore]);
 
   const handleSelectShooter = (regId: string) => {
     selectShooter(regId);

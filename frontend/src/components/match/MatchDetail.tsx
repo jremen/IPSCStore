@@ -32,12 +32,11 @@ export default function MatchDetail() {
       {/* Match Summary */}
       <Card className="mb-4">
         <h3 className="font-semibold mb-2 dark:text-white">{t('matchDetail.summary')}</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 dark:text-white text-xs text-center">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 dark:text-white text-xs text-center">
           <div><div className="text-2xl font-bold text-blue-600">{summary.total_shots}</div><div>{t('matchDetail.totalShots')}</div></div>
           <div><div className="text-2xl font-bold text-green-600">{summary.total_points}</div><div>{t('matchDetail.maxPoints')}</div></div>
           <div><div className="text-2xl font-bold text-orange-600">{summary.total_paper}</div><div>{t('matchDetail.paperTargets')}</div></div>
           <div><div className="text-2xl font-bold text-purple-600">{summary.total_steel}</div><div>{t('matchDetail.steelTargets')}</div></div>
-          <div><div className="text-2xl font-bold text-red-600">{summary.total_no_shoot}</div><div>{t('matchDetail.noShoots')}</div></div>
         </div>
       </Card>
 
@@ -53,7 +52,7 @@ export default function MatchDetail() {
                 <Badge color="indigo" className="ml-2">{stage.scoring_type}</Badge>
               </div>
               <div className="text-sm dark:text-white">
-                {stage.paper_targets}&nbsp;P / {stage.steel_targets}&nbsp;S / {stage.no_shoot_targets}&nbsp;NS{stage.npm_targets > 0 ? ` / ${stage.npm_targets} NPM` : ''} • {stage.min_rounds} rnds • {stage.max_points} pts
+                {stage.paper_targets}&nbsp;P / {stage.steel_targets}&nbsp;S / {stage.no_shoot_targets > 0 ? '✓' : '—'}&nbsp;NS{stage.npm_targets > 0 ? ` / ${stage.npm_targets} NPM` : ''} • {stage.min_rounds} rnds • {stage.max_points} pts
               </div>
             </div>
           </Card>

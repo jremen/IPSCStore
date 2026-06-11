@@ -477,8 +477,7 @@
     "totalShots": "Celkom výstrelov",
     "maxPoints": "Max. bodov",
     "paperTargets": "Papierové terče",
-    "steelTargets": "Kovové terče",
-    "noShoots": "No-Shoot terče"
+    "steelTargets": "Kovové terče"
   },
   "database": {
     "title": "Databáza",

@@ -307,7 +307,7 @@ export default function ResultsOverview({isPublic}:{isPublic?:true}) {
               className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                 activeTab === key
                   ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                  : 'cursor-pointer border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
             >
               {t(labelKey)}

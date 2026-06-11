@@ -67,11 +67,12 @@ export function buildEmptyScore(stage: Stage): ScoreInput {
       for (let i = 1; i <= stage.steel_targets; i++) {
         targets.push({ target_index: steelStart + i, target_type: 'steel', alpha: 0, charlie: 0, delta: 0, miss: 0, no_shoot_hits: 0, steel_hit: true });
       }
+      // No-shoot: create exactly 1 row when the stage has no-shoot targets (boolean yes/no)
       const nsStart = steelStart + stage.steel_targets;
-      for (let i = 1; i <= stage.no_shoot_targets; i++) {
-        targets.push({ target_index: nsStart + i, target_type: 'no_shoot', alpha: 0, charlie: 0, delta: 0, miss: 0, no_shoot_hits: 0, steel_hit: null });
+      if (stage.no_shoot_targets > 0) {
+        targets.push({ target_index: nsStart + 1, target_type: 'no_shoot', alpha: 0, charlie: 0, delta: 0, miss: 0, no_shoot_hits: 0, steel_hit: null });
       }
-      const npmStart = nsStart + stage.no_shoot_targets;
+      const npmStart = nsStart + (stage.no_shoot_targets > 0 ? 1 : 0);
       for (let i = 1; i <= stage.npm_targets; i++) {
         targets.push({ target_index: npmStart + i, target_type: 'npm', alpha: 0, charlie: 0, delta: 0, miss: 0, no_shoot_hits: 0, steel_hit: null });
       }

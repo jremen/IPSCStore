@@ -39,7 +39,7 @@ export default function Header() {
                 <Badge color={currentMatch.organization === 'IPSC' ? 'info' : 'purple'} size="sm">
                   {currentMatch.organization}
                 </Badge>
-                <OfflineIndicator />
+                {!isAdmin && <OfflineIndicator />}
               </>
             )}
           </div>

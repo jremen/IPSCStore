@@ -161,9 +161,6 @@
 
 /* On desktop (lg+), let everything scroll naturally */
 @media (min-width: 1024px) {
-  .scoring-nav-root {
-    height: auto; /* Don't constrain height on desktop */
-  }
   .scoring-scroll-area {
     flex: none;
     min-height: auto;

@@ -97,9 +97,8 @@ matchRoutes.get('/:id', async (c) => {
       total_points: acc.total_points + Number(s.max_points),
       total_paper: acc.total_paper + s.paper_targets,
       total_steel: acc.total_steel + s.steel_targets,
-      total_no_shoot: acc.total_no_shoot + s.no_shoot_targets,
     }),
-    { total_shots: 0, total_points: 0, total_paper: 0, total_steel: 0, total_no_shoot: 0 }
+    { total_shots: 0, total_points: 0, total_paper: 0, total_steel: 0 }
   );
 
   return c.json({ ...match, stages, shooter_count: Number(regCount.count), summary });

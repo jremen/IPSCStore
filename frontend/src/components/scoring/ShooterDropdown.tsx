@@ -57,7 +57,7 @@ export default function ShooterDropdown({ onSelect }: { onSelect: (regId: string
     <div ref={ref} className="relative flex-1 mx-1 sm:mx-2">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-h-[44px]"
+        className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-h-11"
       >
         {currentShooter ? (
           <span className="truncate">
@@ -91,7 +91,7 @@ export default function ShooterDropdown({ onSelect }: { onSelect: (regId: string
                 <button
                   key={r.id}
                   onClick={() => handleSelect(r.id)}
-                  className={`w-full text-left px-3 py-2.5 text-sm flex items-center justify-between hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors min-h-[44px] ${
+                  className={`w-full text-left px-3 py-2.5 text-sm flex items-center justify-between hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors min-h-11 ${
                     r.id === currentRegistrationId ? 'bg-blue-50 dark:bg-blue-900/30' : ''
                   }`}
                 >

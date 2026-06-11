@@ -1,19 +1,18 @@
-import { useEffect, useRef } from 'react';
 import { Button, Badge } from 'flowbite-react';
-import { useTranslation } from 'react-i18next';
-import { useUIStore } from '../../stores/uiStore';
-import { useScoringStore } from '../../stores/scoringStore';
-import { useStageStore } from '../../stores/stageStore';
-import { useAuthStore } from '../../stores/authStore';
+
 import { divisionLabel, categoryLabel, powerFactorLabel } from '../../utils/constants';
-import { isScoreComplete } from '../../utils/scoringValidation';
-import { useScoringReadOnly } from '../../hooks/useScoringReadOnly';
-import { precacheScoringData, precacheStageScores } from '../../services/precache';
+
 import ScoringSheet from './ScoringSheet';
 import ScoreSummarySheet from './ScoreSummarySheet';
 import ShooterDropdown from './ShooterDropdown';
 import SquadFilterBar from './SquadFilterBar';
 import { TbChevronLeft, TbChevronRight } from "react-icons/tb";
+import { useScoringNav } from "../../hooks/useScoringNav";
+import { useScoringStore } from "../../stores/scoringStore";
+import { useStageStore } from "../../stores/stageStore";
+import { useTranslation } from "react-i18next";
+import { useUIStore } from "../../stores/uiStore";
+import { useScoringProgress } from "../../hooks/useScoringProgress";
 
 interface ScoringNavProps {
   /** If set, restrict the view to only this stage (for remote scorers) */
@@ -21,157 +20,21 @@ interface ScoringNavProps {
 }
 
 export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
-  const { activeMatchId, addToast } = useUIStore();
-  const { registrations, fetchRegistrations, currentRegistrationId, selectShooter,
-          currentScore, loadScore, saveScore, validateScore, nextShooter, prevShooter,
-          activeStageId, setActiveStageId, fetchScoringProgress, showSummary, setShowSummary,
-          setScore, setSquadFilter } = useScoringStore();
-  const { stages, fetchStages } = useStageStore();
-  const { isAdmin } = useAuthStore();
-  const isReadOnly = useScoringReadOnly();
+  const { activeMatchId } = useUIStore();
+  const { registrations, scoringProgress, currentRegistrationId,
+            currentScore, nextShooter, prevShooter,
+            activeStageId, showSummary } = useScoringStore();
+  const { stages } = useStageStore();
   const { t } = useTranslation();
-  const prevMatchIdRef = useRef<string | null>(null);
+  const {currentShooter, currentStage, performSave, handleSelectShooter, handleSummaryBack, handleConfirm, handleStageChange, canConfirm} = useScoringNav(restrictedStageId);
 
-  // For remote scorers: fall back to authenticatedMatchId when activeMatchId isn't set yet
-  const effectiveMatchId = activeMatchId || (restrictedStageId ? useAuthStore.getState().authenticatedMatchId : null);
-
-  // Remote scorers see summary before saving; admins save directly
-  const requiresSummary = !isAdmin;
-
-  const currentShooter = registrations.find(r => r.id === currentRegistrationId);
-
-  // When the match changes, reset all scoring state so stale data from the old match
-  // doesn't cause race conditions (wrong registrations, missing stages, failed loadScore)
-  useEffect(() => {
-    if (effectiveMatchId && effectiveMatchId !== prevMatchIdRef.current) {
-      prevMatchIdRef.current = effectiveMatchId;
-      selectShooter(null);
-      setActiveStageId(null);
-      setScore(null);
-      setSquadFilter(null);
-    }
-  }, [effectiveMatchId, selectShooter, setActiveStageId, setScore, setSquadFilter]);
-
-  useEffect(() => {
-    if (effectiveMatchId) {
-      fetchRegistrations(effectiveMatchId);
-      fetchStages(effectiveMatchId);
-      fetchScoringProgress(effectiveMatchId);
-      // Pre-cache scoring data for offline use (non-blocking)
-      precacheScoringData(effectiveMatchId);
-    }
-  }, [effectiveMatchId, fetchRegistrations, fetchStages, fetchScoringProgress]);
-
-  // Auto-select first stage once stages are loaded (only when no stage is selected)
-  useEffect(() => {
-    if (stages.length > 0 && !activeStageId) {
-      if (restrictedStageId) {
-        setActiveStageId(restrictedStageId);
-      } else {
-        setActiveStageId(stages[0].id);
-      }
-    }
-  }, [stages, activeStageId, restrictedStageId, setActiveStageId]);
-
-  // Pre-cache all scores for the current stage when it changes (non-blocking)
-  useEffect(() => {
-    if (effectiveMatchId && activeStageId && registrations.length > 0 && navigator.onLine) {
-      const regIds = registrations.map((r) => r.id);
-      precacheStageScores(effectiveMatchId, activeStageId, regIds);
-    }
-  }, [effectiveMatchId, activeStageId, registrations]);
-
-  // Load score whenever the current shooter or stage changes.
-  // Guard: only fire when stages are loaded (stage lookup must succeed)
-  useEffect(() => {
-    if (effectiveMatchId && activeStageId && currentRegistrationId && stages.length > 0) {
-      const stage = stages.find((s) => s.id === activeStageId);
-      if (stage) {
-        loadScore(effectiveMatchId, activeStageId, currentRegistrationId, stage);
-      }
-    }
-  }, [currentRegistrationId, activeStageId, effectiveMatchId, stages, loadScore]);
-
-  const handleSelectShooter = (regId: string) => {
-    selectShooter(regId);
-    // Score load is handled by the useEffect above watching currentRegistrationId
-  };
-
-  const performSave = async () => {
-    if (!effectiveMatchId || !activeStageId || !currentRegistrationId || !currentScore) return;
-    const stage = stages.find((s) => s.id === activeStageId);
-    if (!stage) return;
-
-    const validationAlerts = validateScore(stage, currentScore);
-    if (validationAlerts.some((a) => a.type === 'error')) {
-      addToast(t('scoring.fixErrors'), 'error');
-      return;
-    }
-
-    try {
-      await saveScore(effectiveMatchId, activeStageId, currentRegistrationId, currentScore);
-      addToast(t('scoring.saved'), 'success');
-      // Hide summary if it was showing
-      setShowSummary(false);
-
-      // Refresh scoring progress after save.
-      // When offline, saveScore already updated scoringProgress via addScoredEntry,
-      // so skip the API call (fetchScoringProgress would try the API first and hang).
-      if (effectiveMatchId && navigator.onLine) {
-        await fetchScoringProgress(effectiveMatchId);
-      }
-
-      // Auto-advance to next unscored shooter in current squad
-      const scored = useScoringStore.getState().scoredIds();
-      const regs = useScoringStore.getState().filteredRegistrations();
-      const currentIdx = regs.findIndex(r => r.id === currentRegistrationId);
-
-      let nextRegId: string | null = null;
-      // Search forward from current position
-      for (let i = currentIdx + 1; i < regs.length; i++) {
-        if (!scored.has(regs[i].id)) { nextRegId = regs[i].id; break; }
-      }
-      // Wrap around from the beginning
-      if (!nextRegId) {
-        for (let i = 0; i < currentIdx; i++) {
-          if (!scored.has(regs[i].id)) { nextRegId = regs[i].id; break; }
-        }
-      }
-
-      if (nextRegId) {
-        selectShooter(nextRegId);
-        // Score load is handled by the useEffect above watching currentRegistrationId
-      }
-    } catch (err: any) {
-      addToast(err.message, 'error');
-    }
-  };
-
-  const handleConfirm = () => {
-    if (requiresSummary) {
-      // Remote scorers: show summary sheet first
-      setShowSummary(true);
-    } else {
-      // Admin: save directly
-      performSave();
-    }
-  };
-
-  const handleSummaryBack = () => {
-    setShowSummary(false);
-  };
-
-  const handleStageChange = (stageId: string) => {
-    setActiveStageId(stageId);
-    // Score load is handled by the useEffect above watching activeStageId
-  };
-
-  if (!effectiveMatchId) {
-    return <p className="p-4 text-gray-500 text-center">{t('scoring.noMatch')}</p>;
-  }
-
-  const currentStage = stages.find((s) => s.id === activeStageId);
-  const canConfirm = currentScore && currentStage && isScoreComplete(currentStage, currentScore) && !isReadOnly;
+  if (!activeMatchId) {
+    return (
+      <p className="p-4 text-gray-500 text-center">
+        {t('scoring.noMatch')}
+      </p>
+    );
+}
 
   // Summary view for remote scorers
   if (showSummary && currentStage && currentScore && currentShooter) {
@@ -201,9 +64,10 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
             key={stage.id}
             onClick={() => handleStageChange(stage.id)}
             className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors min-h-11 flex items-center
-              ${activeStageId === stage.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              ${activeStageId === stage.id ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400' : 'cursor-pointer border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-500'}`}
           >
             {t('scoring.stage', { number: stage.stage_number })}
+            {scoringProgress && scoringProgress.scored.filter(e => e.stage_id === stage.id).length === registrations.length && <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[10px] leading-none shrink-0">✓</span>}
           </button>
         ))}
       </div>
@@ -242,7 +106,7 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
 
       {/* Bottom bar — pinned at bottom on mobile */}
       {activeStageId && currentRegistrationId && (
-        <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-3 flex justify-between items-center no-print scoring-nav-pinned">
+        <div className="bg-white mt-auto dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-3 flex justify-between items-center no-print scoring-nav-pinned">
           <Button color="gray" onClick={() => prevShooter()} className="min-h-11"><TbChevronLeft className="size-6 mr-1" />{t('common.prev')}</Button>
           <Button color="blue" onClick={handleConfirm} disabled={!canConfirm} className="min-h-11">
             {t('common.confirm')}

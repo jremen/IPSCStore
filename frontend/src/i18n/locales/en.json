@@ -477,8 +477,7 @@
     "totalShots": "Total Shots",
     "maxPoints": "Max Points",
     "paperTargets": "Paper Targets",
-    "steelTargets": "Steel Targets",
-    "noShoots": "No-Shoots"
+    "steelTargets": "Steel Targets"
   },
   "database": {
     "title": "Database",

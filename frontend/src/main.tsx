@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './i18n';
 import './index.css';
+import { registerServiceWorker } from './utils/swRegistration';
 
 // Reference build timestamp so every build produces unique content hashes
 // This forces browsers to fetch the new version instead of using cached JS
@@ -16,3 +17,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />
   </React.StrictMode>,
 );
+
+// Register service worker for PWA offline support
+registerServiceWorker();

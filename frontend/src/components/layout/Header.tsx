@@ -6,6 +6,7 @@ import { useMatchStore } from '../../stores/matchStore';
 import { useAuthStore } from '../../stores/authStore';
 import LanguageSelector from '../settings/LanguageSelector';
 import LanUrlBadge from './LanUrlBadge';
+import OfflineIndicator from './OfflineIndicator';
 import SettingsModal from '../settings/SettingsModal';
 import { ThemeToggle } from "../settings/ThemeToggle";
 import { TbSettings } from "react-icons/tb";
@@ -38,6 +39,7 @@ export default function Header() {
                 <Badge color={currentMatch.organization === 'IPSC' ? 'info' : 'purple'} size="sm">
                   {currentMatch.organization}
                 </Badge>
+                <OfflineIndicator />
               </>
             )}
           </div>

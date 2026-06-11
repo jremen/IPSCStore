@@ -8,6 +8,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { divisionLabel, categoryLabel, powerFactorLabel } from '../../utils/constants';
 import { isScoreComplete } from '../../utils/scoringValidation';
 import { useScoringReadOnly } from '../../hooks/useScoringReadOnly';
+import { precacheScoringData, precacheStageScores } from '../../services/precache';
 import ScoringSheet from './ScoringSheet';
 import ScoreSummarySheet from './ScoreSummarySheet';
 import ShooterDropdown from './ShooterDropdown';
@@ -56,6 +57,8 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
       fetchRegistrations(effectiveMatchId);
       fetchStages(effectiveMatchId);
       fetchScoringProgress(effectiveMatchId);
+      // Pre-cache scoring data for offline use (non-blocking)
+      precacheScoringData(effectiveMatchId);
     }
   }, [effectiveMatchId, fetchRegistrations, fetchStages, fetchScoringProgress]);
 
@@ -69,6 +72,14 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
       }
     }
   }, [stages, activeStageId, restrictedStageId, setActiveStageId]);
+
+  // Pre-cache all scores for the current stage when it changes (non-blocking)
+  useEffect(() => {
+    if (effectiveMatchId && activeStageId && registrations.length > 0 && navigator.onLine) {
+      const regIds = registrations.map((r) => r.id);
+      precacheStageScores(effectiveMatchId, activeStageId, regIds);
+    }
+  }, [effectiveMatchId, activeStageId, registrations]);
 
   // Load score whenever the current shooter or stage changes.
   // Guard: only fire when stages are loaded (stage lookup must succeed)

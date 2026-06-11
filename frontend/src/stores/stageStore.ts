@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
+import * as offlineDB from '../services/offlineDB';
 import type { Stage, CreateStageInput } from '../types/stage';
 
 /** Parse stage.config if it came back as a JSON string from postgres driver */
@@ -38,9 +39,19 @@ export const useStageStore = create<StageState & StageActions>((set, get) => ({
     set({ loading: true, error: null, stages: [] });
     try {
       const stages = await api.getStages(matchId);
-      set({ stages: stages.map(parseStageConfig), loading: false });
+      const parsed = stages.map(parseStageConfig);
+      set({ stages: parsed, loading: false });
+      // Pre-cache to IndexedDB when online
+      offlineDB.cacheStages(matchId, parsed).catch(() => {});
     } catch (err: any) {
-      set({ error: err.message, loading: false });
+      // Offline fallback: try IndexedDB
+      const cached = await offlineDB.getCachedStages(matchId);
+      if (cached.length > 0) {
+        const parsed = cached.map(parseStageConfig);
+        set({ stages: parsed, loading: false });
+      } else {
+        set({ error: err.message, loading: false });
+      }
     }
   },
 

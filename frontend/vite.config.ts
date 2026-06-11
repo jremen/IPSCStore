@@ -2,12 +2,15 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import flowbiteReact from "flowbite-react/plugin/vite";
+import { generateSWManifest } from './vite-plugins/sw-manifest';
 
 export default defineConfig({
   plugins: [
     tailwindcss(),
     flowbiteReact(),
-    react()],
+    react(),
+    generateSWManifest(),
+  ],
   define: {
     // Inject build timestamp so every build produces unique content hashes
     // in the JS bundle, forcing browsers to fetch the new version

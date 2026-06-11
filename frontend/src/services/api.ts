@@ -12,7 +12,7 @@ function getApiBase(): string {
 const API_BASE = getApiBase();
 
 /** Get the auth token from localStorage — prefer admin token over scorer token */
-function getAuthToken(): string | null {
+export function getAuthToken(): string | null {
   const role = localStorage.getItem('auth_role');
   if (role === 'admin') {
     return localStorage.getItem('admin_token');

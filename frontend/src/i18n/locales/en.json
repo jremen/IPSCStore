@@ -495,5 +495,14 @@
     "importWarning": "This will replace ALL existing data with the backup. This action cannot be undone.",
     "file": "File:",
     "confirmButton": "Replace All Data"
+  },
+  "offline": {
+    "mode": "Offline",
+    "pending": "{{count}} pending",
+    "wentOffline": "You are offline. Scores will be saved locally and synced when you reconnect.",
+    "backOnline": "Back online. Syncing pending scores...",
+    "syncComplete": "All scores synced successfully.",
+    "syncConflict": "Score for {{shooter}} on Stage {{stage}} was also modified by another device. Your version was saved.",
+    "syncFailed": "Some scores could not be synced. Session may have expired."
   }
 }

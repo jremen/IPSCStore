@@ -13,11 +13,17 @@ import Results from '../results/ResultsOverview';
 import AdminLoginPage from '../auth/AdminLoginPage';
 import StageLoginPage from '../auth/StageLoginPage';
 import PublicResultsView from '../results/PublicResultsView';
+import { useOfflineStatus } from '../../hooks/useOfflineStatus';
+import { useOfflineSync } from '../../hooks/useOfflineSync';
 
 export default function AppLayout() {
   const { activeTab, activeMatchId, setActiveMatch } = useUIStore();
   const { isAuthenticated, isAdmin, isLocalNetwork, domainMode, authenticatedStageId, authenticatedMatchId, restoreSession, logout } = useAuthStore();
   const sessionValidated = useRef(false);
+
+  // Offline support hooks — always active
+  useOfflineStatus();
+  useOfflineSync();
 
   // Restore auth session on mount
   useEffect(() => {

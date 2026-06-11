@@ -1,7 +1,7 @@
 /**
  * PDF font loading utility for jsPDF.
  * The default Helvetica font doesn't support diacritic characters (č, š, ž, ť, etc.).
- * This module loads Roboto (a Unicode-capable font) and registers it with jsPDF.
+ * This module loads Open Sans (a Unicode-capable font) and registers it with jsPDF.
  *
  * Font data is fetched once and cached; fonts are registered per jsPDF instance
  * (addFileToVFS/addFont are per-document operations).
@@ -29,8 +29,8 @@ export async function loadPdfFonts(doc: any): Promise<void> {
   // Fetch font data if not already cached
   if (!fontDataCache.regular || !fontDataCache.bold) {
     const [regularRes, boldRes] = await Promise.all([
-      fetch('/fonts/Roboto-Regular.ttf'),
-      fetch('/fonts/Roboto-Bold.ttf'),
+      fetch('/fonts/OpenSans-Regular.ttf'),
+      fetch('/fonts/OpenSans-Bold.ttf'),
     ]);
 
     if (!regularRes.ok || !boldRes.ok) {
@@ -47,18 +47,18 @@ export async function loadPdfFonts(doc: any): Promise<void> {
   }
 
   // Register fonts on this doc instance (required for every new jsPDF instance)
-  doc.addFileToVFS('Roboto-Regular.ttf', fontDataCache.regular);
-  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-  doc.addFileToVFS('Roboto-Bold.ttf', fontDataCache.bold);
-  doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
+  doc.addFileToVFS('OpenSans-Regular.ttf', fontDataCache.regular);
+  doc.addFont('OpenSans-Regular.ttf', 'OpenSans', 'normal');
+  doc.addFileToVFS('OpenSans-Bold.ttf', fontDataCache.bold);
+  doc.addFont('OpenSans-Bold.ttf', 'OpenSans', 'bold');
 }
 
-/** Set the PDF font to Roboto Regular */
+/** Set the PDF font to Open Sans Regular */
 export function setRegularFont(doc: any) {
-  doc.setFont('Roboto', 'normal');
+  doc.setFont('OpenSans', 'normal');
 }
 
-/** Set the PDF font to Roboto Bold */
+/** Set the PDF font to Open Sans Bold */
 export function setBoldFont(doc: any) {
-  doc.setFont('Roboto', 'bold');
+  doc.setFont('OpenSans', 'bold');
 }

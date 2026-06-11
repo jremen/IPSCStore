@@ -29,14 +29,31 @@ interface StageActions {
   removeImage: (stageId: string) => Promise<void>;
 }
 
-export const useStageStore = create<StageState & StageActions>((set, get) => ({
+export const useStageStore = create<StageState & StageActions>((set) => ({
   stages: [],
   currentStage: null,
   loading: false,
   error: null,
 
   fetchStages: async (matchId) => {
-    set({ loading: true, error: null, stages: [] });
+    set({ loading: true, error: null });
+
+    // When offline, skip the API call entirely and go straight to IndexedDB
+    if (!navigator.onLine) {
+      try {
+        const cached = await offlineDB.getCachedStages(matchId);
+        if (cached.length > 0) {
+          const parsed = cached.map(parseStageConfig);
+          set({ stages: parsed, loading: false });
+        } else {
+          set({ error: 'No cached stages available', loading: false });
+        }
+      } catch {
+        set({ error: 'Failed to load cached stages', loading: false });
+      }
+      return;
+    }
+
     try {
       const stages = await api.getStages(matchId);
       const parsed = stages.map(parseStageConfig);
@@ -44,12 +61,16 @@ export const useStageStore = create<StageState & StageActions>((set, get) => ({
       // Pre-cache to IndexedDB when online
       offlineDB.cacheStages(matchId, parsed).catch(() => {});
     } catch (err: any) {
-      // Offline fallback: try IndexedDB
-      const cached = await offlineDB.getCachedStages(matchId);
-      if (cached.length > 0) {
-        const parsed = cached.map(parseStageConfig);
-        set({ stages: parsed, loading: false });
-      } else {
+      // Network failed mid-request — try IndexedDB fallback
+      try {
+        const cached = await offlineDB.getCachedStages(matchId);
+        if (cached.length > 0) {
+          const parsed = cached.map(parseStageConfig);
+          set({ stages: parsed, loading: false });
+        } else {
+          set({ error: err.message, loading: false });
+        }
+      } catch {
         set({ error: err.message, loading: false });
       }
     }

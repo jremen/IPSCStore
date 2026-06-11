@@ -51,6 +51,24 @@ interface ScoringActions {
   refreshPendingCount: () => Promise<void>;
 }
 
+/** Add a scored entry to the current scoringProgress in the store (used after offline saves) */
+function addScoredEntry(
+  progress: ScoringProgress | null,
+  stageId: string,
+  registrationId: string,
+  squad: number | null,
+): ScoringProgress {
+  if (!progress) {
+    return { scored: [{ stage_id: stageId, registration_id: registrationId, squad }] };
+  }
+  // Check if already present
+  const exists = progress.scored.some(
+    (e) => e.stage_id === stageId && e.registration_id === registrationId,
+  );
+  if (exists) return progress;
+  return { scored: [...progress.scored, { stage_id: stageId, registration_id: registrationId, squad }] };
+}
+
 export const useScoringStore = create<ScoringState & ScoringActions>((set, get) => ({
   registrations: [],
   currentRegistrationId: null,
@@ -68,39 +86,55 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   pendingSaveCount: 0,
 
   fetchRegistrations: async (matchId) => {
-    set({ loading: true, error: null, registrations: [] });
+    set({ loading: true, error: null });
+
+    // When offline, skip the API call entirely and go straight to IndexedDB
+    if (!navigator.onLine) {
+      try {
+        const cached = await offlineDB.getCachedRegistrations(matchId);
+        if (cached.length > 0) {
+          set({ registrations: cached, loading: false, isOfflineMode: true });
+        } else {
+          set({ error: 'No cached registrations available', loading: false, isOfflineMode: true });
+        }
+      } catch {
+        set({ error: 'Failed to load cached registrations', loading: false, isOfflineMode: true });
+      }
+      return;
+    }
+
     try {
       const regs = await api.getRegistrations(matchId);
       set({ registrations: regs, loading: false, isOfflineMode: false });
       // Pre-cache to IndexedDB in background when online
       offlineDB.cacheRegistrations(matchId, regs).catch(() => {});
     } catch (err: any) {
-      // Offline fallback: try IndexedDB
-      const cached = await offlineDB.getCachedRegistrations(matchId);
-      if (cached.length > 0) {
-        set({ registrations: cached, loading: false, isOfflineMode: true });
-      } else {
+      // Network failed mid-request — try IndexedDB fallback
+      try {
+        const cached = await offlineDB.getCachedRegistrations(matchId);
+        if (cached.length > 0) {
+          set({ registrations: cached, loading: false, isOfflineMode: true });
+        } else {
+          set({ error: err.message, loading: false });
+        }
+      } catch {
         set({ error: err.message, loading: false });
       }
     }
   },
 
   selectShooter: (registrationId) => {
-    set({ currentRegistrationId: registrationId, alerts: [], isExistingScore: false, showSummary: false });
+    set({ currentRegistrationId: registrationId, currentScore: null, alerts: [], isExistingScore: false, showSummary: false });
   },
 
   loadScore: async (matchId, stageId, registrationId, stage) => {
-    try {
-      const result = await api.getShooterScore(matchId, stageId, registrationId);
-
-      // Parse score_data: postgres driver may return JSONB as a string
-      let parsedScoreData: any = result.score_data || {};
+    // Helper to parse a cached/API score object into ScoreInput format
+    const parseScore = (raw: any): ScoreInput => {
+      let parsedScoreData: any = raw.score_data || {};
       if (typeof parsedScoreData === 'string') {
         try { parsedScoreData = JSON.parse(parsedScoreData); } catch { parsedScoreData = {}; }
       }
-
-      // Parse target_data for each target: same JSONB string issue
-      const targets = (result.targets || []).map((t: any) => {
+      const targets = (raw.targets || []).map((t: any) => {
         let targetData = t.target_data || {};
         if (typeof targetData === 'string') {
           try { targetData = JSON.parse(targetData); } catch { targetData = {}; }
@@ -117,82 +151,55 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
           target_data: targetData,
         };
       });
-
-      const score: ScoreInput = {
-        time: result.time != null ? Number(result.time) : null,
+      return {
+        time: raw.time != null ? Number(raw.time) : null,
         targets,
-        procedural_count: Number(result.procedural_count) || 0,
-        ftsa_count: Number(result.ftsa_count) || 0,
-        extra_shot_count: Number(result.extra_shot_count) || 0,
-        extra_hit_count: Number(result.extra_hit_count) || 0,
-        stacking_count: Number(result.stacking_count) || 0,
-        overtime_shot_count: Number(result.overtime_shot_count) || 0,
-        is_dnf: result.is_dnf,
-        chrono: result.chrono,
+        procedural_count: Number(raw.procedural_count) || 0,
+        ftsa_count: Number(raw.ftsa_count) || 0,
+        extra_shot_count: Number(raw.extra_shot_count) || 0,
+        extra_hit_count: Number(raw.extra_hit_count) || 0,
+        stacking_count: Number(raw.stacking_count) || 0,
+        overtime_shot_count: Number(raw.overtime_shot_count) || 0,
+        is_dnf: raw.is_dnf,
+        chrono: raw.chrono,
         score_data: {
           ...parsedScoreData,
           string_times: parsedScoreData.string_times?.map((t: any) => Number(t)),
         },
       };
+    };
 
-      set({ currentScore: score, isExistingScore: true, isOfflineMode: false });
+    // When offline, skip the API call entirely and go straight to IndexedDB
+    if (!navigator.onLine) {
+      try {
+        const cached = await offlineDB.getCachedScore(matchId, stageId, registrationId);
+        if (cached) {
+          set({ currentScore: parseScore(cached), isExistingScore: true, isOfflineMode: true });
+        } else {
+          set({ currentScore: buildEmptyScore(stage), isExistingScore: false, isOfflineMode: true });
+        }
+      } catch {
+        set({ currentScore: buildEmptyScore(stage), isExistingScore: false, isOfflineMode: true });
+      }
+      return;
+    }
 
+    try {
+      const result = await api.getShooterScore(matchId, stageId, registrationId);
+      set({ currentScore: parseScore(result), isExistingScore: true, isOfflineMode: false });
       // Pre-cache when online
       offlineDB.cacheScore(matchId, stageId, registrationId, result).catch(() => {});
     } catch {
-      // Offline fallback: try IndexedDB
-      const cached = await offlineDB.getCachedScore(matchId, stageId, registrationId);
-      if (cached) {
-        let parsedScoreData: any = cached.score_data || {};
-        if (typeof parsedScoreData === 'string') {
-          try { parsedScoreData = JSON.parse(parsedScoreData); } catch { parsedScoreData = {}; }
+      // Network failed mid-request — try IndexedDB fallback
+      try {
+        const cached = await offlineDB.getCachedScore(matchId, stageId, registrationId);
+        if (cached) {
+          set({ currentScore: parseScore(cached), isExistingScore: true, isOfflineMode: true });
+        } else {
+          set({ currentScore: buildEmptyScore(stage), isExistingScore: false, isOfflineMode: true });
         }
-
-        const targets = (cached.targets || []).map((t: any) => {
-          let targetData = t.target_data || {};
-          if (typeof targetData === 'string') {
-            try { targetData = JSON.parse(targetData); } catch { targetData = {}; }
-          }
-          return {
-            target_index: t.target_index,
-            target_type: t.target_type,
-            alpha: Number(t.alpha),
-            charlie: Number(t.charlie),
-            delta: Number(t.delta),
-            miss: Number(t.miss),
-            no_shoot_hits: Number(t.no_shoot_hits),
-            steel_hit: t.steel_hit,
-            target_data: targetData,
-          };
-        });
-
-        set({
-          currentScore: {
-            time: cached.time != null ? Number(cached.time) : null,
-            targets,
-            procedural_count: Number(cached.procedural_count) || 0,
-            ftsa_count: Number(cached.ftsa_count) || 0,
-            extra_shot_count: Number(cached.extra_shot_count) || 0,
-            extra_hit_count: Number(cached.extra_hit_count) || 0,
-            stacking_count: Number(cached.stacking_count) || 0,
-            overtime_shot_count: Number(cached.overtime_shot_count) || 0,
-            is_dnf: cached.is_dnf,
-            chrono: cached.chrono,
-            score_data: {
-              ...parsedScoreData,
-              string_times: parsedScoreData.string_times?.map((t: any) => Number(t)),
-            },
-          },
-          isExistingScore: true,
-          isOfflineMode: true,
-        });
-      } else {
-        // No cached score — create empty score for the stage
-        set({
-          currentScore: buildEmptyScore(stage),
-          isExistingScore: false,
-          isOfflineMode: !navigator.onLine,
-        });
+      } catch {
+        set({ currentScore: buildEmptyScore(stage), isExistingScore: false, isOfflineMode: true });
       }
     }
   },
@@ -200,6 +207,8 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   saveScore: async (matchId, stageId, registrationId, data) => {
     set({ saving: true, error: null });
     const payload = buildScorePayload(data);
+    const registrations = get().registrations;
+    const currentShooter = registrations.find(r => r.id === registrationId);
 
     if (!navigator.onLine) {
       // OFFLINE: queue the save for later sync
@@ -217,7 +226,17 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
       });
       // Update local cached score immediately so the UI is consistent
       await offlineDB.cacheScore(matchId, stageId, registrationId, { ...payload, targets: (payload as any).targets });
-      set({ saving: false, isExistingScore: true });
+      // Update scoring progress locally so scoredIds and squad status reflect the save
+      set((state) => ({
+        saving: false,
+        isExistingScore: true,
+        scoringProgress: addScoredEntry(
+          state.scoringProgress,
+          stageId,
+          registrationId,
+          currentShooter?.squad ?? null,
+        ),
+      }));
       get().refreshPendingCount();
       return;
     }
@@ -244,7 +263,17 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
           retryCount: 0,
         });
         await offlineDB.cacheScore(matchId, stageId, registrationId, { ...payload, targets: (payload as any).targets });
-        set({ saving: false, isExistingScore: true });
+        // Update scoring progress locally
+        set((state) => ({
+          saving: false,
+          isExistingScore: true,
+          scoringProgress: addScoredEntry(
+            state.scoringProgress,
+            stageId,
+            registrationId,
+            currentShooter?.squad ?? null,
+          ),
+        }));
         get().refreshPendingCount();
       } else {
         set({ error: err.message, saving: false });
@@ -334,7 +363,7 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
       : registrations;
     const idx = filtered.findIndex((r) => r.id === currentRegistrationId);
     if (idx < filtered.length - 1) {
-      set({ currentRegistrationId: filtered[idx + 1].id, alerts: [] });
+      set({ currentRegistrationId: filtered[idx + 1].id, currentScore: null, alerts: [] });
     }
   },
 
@@ -345,7 +374,7 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
       : registrations;
     const idx = filtered.findIndex((r) => r.id === currentRegistrationId);
     if (idx > 0) {
-      set({ currentRegistrationId: filtered[idx - 1].id, alerts: [] });
+      set({ currentRegistrationId: filtered[idx - 1].id, currentScore: null, alerts: [] });
     }
   },
 
@@ -362,7 +391,7 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
       }
     }
 
-    set({ squadFilter: squad, currentRegistrationId: newRegId, alerts: [], isExistingScore: false });
+    set({ squadFilter: squad, currentRegistrationId: newRegId, currentScore: null, alerts: [], isExistingScore: false });
   },
 
   setActiveStageId: (stageId) => {
@@ -374,20 +403,36 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   },
 
   fetchScoringProgress: async (matchId) => {
-    set({ scoringProgress: null });
+    // Don't clear existing progress before trying — avoid UI flash
+
+    // When offline, skip the API call entirely and go straight to IndexedDB
+    if (!navigator.onLine) {
+      try {
+        const cached = await offlineDB.getCachedScoringProgress(matchId);
+        if (cached) {
+          set({ scoringProgress: cached, isOfflineMode: true });
+        }
+        // If no cached data, keep existing progress (don't null it out)
+      } catch {
+        // IndexedDB failed — keep whatever progress we have
+      }
+      return;
+    }
+
     try {
       const progress = await api.getScoringProgress(matchId);
-      set({ scoringProgress: progress });
+      set({ scoringProgress: progress, isOfflineMode: false });
       // Pre-cache when online
       offlineDB.cacheScoringProgress(matchId, progress).catch(() => {});
-    } catch (err: any) {
-      // Offline fallback: try IndexedDB
-      const cached = await offlineDB.getCachedScoringProgress(matchId);
-      if (cached) {
-        set({ scoringProgress: cached, isOfflineMode: true });
-      } else {
-        // Non-critical: scoring progress is purely visual
-        console.error('Failed to fetch scoring progress:', err.message);
+    } catch {
+      // Network failed mid-request — try IndexedDB fallback
+      try {
+        const cached = await offlineDB.getCachedScoringProgress(matchId);
+        if (cached) {
+          set({ scoringProgress: cached, isOfflineMode: true });
+        }
+      } catch {
+        // IndexedDB failed — keep whatever progress we have
       }
     }
   },

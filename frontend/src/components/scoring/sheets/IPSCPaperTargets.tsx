@@ -92,7 +92,7 @@ export default function PaperTargetsTable({
                     disabled={disabled}
                     title="Click to reset row"
                   >
-                    <span className={`text-xs font-bold uppercase ${disabled ? 'text-gray-400' : 'text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400'}`}>Steel</span>
+                    <span className={`text-xs font-bold uppercase ${disabled ? 'text-gray-400' : 'text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400'}`}>{t('stages.steel')}</span>
                     <Badge size="sm" color="gray">{steelCount}</Badge>
                   </button>
                 </td>

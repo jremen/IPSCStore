@@ -113,8 +113,13 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
       addToast(t('scoring.saved'), 'success');
       // Hide summary if it was showing
       setShowSummary(false);
-      // Refresh scoring progress after save (await so scoredIds is up-to-date)
-      if (effectiveMatchId) await fetchScoringProgress(effectiveMatchId);
+
+      // Refresh scoring progress after save.
+      // When offline, saveScore already updated scoringProgress via addScoredEntry,
+      // so skip the API call (fetchScoringProgress would try the API first and hang).
+      if (effectiveMatchId && navigator.onLine) {
+        await fetchScoringProgress(effectiveMatchId);
+      }
 
       // Auto-advance to next unscored shooter in current squad
       const scored = useScoringStore.getState().scoredIds();

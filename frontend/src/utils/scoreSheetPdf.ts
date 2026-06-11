@@ -91,8 +91,8 @@ const FULL_COL: Col = { leftX: MARGIN, rightX: PAGE_W - MARGIN, width: USABLE_W 
 
 const TABLE_STYLE = {
   theme: 'plain' as const,
-  styles: { font: 'Arial, Helvetica, sans-serif', fontStyle: 'normal', fontSize: 7, textColor: 0, lineColor: 0, lineWidth: 0.3 },
-  headStyles: { font: 'Arial, Helvetica, sans-serif', fontStyle: 'bold', fontSize: 10, fillColor: [0, 0, 0], textColor: [255, 255, 255], lineColor: 0, lineWidth: 0.3 },
+  styles: { font: 'OpenSans', fontStyle: 'normal', fontSize: 7, textColor: 0, lineColor: 0, lineWidth: 0.3 },
+  headStyles: { font: 'OpenSans', fontStyle: 'bold', fontSize: 10, fillColor: [0, 0, 0], textColor: [255, 255, 255], lineColor: 0, lineWidth: 0.3 },
   alternateRowStyles: { fillColor: [255, 255, 255] },
   columnStyles: {} as Record<string, any>,
 };

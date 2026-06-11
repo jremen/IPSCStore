@@ -7,6 +7,7 @@ import { divisionLabel, categoryLabel } from '../../utils/constants';
 import ExportButtons from './ExportButtons';
 import ResultsTable from './ResultsTable';
 import type { DqShooter } from '../../stores/resultsStore';
+import { twMerge } from "tailwind-merge";
 
 type ResultTab = 'byDivision' | 'overall' | 'byStage' | 'byCategory' | 'byTag';
 
@@ -33,8 +34,8 @@ function DqTable({ dqShooters, showDivision = true }: { dqShooters: DqShooter[];
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              <th className="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Shooter</th>
-              {showDivision && <th className="px-4 py-2 text-left text-gray-700 dark:text-gray-300">Division</th>}
+              <th className="px-4 py-2 text-left text-gray-700 dark:text-gray-300">{t('results.shooter')}</th>
+              {showDivision && <th className="px-4 py-2 text-left text-gray-700 dark:text-gray-300">{t('results.division')}</th>}
               <th className="px-4 py-2 text-left text-gray-700 dark:text-gray-300">{t('results.dqReason')}</th>
             </tr>
           </thead>
@@ -145,10 +146,10 @@ function StageContent({ stageResults }: { stageResults: any[] }) {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-3 py-1 text-left dark:text-gray-300">Shooter</th>
-                      <th className="px-3 py-1 text-left dark:text-gray-300">Division</th>
+                      <th className="px-3 py-1 text-left dark:text-gray-300">{t('results.shooter')}</th>
+                      <th className="px-3 py-1 text-left dark:text-gray-300">{t('results.division')}</th>
                       <th className="px-3 py-1 text-right dark:text-gray-300">HF</th>
-                      <th className="px-3 py-1 text-right dark:text-gray-300">Net Pts</th>
+                      <th className="px-3 py-1 text-right dark:text-gray-300">{t('results.netPoints')}</th>
                       <th className="px-3 py-1 text-left dark:text-gray-300">{t('results.dqReason')}</th>
                     </tr>
                   </thead>
@@ -254,7 +255,7 @@ function TagContent({ tagResults, dqTags }: {
   );
 }
 
-export default function ResultsOverview() {
+export default function ResultsOverview({isPublic}:{isPublic?:true}) {
   const { activeMatchId } = useUIStore();
   const { matches } = useMatchStore();
   const { overallResults, dqOverall, divisionResults, dqDivisions, stageResults, categoryResults, dqCategories, tagResults, dqTags, loading,
@@ -289,7 +290,7 @@ export default function ResultsOverview() {
       </div>
 
       {/* Sticky header + tab bar */}
-      <div className="sticky top-4 before:bg-gray-200 pb-3 dark:before:bg-gray-900 before:absolute before:h-4 before:w-full before:-top-4 bg-gray-200 dark:bg-gray-900 z-100">
+      <div className={twMerge("sticky before:bg-gray-200 pb-3 dark:before:bg-gray-900 before:absolute before:h-4 before:-top-4 before:w-full  bg-gray-200 dark:bg-gray-900 z-100", isPublic ? "top-19.5" : "top-4")}>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="text-xl font-bold dark:text-white">{t('results.title')}</h2>
           <ExportButtons activeTab={activeTab} />

@@ -186,8 +186,8 @@ const TABLE_FONT = 9;
 /** Shared autoTable options for B&W output */
 const TABLE_STYLE = {
   theme: 'plain' as const,
-  styles: { font: 'Roboto', fontStyle: 'normal', fontSize: TABLE_FONT, textColor: 0 },
-  headStyles: { font: 'Roboto', fontStyle: 'bold', fontSize: TABLE_FONT, fillColor: [0, 0, 0], textColor: [255, 255, 255] },
+  styles: { font: 'OpenSans', fontStyle: 'normal', fontSize: TABLE_FONT, textColor: 0 },
+  headStyles: { font: 'OpenSans', fontStyle: 'bold', fontSize: TABLE_FONT, fillColor: [0, 0, 0], textColor: [255, 255, 255] },
   alternateRowStyles: { fillColor: [245, 245, 245] },
 };
 
@@ -256,8 +256,8 @@ function drawStagePDF(doc: any, autoTable: any, drawHeader: any, stageResults: a
     setBoldFont(doc); doc.setFontSize(TITLE_SIZE);
     doc.text(`${t('scoring.stage', { number: stage.stage_number })}: ${stage.stage_name}`, MARGIN, 32);
 
-    const head = [[t('results.position'), t('results.shooter'), t('results.stagePercent'), t('results.points'), 'HF', t('results.netPoints')]];
-    const makeRow = (r: any) => [r.position, `${r.first_name} ${r.last_name}`, `${r.stage_percent?.toFixed(2)}%`, r.stage_points?.toFixed(2), r.hit_factor?.toFixed(4), r.net_points?.toFixed(2)];
+    const head = [[t('results.position'), t('results.shooter'), t('results.stagePercent'), t('results.points'), 'HF', t('results.netPoints'), t('results.time')]];
+    const makeRow = (r: any) => [r.position, `${r.first_name} ${r.last_name}`, `${r.stage_percent?.toFixed(2)}%`, r.stage_points?.toFixed(2), r.hit_factor?.toFixed(4), r.net_points?.toFixed(2), r.time?.toFixed(2)];
 
     if (stage.divisions && Object.keys(stage.divisions).length > 0) {
       const divEntries = Object.entries(stage.divisions as Record<string, any[]>).sort(([a], [b]) => a.localeCompare(b));
@@ -277,8 +277,8 @@ function drawStagePDF(doc: any, autoTable: any, drawHeader: any, stageResults: a
         if (currentY > doc.internal.pageSize.getHeight() - 30) { doc.addPage(); drawHeader(); currentY = 32; }
       }
     } else {
-      const headAll = [[t('results.position'), t('results.shooter'), t('results.division'), t('results.stagePercent'), t('results.points'), 'HF', t('results.netPoints')]];
-      const makeRowAll = (r: any) => [r.position, `${r.first_name} ${r.last_name}`, divisionLabel(r.division || ''), `${r.stage_percent?.toFixed(2)}%`, r.stage_points?.toFixed(2), r.hit_factor?.toFixed(4), r.net_points?.toFixed(2)];
+      const headAll = [[t('results.position'), t('results.shooter'), t('results.division'), t('results.stagePercent'), t('results.points'), 'HF', t('results.netPoints'), t('results.time')]];
+      const makeRowAll = (r: any) => [r.position, `${r.first_name} ${r.last_name}`, divisionLabel(r.division || ''), `${r.stage_percent?.toFixed(2)}%`, r.stage_points?.toFixed(2), r.hit_factor?.toFixed(4), r.net_points?.toFixed(2), r.time?.toFixed(2)];
       setRegularFont(doc);
       autoTable(doc, {
         ...TABLE_STYLE,

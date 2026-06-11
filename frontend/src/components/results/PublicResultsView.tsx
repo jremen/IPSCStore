@@ -6,6 +6,7 @@ import { useMatchStore } from '../../stores/matchStore';
 import { useResultsStore } from '../../stores/resultsStore';
 import ResultsOverview from './ResultsOverview';
 import LanguageSelector from '../settings/LanguageSelector';
+import { ThemeToggle } from "../settings/ThemeToggle";
 
 const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
 
@@ -102,23 +103,26 @@ export default function PublicResultsView() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-900">
+    <div className="min-h-screen flex flex-col bg-gray-200 dark:bg-gray-900">
       {/* Minimal header for public results */}
-      <header className="bg-blue-700 text-white px-4 py-2 flex items-center justify-between print:hidden">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold">🏆 {matchName || t('results.publicTitle')}</h1>
+      <header className="bg-gray-900 text-white sticky top-0 z-110 px-4 py-2 print:hidden">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-bold">🏆 {matchName || t('results.publicTitle')}</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <LanguageSelector />
+            <ThemeToggle />
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-blue-200">
+        <div className="text-xs text-blue-200 dark:text-white">
             {t('results.autoRefresh', { time: lastRefresh.toLocaleTimeString() })}
-          </span>
-          <LanguageSelector />
         </div>
       </header>
 
       {/* Results content */}
-      <main className="flex-1 overflow-auto">
-        <ResultsOverview />
+      <main className="flex-1">
+        <ResultsOverview isPublic />
       </main>
     </div>
   );

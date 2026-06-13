@@ -58,7 +58,7 @@ export default function AddShooterModal({ show, onClose, matchId, registeredShoo
           <TextInput placeholder={t('registration.search')} value={search} onChange={(e) => setSearch(e.target.value)} className="mb-3 flex-1" />
           <Button color="green" onClick={() => onCreate()}>{t('shooters.newShooter')}</Button>
         </div>
-        <div className="max-h-128 overflow-y-auto space-y-1">
+        <div className="max-h-80 overflow-y-auto space-y-1">
           {loading && <div className="text-center py-4"><Spinner size="sm" /> {t('common.loading')}</div>}
           {!loading && shooters.slice(0, 50).map((s) => (
             <div key={s.id} className="w-full text-left p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between">

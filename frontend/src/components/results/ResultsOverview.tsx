@@ -8,6 +8,7 @@ import ExportButtons from './ExportButtons';
 import ResultsTable from './ResultsTable';
 import type { DqShooter } from '../../stores/resultsStore';
 import { twMerge } from "tailwind-merge";
+import { useMatchProgress } from "../../hooks/useMatchProgress";
 
 type ResultTab = 'byDivision' | 'overall' | 'byStage' | 'byCategory' | 'byTag';
 
@@ -81,6 +82,18 @@ function DivisionContent({ divisionResults, dqDivisions, loading }: {
 }) {
   const { t } = useTranslation();
 
+
+    const runningMatchId = useMatchStore((s) => s.runningMatch?.id);
+    
+    const {scored, stagesLength, fetchScoringProgress, fetchStages} = useMatchProgress();
+  
+    useEffect(() => {
+      if (!runningMatchId) return;
+  
+      fetchStages(runningMatchId);
+      fetchScoringProgress(runningMatchId);
+    }, [runningMatchId]);
+
   return (
     <>
       <h2 className="print-only hidden text-lg font-bold mb-2">{t('results.byDivision')}</h2>
@@ -92,7 +105,7 @@ function DivisionContent({ divisionResults, dqDivisions, loading }: {
         .map(([division, results]) => (
           <div key={division} className="division-results-section mb-6">
             <h3 className="font-semibold text-lg mb-2 dark:text-white">{divisionLabel(division)}</h3>
-            <ResultsTable results={results as any[]} columns={['position', 'shooter', 'matchPercent', 'matchPoints']} />
+            <ResultsTable scored={{scored, stagesLength}} results={results as any[]} columns={['position', 'shooter', 'matchPercent', 'matchPoints']} />
           </div>
         ))}
       <DqTable dqShooters={dqDivisions} />
@@ -264,7 +277,7 @@ export default function ResultsOverview({isPublic}:{isPublic?:true}) {
   const [activeTab, setActiveTab] = useState<ResultTab>('byDivision');
 
   const activeMatch = matches?.find((m: any) => m.id === activeMatchId);
-
+  
   useEffect(() => {
     if (activeMatchId) {
       fetchOverall(activeMatchId);

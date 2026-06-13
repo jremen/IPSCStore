@@ -1,11 +1,17 @@
-import { Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell, Badge } from 'flowbite-react';
+import { Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell, Badge, Progress, theme } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { divisionLabel } from '../../utils/constants';
+import { useMatchProgress } from "../../hooks/useMatchProgress";
+import { useMatchStore } from "../../stores/matchStore";
+import { useEffect } from "react";
+import { ScoringProgressEntry } from "../../types/scoring";
+import { twMerge } from "tailwind-merge";
 
 type ColumnKey = 'position' | 'shooter' | 'division' | 'matchPercent' | 'matchPoints' | 'stagePercent' | 'stagePoints' | 'hitFactor' | 'netPoints' | 'time';
 
 interface ResultsTableProps {
   results: any[];
+  scored?: {scored: ScoringProgressEntry[] | undefined, stagesLength: number};
   columns: ColumnKey[];
   showDqBadge?: boolean;
 }
@@ -55,7 +61,7 @@ function cellClassName(col: ColumnKey): string {
 }
 
 /** Shared results table — responsive: desktop table, mobile card layout */
-export default function ResultsTable({ results, columns, showDqBadge = true }: ResultsTableProps) {
+export default function ResultsTable({ results, scored, columns, showDqBadge = true }: ResultsTableProps) {
   const { t } = useTranslation();
   const detailColumns = columns.filter(c => DETAIL_COLUMNS.includes(c));
 
@@ -69,11 +75,14 @@ export default function ResultsTable({ results, columns, showDqBadge = true }: R
               {columns.map(col => (
                 <TableHeadCell key={col}>{columnHeader(col, t)}</TableHeadCell>
               ))}
+              {scored && <TableHeadCell>Progres</TableHeadCell>}
             </TableRow>
           </TableHead>
           <TableBody>
-            {results.map((r) => (
-              <TableRow key={r.registration_id} className={r.is_dq ? 'bg-red-50' : ''}>
+            {results.map((r) => {
+              const progress = scored?.stagesLength && scored?.scored ? scored?.scored?.filter(shooter => shooter.registration_id === r.registration_id).length / scored?.stagesLength * 100 : 0;
+              const progressText = scored?.stagesLength && scored?.scored ? `${scored?.scored?.filter(shooter => shooter.registration_id === r.registration_id).length} / ${scored?.stagesLength}` : "";
+              return <TableRow key={r.registration_id} className={r.is_dq ? 'bg-red-50' : ''}>
                 {columns.map(col => (
                   <TableCell key={col} className={cellClassName(col)}>
                     {col === 'shooter' && showDqBadge && r.is_dq ? (
@@ -84,8 +93,11 @@ export default function ResultsTable({ results, columns, showDqBadge = true }: R
                     ) : cellValue(col, r)}
                   </TableCell>
                 ))}
+                {scored && <TableCell>
+                  <Progress theme={{base: twMerge(theme.progress.base,"relative overflow-visible!")}} className="[&_span]:absolute [&_span]:-top-4 [&_span]:text-xs [&_span]:left-1/2 [&_span]:-translate-x-1/2" progress={progress} textLabel={progressText} labelText />
+                </TableCell>}
               </TableRow>
-            ))}
+            })}
           </TableBody>
         </Table>
       </div>

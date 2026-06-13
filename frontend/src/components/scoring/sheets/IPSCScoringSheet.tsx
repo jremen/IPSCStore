@@ -19,7 +19,7 @@ interface Props {
 }
 
 export default function IPSCScoringSheet({ stage, score }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { isDesktop } = useDeviceContext();
   const { alerts } = useScoringStore();
   const shooter = useScoringStore(
@@ -61,7 +61,7 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
           className="py-1!"
         />
         {stage.scoring_type === 'fixed_time' && stage.par_time && (
-          <p className="text-xs text-gray-500 mt-1 text-center">Par time: {stage.par_time}s</p>
+          <p className="text-xs text-gray-500 dark:text-gray-300 mt-1 text-center">Par time: {stage.par_time}s</p>
         )}
       </div>
       {/* SCORING SHEET — two-column on desktop when sidebar exists */}
@@ -71,9 +71,9 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
           onReset={isReadOnly ? undefined : handleResetAll}
         />
         {isDesktop ? (
-          <p className="text-[10px] text-gray-400 px-3 -mt-1 mb-1">{t('scoring.desktopInstruction')}</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-300 px-3 my-1">{t('scoring.desktopInstruction')}</p>
         ) : (
-          <p className="text-[10px] text-gray-400 px-3 -mt-1 mb-1">Tap +1 • Long-press/right-click −1 • Tap # to reset</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-300 px-3 my-1">{t('scoring.mobileInstruction')}</p>
         )}
 
         {/* Main content area: flex row on desktop when sidebar exists */}
@@ -206,7 +206,7 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
             className="py-1!"
           />
           {stage.scoring_type === 'fixed_time' && stage.par_time && (
-            <p className="text-xs text-gray-500 mt-1 text-center">Par time: {stage.par_time}s</p>
+            <p className="text-xs text-gray-500 dark:text-gray-300 mt-1 text-center">{i18n.t('scoring.parTime')} {stage.par_time}s</p>
           )}
         </div>
 

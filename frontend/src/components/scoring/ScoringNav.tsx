@@ -67,7 +67,7 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
               ${activeStageId === stage.id ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400' : 'cursor-pointer border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-500'}`}
           >
             {t('scoring.stage', { number: stage.stage_number })}
-            {scoringProgress && scoringProgress.scored.filter(e => e.stage_id === stage.id).length === registrations.length && <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[10px] leading-none shrink-0">✓</span>}
+            {registrations.length > 0 && scoringProgress && scoringProgress.scored.filter(e => e.stage_id === stage.id).length === registrations.length && <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[10px] leading-none shrink-0">✓</span>}
           </button>
         ))}
       </div>
@@ -94,7 +94,7 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
       )}
 
       {/* Scoring Sheet — only this section scrolls on mobile */}
-      <div className="scoring-scroll-area">
+      <div className="scoring-scroll-area sm:pb-20">
         {activeStageId && currentRegistrationId && currentStage && currentScore ? (
           <ScoringSheet stage={currentStage} score={currentScore} />
         ) : (
@@ -106,7 +106,7 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
 
       {/* Bottom bar — pinned at bottom on mobile */}
       {activeStageId && currentRegistrationId && (
-        <div className="bg-white mt-auto dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-3 flex justify-between items-center no-print scoring-nav-pinned">
+        <div className="sm:fixed bottom-0 z-100  w-full bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-3 flex justify-between items-center no-print scoring-nav-pinned">
           <Button color="gray" onClick={() => prevShooter()} className="min-h-11"><TbChevronLeft className="size-6 mr-1" />{t('common.prev')}</Button>
           <Button color="blue" onClick={handleConfirm} disabled={!canConfirm} className="min-h-11">
             {t('common.confirm')}

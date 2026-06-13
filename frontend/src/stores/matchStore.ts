@@ -5,6 +5,7 @@ import type { Match, MatchDetail, CreateMatchInput } from '../types/match';
 interface MatchState {
   matches: Match[];
   currentMatch: MatchDetail | null;
+  runningMatch: Match | null;
   loading: boolean;
   error: string | null;
 }
@@ -23,6 +24,7 @@ interface MatchActions {
 export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
   matches: [],
   currentMatch: null,
+  runningMatch: null,
   loading: false,
   error: null,
 
@@ -30,7 +32,8 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const matches = await api.getMatches();
-      set({ matches, loading: false });
+      const runningMatch = matches.find(m => m.is_current);
+      set({ matches, runningMatch, loading: false });
     } catch (err: any) {
       set({ error: err.message, loading: false });
     }

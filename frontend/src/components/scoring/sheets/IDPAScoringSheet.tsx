@@ -8,6 +8,7 @@ import { calculateIDPAPreview } from '../../../utils/scoring';
 import { HitCell, ScoringSheetHeader, DnfToggle, DqSection, PenaltyStepper } from '../shared';
 import type { Stage } from '../../../types/stage';
 import type { ScoreInput, TargetScore } from '../../../types/scoring';
+import { useTranslation } from "react-i18next";
 
 interface Props {
   stage: Stage;
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function IDPAScoringSheet({ stage, score }: Props) {
+  const { t } = useTranslation();
   const { setScore, alerts } = useScoringStore();
   const { sd, updateScoreData } = useScoreDataUpdater(score);
   const shooter = useScoringStore(s => s.registrations.find(r => r.id === s.currentRegistrationId));
@@ -138,13 +140,13 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
     <div className="p-2 sm:p-4 max-w-2xl mx-auto">
       {/* TIME INPUT */}
       <div className="bg-blue-50 dark:bg-gray-800 rounded-lg p-3 mb-3 border-2 border-blue-200 dark:border-blue-800">
-        <Label className="text-sm font-bold mb-1 block">⏱ TIME (seconds)</Label>
+        <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
         <InputField type="number" step="0.01" min="0" sizing="lg" decimal value={score.time ?? ''} onChange={handleTimeChange} disabled={isReadOnly} className="text-center text-2xl font-mono" />
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-3 shadow-sm">
         <ScoringSheetHeader
-          title="🎯 IDPA SCORING SHEET"
+          title="IDPA SCORING SHEET"
           subtitle={`${stage.paper_targets} paper × ${hpp} hits • ${stage.steel_targets} steel`}
           onReset={isReadOnly ? undefined : handleResetAll}
         />
@@ -154,7 +156,7 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
         {paperTargets.length > 0 && (
           <div className="p-3 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">🎯 Paper Targets</span>
+              <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">{t('scoring.paperTargets')}</span>
               <Badge size="sm" color="blue">{paperTargets.length}</Badge>
             </div>
             <div className="overflow-x-auto -mx-1 sm:mx-0">
@@ -204,12 +206,12 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
         {steelTargets.length > 0 && (
           <div className="p-3 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide">🔔 Steel Targets</span>
+              <span className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide">{t('scoring.steelTargets')}</span>
               <Badge size="sm" color="gray">{steelTargets.length}</Badge>
             </div>
             <div className="flex items-center justify-center gap-4">
               <div className="text-center">
-                <span className="text-xs text-gray-400 block">Misses</span>
+                <span className="text-xs text-gray-400 block">{t('scoring.misses')}</span>
                 <div className="flex items-center gap-0.5 mt-1">
                   <button className={`penalty-stepper rounded text-lg font-bold bg-gray-200 dark:bg-gray-600 ${isReadOnly ? 'opacity-50 cursor-not-allowed' : 'active:bg-gray-300'}`} onClick={isReadOnly ? undefined : () => handleSteelMissChange(steelMisses - 1)} disabled={isReadOnly}>−</button>
                   <span className="w-8 text-center text-xl font-mono font-bold text-red-600 dark:text-red-400">{steelMisses}</span>
@@ -217,7 +219,7 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
                 </div>
               </div>
               <div className="text-center">
-                <span className="text-xs text-gray-400 block">Hits</span>
+                <span className="text-xs text-gray-400 block">{t('scoring.hits')}</span>
                 <span className="text-2xl font-mono font-bold text-green-600 dark:text-green-400">{steelTargets.length - steelMisses}</span>
                 <span className="text-lg font-mono text-gray-400"> / {steelTargets.length}</span>
               </div>
@@ -228,7 +230,7 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
         {/* IDPA PENALTIES */}
         <div className="p-3 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide">⚠️ IDPA Penalties</span>
+            <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide">{t('scoring.idpaPenalties')}</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {[
@@ -280,11 +282,11 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
 
       {/* IDPA Score Preview */}
       <div className="bg-green-50 dark:bg-gray-800 rounded-lg p-3 border border-green-200 dark:border-green-800 shadow-sm">
-        <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-2">📊 IDPA Score Preview</h3>
+        <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-2">📊 {t('scoring.scorePreview')}</h3>
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div><div className="text-lg font-bold dark:text-white">{preview.raw_points}</div><div className="text-xs text-gray-500">Pts Down</div></div>
-          <div><div className="text-lg font-bold text-red-600">−{preview.penalty_points}</div><div className="text-xs text-gray-500">Penalty (s)</div></div>
-          <div><div className="text-lg font-bold text-blue-600">{preview.total_time?.toFixed(2) ?? '0.00'}</div><div className="text-xs text-gray-500">Total Time</div></div>
+          <div><div className="text-lg font-bold dark:text-white">{preview.raw_points}</div><div className="text-xs text-gray-500">{t('scoring.raw')}</div></div>
+          <div><div className="text-lg font-bold text-red-600">−{preview.penalty_points}</div><div className="text-xs text-gray-500">{t('scoring.pen')}</div></div>
+          <div><div className="text-lg font-bold text-blue-600">{preview.total_time?.toFixed(2) ?? '0.00'}</div><div className="text-xs text-gray-500">{t('scoring.totalTime')}</div></div>
         </div>
       </div>
     </div>

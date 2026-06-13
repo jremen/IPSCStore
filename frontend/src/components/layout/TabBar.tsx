@@ -1,5 +1,10 @@
+import { Button } from "flowbite-react";
+import { useMatchStore } from "../../stores/matchStore";
 import { useUIStore, type TabId } from '../../stores/uiStore';
 import { useTranslation } from 'react-i18next';
+import {useEffect} from "react";
+import { useScoringStore } from "../../stores/scoringStore";
+import MatchProgress from "./MatchProgress";
 
 const TABS: { id: TabId; labelKey: string; icon: string }[] = [
   { id: 'matches', labelKey: 'tabs.matches', icon: '🏆' },
@@ -11,12 +16,14 @@ const TABS: { id: TabId; labelKey: string; icon: string }[] = [
 ];
 
 export default function TabBar() {
-  const { activeTab, setActiveTab } = useUIStore();
+    const { runningMatch,fetchMatch} = useMatchStore();
+  const { activeTab, setActiveTab, activeMatchId, setActiveMatch } = useUIStore();
   const { t } = useTranslation();
+  // useEffect (() => { runningMatch && fetchMatch(runningMatch); }, [fetchMatch, runningMatch]);
 
   return (
     <div className="no-print border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-      <div className="flex overflow-x-auto scrollbar-hide">
+      <div className="flex overflow-x-auto items-center scrollbar-hide">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -32,6 +39,10 @@ export default function TabBar() {
             <span className="sm:hidden text-xs">{t(tab.labelKey).slice(0, 3)}</span>
           </button>
         ))}
+
+        {/* {activeMatchId !== runningMatch && <Button className="ml-auto" size="xs" onClick={() => setActiveMatch(runningMatch)}>Do aktívnej súťaže</Button>} */}
+
+        <MatchProgress />
       </div>
     </div>
   );

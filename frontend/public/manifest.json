@@ -4,6 +4,7 @@
   "description": "IPSC/USPSA scoring application for managing shooting matches, shooters, scoring, and results.",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#1e293b",
   "theme_color": "#1e293b",
   "orientation": "any",

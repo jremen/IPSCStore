@@ -266,7 +266,7 @@
     "parTime": "Par time: {{time}}s",
     "sheetTitle": "BODOVACÍ HÁROK",
     "desktopInstruction": "Zadajte počet zásahov priamo alebo použite tabuľku nižšie na kontrolu",
-    "mobileInstruction": "Ťuknite +1 • Dlhé stlačenie/pravý klik −1 • Ťuknite # pre obnovu",
+    "mobileInstruction": "Kliknite +1 • Dlhé stlačenie/pravý klik −1 • Kliknite # pre vynulovanie",
     "paperTargets": "Papierové terče",
     "steelTargets": "Kovy",
     "noShootTargets": "No-Shoot",

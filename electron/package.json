@@ -1,6 +1,6 @@
 {
-  "name": "ipscscore-electron",
-  "version": "1.0.0",
+  "name": "ipscscore",
+  "version": "1.5.0",
   "private": true,
   "description": "IPSC/USPSA Scoring Desktop Application",
   "author": "IPSCScore",

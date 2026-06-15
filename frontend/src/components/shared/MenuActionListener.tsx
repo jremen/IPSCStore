@@ -56,11 +56,8 @@ export default function MenuActionListener() {
     dispatchMenuEvent(action, payload);
   });
 
-  // Clear pending action whenever the active tab changes so stale actions don't
-  // fire after the user manually switches away.
-  useEffect(() => {
-    return () => clearPendingMenuAction();
-  }, [activeTab]);
+  // Do NOT clear pending action on tab change — that's when the pending action
+  // is supposed to be consumed by the newly mounted tab component.
 
   // Report state changes back to the main process so menu items can be enabled/disabled.
   useEffect(() => {

@@ -33,23 +33,24 @@ app.use('*', requestLogger);
 app.onError(errorHandler);
 
 /**
- * Determine the domain mode based on the Host header.
- * - vysledky.local → 'results' (public results view, no login)
- * - hodnotenie.local → 'scoring' (stage login for range masters)
+ * Determine the domain mode based on the Host header or the request path.
+ * - vysledky.local or /vysledky path → 'results' (public results view, no login)
+ * - hodnotenie.local or /hodnotenie path → 'scoring' (stage login for range masters)
  * - anything else → 'admin' (default, shows admin login on local network)
  */
-function getDomainMode(host: string | undefined): 'results' | 'scoring' | 'admin' {
+function getDomainMode(host: string | undefined, urlPath: string): 'results' | 'scoring' | 'admin' {
   if (!host) return 'admin';
   const hostname = host.split(':')[0].toLowerCase().trim();
-  if (hostname === 'vysledky.local') return 'results';
-  if (hostname === 'hodnotenie.local') return 'scoring';
+  const normalizedPath = urlPath.toLowerCase();
+  if (hostname === 'vysledky.local' || normalizedPath.startsWith('/vysledky')) return 'results';
+  if (hostname === 'hodnotenie.local' || normalizedPath.startsWith('/hodnotenie')) return 'scoring';
   return 'admin';
 }
 
-// Set domain mode from Host header for all requests
+// Set domain mode from Host header and path for all requests
 app.use('*', async (c, next) => {
   const host = c.req.header('host');
-  c.set('domainMode', getDomainMode(host));
+  c.set('domainMode', getDomainMode(host, c.req.path));
   await next();
 });
 
@@ -103,6 +104,79 @@ app.route('/api/import', importRoutes);
 app.route('/api/import', winmssImportRoutes);
 
 /**
+ * Serve a dynamic manifest.json so that PWAs installed from /vysledky or
+ * /hodnotenie launch back to the correct path instead of the admin root (/).
+ *
+ * The frontend's index.html is injected with `?mode=results` or
+ * `?mode=scoring` for those domain modes, so the browser fetches the right
+ * manifest when adding the page to the home screen.
+ */
+app.get('/manifest.json', async (c) => {
+  let mode = c.req.query('mode') as 'results' | 'scoring' | 'admin' | undefined;
+
+  // Fallback: if no query param, try to infer from the Referer header.
+  // This helps when a cached or third-party page requests /manifest.json directly.
+  if (!mode) {
+    const referer = c.req.header('referer') || '';
+    try {
+      const refererUrl = new URL(referer);
+      const refererPath = refererUrl.pathname.toLowerCase();
+      const refererHost = refererUrl.hostname.toLowerCase();
+      if (refererPath.startsWith('/vysledky') || refererHost === 'vysledky.local') {
+        mode = 'results';
+      } else if (refererPath.startsWith('/hodnotenie') || refererHost === 'hodnotenie.local') {
+        mode = 'scoring';
+      }
+    } catch {
+      // ignore malformed referer
+    }
+  }
+
+  const frontendDistPath = process.env.FRONTEND_DIST_PATH;
+
+  let manifest: Record<string, any> = {
+    name: 'IPSC Score',
+    short_name: 'IPSC Score',
+    start_url: '/',
+    display: 'standalone',
+    display_override: ['window-controls-overlay', 'standalone'],
+    background_color: '#1e293b',
+    theme_color: '#1e293b',
+    orientation: 'any',
+    icons: [
+      { src: '/icons/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+      { src: '/icons/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
+      { src: '/icons/android-chrome-maskable-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+      { src: '/icons/android-chrome-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: '/icons/msapplication-icon-144x144.png', sizes: '144x144', type: 'image/png' },
+      { src: '/icons/mstile-150x150.png', sizes: '150x150', type: 'image/png' },
+    ],
+  };
+
+  if (frontendDistPath) {
+    try {
+      const manifestPath = path.join(frontendDistPath, 'manifest.json');
+      const raw = fs.readFileSync(manifestPath, 'utf-8');
+      manifest = JSON.parse(raw);
+    } catch (err) {
+      console.error('[Manifest] Failed to read static manifest, using default:', err);
+    }
+  }
+
+  if (mode === 'results') {
+    manifest.start_url = '/vysledky';
+    manifest.id = 'ipscscore-results';
+  } else if (mode === 'scoring') {
+    manifest.start_url = '/hodnotenie';
+    manifest.id = 'ipscscore-scoring';
+  }
+  // Name and short_name always stay "IPSCScore" as requested by the user,
+  // regardless of which path the PWA was installed from.
+
+  return c.json(manifest);
+});
+
+/**
  * Enable production static file serving for the frontend.
  * Called by the Electron main process after setting FRONTEND_DIST_PATH.
  * In Docker/dev mode, the Vite dev server handles this.
@@ -151,9 +225,20 @@ export function enableStaticServing(frontendDistPath: string) {
       let html = fs.readFileSync(indexPath, 'utf-8');
       const domainMode = c.get('domainMode') as string | undefined;
       if (domainMode && domainMode !== 'admin') {
+        // Inject domain mode for the React app
         html = html.replace(
           '<head>',
           `<head><script>window.__DOMAIN_MODE__ = "${domainMode}";</script>`
+        );
+
+        // Point the PWA manifest at a path-aware version so "Add to home screen"
+        // launches back to /vysledky or /hodnotenie instead of the admin root.
+        const manifestHref = domainMode === 'results'
+          ? '/manifest.json?mode=results'
+          : '/manifest.json?mode=scoring';
+        html = html.replace(
+          /<link[^>]*rel=["']manifest["'][^>]*>/i,
+          `<link rel="manifest" href="${manifestHref}" />`
         );
       }
       return c.html(html);

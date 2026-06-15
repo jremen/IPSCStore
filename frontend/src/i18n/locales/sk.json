@@ -101,8 +101,15 @@
     "title": "IPSCScore",
     "copyUrl": "Kopírovať URL do schránky",
     "copied": "Skopírované!",
-    "domainResults": "Verejné výsledky (.local doména)",
-    "domainScoring": "Prihlasovanie pre rozhodcov (.local doména)"
+    "qrTitle": "Naskenujte pre pripojenie",
+    "qrResultsLabel": "Verejné výsledky",
+    "qrScoringLabel": "Bodovanie pre rozhodcov",
+    "qrResultsLink": "Výsledky",
+    "qrScoringLink": "Bodovanie",
+    "qrResultsHint": "Zobraziť QR kód pre verejné výsledky",
+    "qrScoringHint": "Zobraziť QR kód pre bodovanie rozhodcov",
+    "printQrCode": "Vytlačiť QR kód",
+    "downloadQrPdf": "Stiahnuť PDF"
   },
   "matches": {
     "title": "Súťaže",

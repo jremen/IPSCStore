@@ -12,6 +12,7 @@ declare global {
       getApiBaseUrl: () => string;
       isElectron: () => boolean;
       getLanIp: () => string;
+      /** Direct IP+path URLs such as http://192.168.1.5:3001/vysledky */
       getDomainUrls: () => { vysledky: string; hodnotenie: string };
       isPort80Active: () => boolean;
     };

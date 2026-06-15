@@ -1,31 +1,24 @@
 import { useState, useEffect } from 'react';
 
 export interface LanUrlInfo {
-  /** IP-based LAN URL (e.g. http://192.168.1.5:3001) */
+  /** IP-based LAN URL for the admin interface (e.g. http://192.168.1.5:3001) */
   url: string | null;
-  /** .local domain URLs for results and scoring */
+  /** Direct IP+path URLs for results and scoring (e.g. http://192.168.1.5:3001/vysledky) */
   domainUrls: { vysledky: string; hodnotenie: string } | null;
   loading: boolean;
 }
 
 /**
- * Build a URL for a .local domain, using port 80 (no port suffix) when
- * the port-80 redirect is active, or port 3001 otherwise.
+ * Build a direct IP+path URL for mobile access.
+ * Uses port 80 (no port suffix) when the port-80 redirect is active.
  */
-function buildDomainUrl(hostname: string, port: number | string | undefined, port80Active: boolean): string {
-  // In Electron mode with port 80 active, use port-less URLs
-  if (port80Active) {
-    return `http://${hostname}`;
-  }
-  // In web mode, use the current page's port (empty for port 80, explicit for others)
-  if (!port || port === '80' || port === 80) {
-    return `http://${hostname}`;
-  }
-  return `http://${hostname}:${port}`;
+function buildPathUrl(hostname: string, port: number | string | undefined, port80Active: boolean, path: string): string {
+  const portSuffix = port80Active || port === '80' || port === 80 || !port ? '' : `:${port}`;
+  return `http://${hostname}${portSuffix}${path}`;
 }
 
 /**
- * Hook to detect the LAN URL where range masters can connect.
+ * Hook to detect the LAN URLs where mobile devices and range masters can connect.
  * - In Electron: uses window.electronAPI.getLanIp() + getApiBaseUrl() + getDomainUrls()
  * - In web (not localhost): uses window.location directly
  * - In web (localhost): fetches /api/lan-info to get the server's LAN IP
@@ -37,7 +30,7 @@ export function useLanUrl(): LanUrlInfo {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Electron mode
+    // Electron mode — the main process provides the exact URLs to expose.
     if (window.electronAPI?.isElectron?.()) {
       const lanIp = window.electronAPI.getLanIp();
       const port80Active = window.electronAPI.isPort80Active?.() ?? false;
@@ -50,7 +43,6 @@ export function useLanUrl(): LanUrlInfo {
           setUrl(`http://${lanIp}:3001`);
         }
       }
-      // Get domain URLs from Electron
       if (window.electronAPI.getDomainUrls) {
         setDomainUrls(window.electronAPI.getDomainUrls());
       }
@@ -61,31 +53,17 @@ export function useLanUrl(): LanUrlInfo {
     // Web mode: detect port from current page
     const currentPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
     const port80Active = currentPort === '80' || currentPort === '' || window.location.port === '';
-
-    // Web mode: already accessing via .local domain
     const hostname = window.location.hostname;
-    if (hostname === 'vysledky.local' || hostname.endsWith('.vysledky.local')) {
-      setDomainUrls({
-        vysledky: buildDomainUrl('vysledky.local', currentPort, port80Active),
-        hodnotenie: buildDomainUrl('hodnotenie.local', currentPort, port80Active),
-      });
-    } else if (hostname === 'hodnotenie.local' || hostname.endsWith('.hodnotenie.local')) {
-      setDomainUrls({
-        vysledky: buildDomainUrl('vysledky.local', currentPort, port80Active),
-        hodnotenie: buildDomainUrl('hodnotenie.local', currentPort, port80Active),
-      });
-    }
 
-    // Web mode: already accessing via LAN IP
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('0.')) {
+    // Web mode: accessing via .local domain or LAN IP
+    if (hostname === 'vysledky.local' || hostname.endsWith('.vysledky.local') ||
+        hostname === 'hodnotenie.local' || hostname.endsWith('.hodnotenie.local') ||
+        (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('0.'))) {
       setUrl(`${window.location.protocol}//${window.location.host}`);
-      // Also provide .local domain URLs alongside the IP
-      if (!domainUrls) {
-        setDomainUrls({
-          vysledky: buildDomainUrl('vysledky.local', currentPort, port80Active),
-          hodnotenie: buildDomainUrl('hodnotenie.local', currentPort, port80Active),
-        });
-      }
+      setDomainUrls({
+        vysledky: buildPathUrl(hostname, currentPort, port80Active, '/vysledky'),
+        hodnotenie: buildPathUrl(hostname, currentPort, port80Active, '/hodnotenie'),
+      });
       setLoading(false);
       return;
     }
@@ -97,11 +75,9 @@ export function useLanUrl(): LanUrlInfo {
       .then((data: { ip: string; port: number }) => {
         if (data.ip && data.ip !== '127.0.0.1' && data.ip !== 'localhost') {
           setUrl(`http://${data.ip}:${data.port || 3001}`);
-          // In web mode on localhost, we don't know if port 80 is active,
-          // so default to showing port 3001 (the direct backend port)
           setDomainUrls({
-            vysledky: `http://vysledky.local:${data.port || 3001}`,
-            hodnotenie: `http://hodnotenie.local:${data.port || 3001}`,
+            vysledky: buildPathUrl(data.ip, data.port || 3001, false, '/vysledky'),
+            hodnotenie: buildPathUrl(data.ip, data.port || 3001, false, '/hodnotenie'),
           });
         }
       })

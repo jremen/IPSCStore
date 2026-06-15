@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getApiBaseUrl: () => apiBaseUrl,
   isElectron: () => true,
   getLanIp: () => lanIp,
+  // Domain URLs are now direct IP+path links (e.g. http://192.168.1.5:3001/vysledky)
+  // instead of .local hostnames, which do not resolve on Android and are unreliable.
   getDomainUrls: () => ({ vysledky: vysledkyUrl, hodnotenie: hodnotenieUrl }),
   isPort80Active: () => port80Active,
 });

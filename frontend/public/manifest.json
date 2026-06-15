@@ -1,6 +1,7 @@
 {
   "name": "IPSC Score",
   "short_name": "IPSC Score",
+  "id": "ipscscore",
   "description": "IPSC/USPSA scoring application for managing shooting matches, shooters, scoring, and results.",
   "start_url": "/",
   "display": "standalone",

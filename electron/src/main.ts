@@ -320,12 +320,12 @@ function startBackend(port: number): Promise<void> {
 function createWindow(port: number, lanIp: string, port80Active: boolean): void {
   const isDev = process.env.ELECTRON_DEV === 'true';
   const isDebug = process.argv.includes('--debug') || process.argv.includes('--devtools');
-  const portSuffix = port80Active ? '' : `:${port}`;
+  const baseUrl = port80Active ? `http://${lanIp}` : `http://${lanIp}:${port}`;
 
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    title: `IPSC Score${lanIp ? ` — http://${lanIp}${portSuffix}` : ''}`,
+    title: `IPSC Score${lanIp ? ` — ${baseUrl}` : ''}`,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -338,14 +338,10 @@ function createWindow(port: number, lanIp: string, port80Active: boolean): void 
   process.env.ELECTRON_LAN_IP = lanIp;
   process.env.ELECTRON_PORT80 = port80Active ? '1' : '0';
 
-  // Use port-less URLs when port 80 redirect is active
-  if (port80Active) {
-    process.env.ELECTRON_VYSLEDKY_URL = 'http://vysledky.local';
-    process.env.ELECTRON_HODNOTENIE_URL = 'http://hodnotenie.local';
-  } else {
-    process.env.ELECTRON_VYSLEDKY_URL = `http://vysledky.local:${port}`;
-    process.env.ELECTRON_HODNOTENIE_URL = `http://hodnotenie.local:${port}`;
-  }
+  // Expose direct IP-based URLs with path prefixes. This works on every
+  // platform and device, including Android, which cannot resolve .local domains.
+  process.env.ELECTRON_VYSLEDKY_URL = `${baseUrl}/vysledky`;
+  process.env.ELECTRON_HODNOTENIE_URL = `${baseUrl}/hodnotenie`;
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
@@ -568,20 +564,14 @@ async function main(): Promise<void> {
   startMDns(mDnsPort);
 
   // Show LAN access info in console and log
-  const portSuffix = port80Active ? '' : `:${port}`;
   log('');
   log('========================================');
-  log('  Mobile devices can connect to:');
-  log(`  http://${lanIp}${portSuffix}`);
+  log('  Admin interface:');
+  log(`  http://localhost:${port}`);
   log('');
-  log('  .local domains on this network:');
-  if (port80Active) {
-    log('  http://vysledky.local     (public results)');
-    log('  http://hodnotenie.local   (range master scoring)');
-  } else {
-    log(`  http://vysledky.local:${port}   (public results)`);
-    log(`  http://hodnotenie.local:${port}  (range master scoring)`);
-  }
+  log('  Mobile devices can connect to:');
+  log(`  ${process.env.ELECTRON_VYSLEDKY_URL}   (public results)`);
+  log(`  ${process.env.ELECTRON_HODNOTENIE_URL}  (range master scoring)`);
   log('========================================');
   log('');
 }

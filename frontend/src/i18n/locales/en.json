@@ -101,8 +101,15 @@
     "title": "IPSC SCORE",
     "copyUrl": "Copy URL to clipboard",
     "copied": "Copied!",
-    "domainResults": "Public results (.local domain)",
-    "domainScoring": "Range master scoring (.local domain)"
+    "qrTitle": "Scan to connect",
+    "qrResultsLabel": "Public Results",
+    "qrScoringLabel": "Range Master Scoring",
+    "qrResultsLink": "Results",
+    "qrScoringLink": "Scoring",
+    "qrResultsHint": "Show QR code for public results",
+    "qrScoringHint": "Show QR code for range master scoring",
+    "printQrCode": "Print QR Code",
+    "downloadQrPdf": "Download PDF"
   },
   "matches": {
     "title": "Matches",

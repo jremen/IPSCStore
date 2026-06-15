@@ -18226,16 +18226,17 @@ var app = new Hono2();
 app.use("*", corsMiddleware);
 app.use("*", requestLogger);
 app.onError(errorHandler2);
-function getDomainMode(host) {
+function getDomainMode(host, urlPath) {
   if (!host) return "admin";
   const hostname = host.split(":")[0].toLowerCase().trim();
-  if (hostname === "vysledky.local") return "results";
-  if (hostname === "hodnotenie.local") return "scoring";
+  const normalizedPath = urlPath.toLowerCase();
+  if (hostname === "vysledky.local" || normalizedPath.startsWith("/vysledky")) return "results";
+  if (hostname === "hodnotenie.local" || normalizedPath.startsWith("/hodnotenie")) return "scoring";
   return "admin";
 }
 app.use("*", async (c, next) => {
   const host = c.req.header("host");
-  c.set("domainMode", getDomainMode(host));
+  c.set("domainMode", getDomainMode(host, c.req.path));
   await next();
 });
 app.get("/api/health", (c) => {
@@ -18275,6 +18276,59 @@ app.route("/api", uploadRoutes);
 app.route("/api", backupRoutes);
 app.route("/api/import", importRoutes);
 app.route("/api/import", winmssImportRoutes);
+app.get("/manifest.json", async (c) => {
+  let mode = c.req.query("mode");
+  if (!mode) {
+    const referer = c.req.header("referer") || "";
+    try {
+      const refererUrl = new URL(referer);
+      const refererPath = refererUrl.pathname.toLowerCase();
+      const refererHost = refererUrl.hostname.toLowerCase();
+      if (refererPath.startsWith("/vysledky") || refererHost === "vysledky.local") {
+        mode = "results";
+      } else if (refererPath.startsWith("/hodnotenie") || refererHost === "hodnotenie.local") {
+        mode = "scoring";
+      }
+    } catch {
+    }
+  }
+  const frontendDistPath = process.env.FRONTEND_DIST_PATH;
+  let manifest = {
+    name: "IPSC Score",
+    short_name: "IPSC Score",
+    start_url: "/",
+    display: "standalone",
+    display_override: ["window-controls-overlay", "standalone"],
+    background_color: "#1e293b",
+    theme_color: "#1e293b",
+    orientation: "any",
+    icons: [
+      { src: "/icons/android-chrome-192x192.png", sizes: "192x192", type: "image/png" },
+      { src: "/icons/android-chrome-512x512.png", sizes: "512x512", type: "image/png" },
+      { src: "/icons/android-chrome-maskable-192x192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/icons/android-chrome-maskable-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/icons/msapplication-icon-144x144.png", sizes: "144x144", type: "image/png" },
+      { src: "/icons/mstile-150x150.png", sizes: "150x150", type: "image/png" }
+    ]
+  };
+  if (frontendDistPath) {
+    try {
+      const manifestPath = path3.join(frontendDistPath, "manifest.json");
+      const raw2 = fs4.readFileSync(manifestPath, "utf-8");
+      manifest = JSON.parse(raw2);
+    } catch (err) {
+      console.error("[Manifest] Failed to read static manifest, using default:", err);
+    }
+  }
+  if (mode === "results") {
+    manifest.start_url = "/vysledky";
+    manifest.id = "ipscscore-results";
+  } else if (mode === "scoring") {
+    manifest.start_url = "/hodnotenie";
+    manifest.id = "ipscscore-scoring";
+  }
+  return c.json(manifest);
+});
 function enableStaticServing(frontendDistPath) {
   console.log(`[Static] Setting up frontend serving from: ${frontendDistPath}`);
   if (!fs4.existsSync(frontendDistPath)) {
@@ -18302,6 +18356,11 @@ function enableStaticServing(frontendDistPath) {
         html = html.replace(
           "<head>",
           `<head><script>window.__DOMAIN_MODE__ = "${domainMode}";</script>`
+        );
+        const manifestHref = domainMode === "results" ? "/manifest.json?mode=results" : "/manifest.json?mode=scoring";
+        html = html.replace(
+          /<link[^>]*rel=["']manifest["'][^>]*>/i,
+          `<link rel="manifest" href="${manifestHref}" />`
         );
       }
       return c.html(html);

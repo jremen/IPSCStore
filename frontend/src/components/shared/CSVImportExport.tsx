@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { api } from '../../services/api';
 import CSVImportModal from './CSVImportModal';
 import { TbFileImport, TbFileExport } from 'react-icons/tb';
+import { onMenuAction } from '../../hooks/useMenuActions';
 
 interface Props {
   type: 'shooters' | 'registrations' | 'scores';
@@ -19,6 +20,15 @@ export default function CSVImportExport({ type, matchId, onImportComplete }: Pro
   const [exporting, setExporting] = useState(false);
 
   const label = type === 'shooters' ? t('import.importShooters') : type === 'registrations' ? t('import.importRegistrations') : t('import.importScores');
+
+  useEffect(() => {
+    const action = type === 'shooters' ? 'import-shooters-csv' : type === 'registrations' ? 'import-registrations-csv' : null;
+    if (!action) return;
+    return onMenuAction(action, () => {
+      if (type === 'registrations' && !matchId) return;
+      setShow(true);
+    });
+  }, [type, matchId]);
 
   const handleExportRegistrations = async () => {
     if (!matchId) return;

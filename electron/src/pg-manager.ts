@@ -346,12 +346,65 @@ export class PgManager {
     }
   }
 
+  /**
+   * Check whether a PostgreSQL server is already running for this data directory.
+   * Reads postmaster.pid and checks if the PID is alive and responds on our port.
+   */
+  private async isPostgresRunning(): Promise<boolean> {
+    const pidFile = path.join(this.config.dataDir, 'postmaster.pid');
+    try {
+      const pidData = await fs.readFile(pidFile, 'utf-8');
+      const pid = parseInt(pidData.split('\n')[0], 10);
+      if (!pid || isNaN(pid)) return false;
+
+      // Check if the process is alive
+      try {
+        process.kill(pid, 0);
+      } catch {
+        return false;
+      }
+
+      // Also verify it is accepting connections on our port
+      try {
+        await this.waitReady(2, 500);
+        return true;
+      } catch {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Clean up a stale postmaster.pid file left by a crashed or forcibly killed server.
+   */
+  private async cleanStalePidFile(): Promise<void> {
+    const pidFile = path.join(this.config.dataDir, 'postmaster.pid');
+    try {
+      await fs.unlink(pidFile);
+      log('[PgManager] Removed stale postmaster.pid');
+    } catch {
+      // ignore
+    }
+  }
+
   /** Start PostgreSQL */
   async start(): Promise<void> {
     log('[PgManager] Starting PostgreSQL...');
 
     // Ensure data directory exists
     await fs.mkdir(this.config.dataDir, { recursive: true });
+
+    // If postgres is already running for this data directory, just use it.
+    // This prevents spurious failures when a previous instance didn't shut down cleanly.
+    if (await this.isPostgresRunning()) {
+      log('[PgManager] PostgreSQL is already running for this data directory');
+      return;
+    }
+
+    // No running server — clean up any stale PID file before starting
+    await this.cleanStalePidFile();
 
     // Configure PostgreSQL to listen on our port
     const postgresConf = path.join(this.config.dataDir, 'postgresql.conf');
@@ -405,32 +458,47 @@ export class PgManager {
       args.push('-w'); // Wait until started (works reliably on Unix)
     }
 
-    try {
-      const { stdout, stderr } = await execFileAsync(pgCtl, args, { env, timeout: 30000 });
-      if (stdout) log(`[PgManager] pg_ctl stdout: ${stdout.substring(0, 300)}`);
-      if (stderr) log(`[PgManager] pg_ctl stderr: ${stderr.substring(0, 300)}`);
-    } catch (err: any) {
-      // Log pg_ctl output for debugging
-      const ctlOut = err?.stdout ? `\nOutput: ${err.stdout.substring(0, 300)}` : '';
-      const ctlErr = err?.stderr ? `\nError: ${err.stderr.substring(0, 300)}` : '';
-      // On Windows, pg_ctl start without -w returns immediately, so this
-      // shouldn't timeout. On Unix with -w, a timeout means PG didn't start.
-      if (isWin32 && err?.killed) {
-        // Timeout on Windows — pg_ctl might not have started yet, but that's OK
-        // We'll check readiness in waitReady()
-        log(`[PgManager] pg_ctl start timed out (Windows), checking readiness...${ctlOut}${ctlErr}`);
-      } else if (!isWin32) {
-        logError(`[PgManager] pg_ctl start failed${ctlOut}${ctlErr}`, err);
-        throw err;
-      } else {
-        // Windows non-timeout error — log but continue to readiness check
-        logError(`[PgManager] pg_ctl start error (continuing)${ctlOut}${ctlErr}`, err?.message || String(err));
+    const tryStart = async (): Promise<void> => {
+      try {
+        const { stdout, stderr } = await execFileAsync(pgCtl, args, { env, timeout: 30000 });
+        if (stdout) log(`[PgManager] pg_ctl stdout: ${stdout.substring(0, 300)}`);
+        if (stderr) log(`[PgManager] pg_ctl stderr: ${stderr.substring(0, 300)}`);
+      } catch (err: any) {
+        // Log pg_ctl output for debugging
+        const ctlOut = err?.stdout ? `\nOutput: ${err.stdout.substring(0, 300)}` : '';
+        const ctlErr = err?.stderr ? `\nError: ${err.stderr.substring(0, 300)}` : '';
+        // On Windows, pg_ctl start without -w returns immediately, so this
+        // shouldn't timeout. On Unix with -w, a timeout means PG didn't start.
+        if (isWin32 && err?.killed) {
+          // Timeout on Windows — pg_ctl might not have started yet, but that's OK
+          // We'll check readiness in waitReady()
+          log(`[PgManager] pg_ctl start timed out (Windows), checking readiness...${ctlOut}${ctlErr}`);
+        } else if (!isWin32) {
+          logError(`[PgManager] pg_ctl start failed${ctlOut}${ctlErr}`, err);
+          throw err;
+        } else {
+          // Windows non-timeout error — log but continue to readiness check
+          logError(`[PgManager] pg_ctl start error (continuing)${ctlOut}${ctlErr}`, err?.message || String(err));
+        }
       }
-    }
+    };
+
+    await tryStart();
 
     // On Windows, always wait for readiness manually since we can't rely on -w
     if (isWin32) {
       await this.waitReady(60, 1000);
+    } else {
+      // On Unix, pg_ctl -w already waited, but do a quick sanity check.
+      try {
+        await this.waitReady(5, 500);
+      } catch {
+        // If it didn't become ready, retry once (e.g. stale lock file was cleaned)
+        log('[PgManager] First start did not become ready, retrying once...');
+        await this.cleanStalePidFile();
+        await tryStart();
+        await this.waitReady(30, 1000);
+      }
     }
 
     log('[PgManager] PostgreSQL started');

@@ -15,6 +15,7 @@ import StageLoginPage from '../auth/StageLoginPage';
 import PublicResultsView from '../results/PublicResultsView';
 import { useOfflineStatus } from '../../hooks/useOfflineStatus';
 import { useOfflineSync } from '../../hooks/useOfflineSync';
+import MenuActionListener from '../shared/MenuActionListener';
 
 export default function AppLayout() {
   const { activeTab, activeMatchId, setActiveMatch } = useUIStore();
@@ -24,6 +25,10 @@ export default function AppLayout() {
   // Offline support hooks — always active
   useOfflineStatus();
   useOfflineSync();
+
+  // Native menu action bridge (Electron only)
+  const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron?.();
+  const menuListener = isElectron ? <MenuActionListener /> : null;
 
   // Restore auth session on mount
   useEffect(() => {
@@ -97,6 +102,7 @@ export default function AppLayout() {
   if (!isAdmin && authenticatedStageId) {
     return (
       <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+        {menuListener}
         <Header />
         <main className="flex-1 min-h-0 overflow-hidden lg:overflow-auto">
           <Scoring restrictedStageId={authenticatedStageId} />
@@ -112,6 +118,7 @@ export default function AppLayout() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-200 dark:bg-gray-900">
+      {menuListener}
       <Header />
       <TabBar />
       <main className={`flex-1 min-h-0 ${isScoringTab ? 'overflow-hidden lg:overflow-auto' : 'overflow-auto'}`}>

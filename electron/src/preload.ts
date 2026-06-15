@@ -1,4 +1,4 @@
-import { contextBridge } from 'electron';
+import { contextBridge, ipcRenderer } from 'electron';
 
 // These values are set by the main process before the preload script runs
 const apiBaseUrl = process.env.ELECTRON_API_URL || 'http://localhost:3001';
@@ -15,4 +15,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // instead of .local hostnames, which do not resolve on Android and are unreliable.
   getDomainUrls: () => ({ vysledky: vysledkyUrl, hodnotenie: hodnotenieUrl }),
   isPort80Active: () => port80Active,
+
+  // Native menu action IPC.
+  onMenuAction: (callback: (action: string, payload?: any) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, action: string, payload?: any) => callback(action, payload);
+    ipcRenderer.on('menu-action', handler);
+    return () => ipcRenderer.removeListener('menu-action', handler);
+  },
+  setMenuState: (state: Record<string, any>) => ipcRenderer.send('set-menu-state', state),
 });

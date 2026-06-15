@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button, Modal, ModalHeader, ModalBody, ModalFooter, TextInput } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
@@ -7,6 +7,7 @@ import { useMatchStore } from '../../stores/matchStore';
 import { api } from '../../services/api';
 import { divisionLabel, categoryLabel } from '../../utils/constants';
 import { loadPdfFonts, setRegularFont, setBoldFont } from '../../utils/pdfFont';
+import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 type ResultTab = 'byDivision' | 'overall' | 'byStage' | 'byCategory' | 'byTag';
 
@@ -60,7 +61,7 @@ export default function ExportButtons({ activeTab }: ExportButtonsProps) {
   const baseName = (activeMatch?.name || 'Match').replace(/[^a-zA-Z0-9]/g, '_');
   const tabSuffix = TAB_SUFFIX[activeTab];
 
-  const handlePrint = () => { window.print(); };
+  const handlePrint = useCallback(() => { window.print(); }, []);
 
   /** Show Save As dialog: native first, then custom modal fallback */
   const showSaveDialog = useCallback(async (blob: Blob, defaultName: string, extension: string, types: { description: string; accept: Record<string, string[]> }[], successKey: string) => {
@@ -84,7 +85,7 @@ export default function ExportButtons({ activeTab }: ExportButtonsProps) {
     addToast(t('results.fileExported'), 'success');
   };
 
-  const handleCSV = async () => {
+  const handleCSV = useCallback(async () => {
     if (!activeMatchId) return;
     try {
       const csv = await api.exportCSV(activeMatchId);
@@ -93,9 +94,9 @@ export default function ExportButtons({ activeTab }: ExportButtonsProps) {
         { description: 'CSV file', accept: { 'text/csv': ['.csv'] } },
       ], 'results.csvExported');
     } catch (err: any) { addToast(err.message, 'error'); }
-  };
+  }, [activeMatchId, baseName, tabSuffix, showSaveDialog, addToast]);
 
-  const handleHTML = async () => {
+  const handleHTML = useCallback(async () => {
     if (!activeMatchId) return;
     try {
       const html = await api.exportHTML(activeMatchId);
@@ -104,9 +105,9 @@ export default function ExportButtons({ activeTab }: ExportButtonsProps) {
         { description: 'HTML file', accept: { 'text/html': ['.html'] } },
       ], 'results.htmlExported');
     } catch (err: any) { addToast(err.message, 'error'); }
-  };
+  }, [activeMatchId, baseName, tabSuffix, showSaveDialog, addToast]);
 
-  const handlePDF = async () => {
+  const handlePDF = useCallback(async () => {
     if (!activeMatchId) return;
     setPdfLoading(true);
     try {
@@ -149,7 +150,12 @@ export default function ExportButtons({ activeTab }: ExportButtonsProps) {
       console.error('PDF export error:', err);
       addToast(err.message, 'error');
     } finally { setPdfLoading(false); }
-  };
+  }, [activeMatchId, activeTab, activeMatch, baseName, tabSuffix, showSaveDialog, addToast, t]);
+
+  useTabMenuAction('print-results', handlePrint);
+  useTabMenuAction('export-results-pdf', () => { if (activeMatchId) handlePDF(); });
+  useTabMenuAction('export-results-csv', () => { if (activeMatchId) handleCSV(); });
+  useTabMenuAction('export-results-html', () => { if (activeMatchId) handleHTML(); });
 
   return (
     <>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Badge, Button } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
@@ -10,6 +10,7 @@ import OfflineIndicator from './OfflineIndicator';
 import SettingsModal from '../settings/SettingsModal';
 import { ThemeToggle } from "../settings/ThemeToggle";
 import { TbSettings } from "react-icons/tb";
+import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function Header() {
   const { activeMatchId } = useUIStore();
@@ -17,6 +18,10 @@ export default function Header() {
   const { isAdmin, authenticatedStageName, logout, adminLogout } = useAuthStore();
   const { t } = useTranslation();
   const [showSettings, setShowSettings] = useState(false);
+
+  useTabMenuAction('open-preferences', () => {
+    if (isAdmin) setShowSettings(true);
+  });
 
   const handleLogout = () => {
     if (isAdmin) {

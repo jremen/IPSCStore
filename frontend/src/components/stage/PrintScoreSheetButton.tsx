@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useMatchStore } from '../../stores/matchStore';
@@ -6,6 +6,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { generateScoreSheetPdf, nativeSaveAs, downloadBlob } from '../../utils/scoreSheetPdf';
 import type { Stage } from '../../types/stage';
 import ScoreSheetCountModal from './ScoreSheetCountModal';
+import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function PrintScoreSheetButton({ stages }: { stages: Stage[] }) {
   const { t } = useTranslation();
@@ -13,6 +14,10 @@ export default function PrintScoreSheetButton({ stages }: { stages: Stage[] }) {
   const { activeMatchId, addToast } = useUIStore();
   const [showModal, setShowModal] = useState(false);
   const [generating, setGenerating] = useState(false);
+
+  useTabMenuAction('print-score-sheets', () => {
+    if (stages.length > 0) setShowModal(true);
+  });
 
   const activeMatch = matches?.find((m: any) => m.id === activeMatchId);
 

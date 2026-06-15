@@ -13,6 +13,7 @@ import CreateShooterModal from './CreateShooterModal';
 import EditRegistrationModal from './EditRegistrationModal';
 import BulkEditRegistrationsModal from './BulkEditRegistrationsModal';
 import BulkRemoveRegistrationsModal from './BulkRemoveRegistrationsModal';
+import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function MatchRegistration() {
   const { activeMatchId, addToast } = useUIStore();
@@ -30,6 +31,13 @@ export default function MatchRegistration() {
   useEffect(() => {
     if (activeMatchId) loadRegistrations();
   }, [activeMatchId]);
+
+  useTabMenuAction('add-registration', () => {
+    if (activeMatchId) setShowAdd(true);
+  });
+  useTabMenuAction('new-registration-shooter', () => {
+    if (activeMatchId) setShowInlineCreate(true);
+  });
 
   const loadRegistrations = async () => {
     if (!activeMatchId) return;

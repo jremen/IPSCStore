@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Button, Checkbox, Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell, TextInput, ToggleSwitch, Badge } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useShooterStore } from '../../stores/shooterStore';
@@ -12,6 +12,7 @@ import ShooterFormModal from './ShooterFormModal';
 import DeleteShooterModal from './DeleteShooterModal';
 import BulkDeleteShootersModal from './BulkDeleteShootersModal';
 import BulkEditShootersModal from './BulkEditShootersModal';
+import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function ShooterDatabase() {
   const { shooters, total, loading, showDeleted, fetchShooters, restoreShooter, toggleShowDeleted } = useShooterStore();
@@ -23,11 +24,16 @@ export default function ShooterDatabase() {
   const [showBulkDelete, setShowBulkDelete] = useState(false);
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [shooterToDelete, setShooterToDelete] = useState<{ id: string; first_name: string; last_name: string } | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const shooterIds = shooters.map((s) => s.id);
   const selection = useSelection(shooterIds);
 
   useEffect(() => { fetchShooters(); }, [fetchShooters]);
+
+  useTabMenuAction('new-shooter', () => setShowCreate(true));
+  useTabMenuAction('toggle-show-deleted', () => toggleShowDeleted());
+  useTabMenuAction('focus-search', () => searchRef.current?.focus());
 
   const handleSearch = useCallback(() => {
     fetchShooters({ search });
@@ -85,7 +91,7 @@ export default function ShooterDatabase() {
           </div>
         </div>
         <div className="flex items-center gap-4 mb-2">
-          <TextInput placeholder={t('shooters.search')} value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1" />
+          <TextInput ref={searchRef} placeholder={t('shooters.search')} value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1" />
           <ToggleSwitch
             checked={showDeleted}
             onChange={toggleShowDeleted}

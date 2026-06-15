@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { Button, Badge, TextInput, Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useMatchStore } from '../../stores/matchStore';
@@ -10,6 +10,7 @@ import DeleteMatchModal from './DeleteMatchModal';
 import DeleteAllMatchesModal from './DeleteAllMatchesModal';
 import CreateMatchModal from './CreateMatchModal';
 import { TbTrash } from 'react-icons/tb';
+import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function MatchList() {
   const { matches, loading, fetchMatches, markCurrent, unmarkCurrent } = useMatchStore();
@@ -19,8 +20,15 @@ export default function MatchList() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showDeleteAll, setShowDeleteAll] = useState(false);
   const [search, setSearch] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { fetchMatches(); }, [fetchMatches]);
+
+  useTabMenuAction('new-match', () => setShowCreate(true));
+  useTabMenuAction('delete-all-matches', () => {
+    if (matches.length > 0) setShowDeleteAll(true);
+  });
+  useTabMenuAction('focus-search', () => searchRef.current?.focus());
 
   const filteredMatches = useMemo(() => {
     if (!search) return matches;
@@ -50,6 +58,7 @@ export default function MatchList() {
         </div>
 
         <TextInput
+          ref={searchRef}
           placeholder={t('matches.searchMatches')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}

@@ -1,4 +1,5 @@
 import { Button, Badge } from 'flowbite-react';
+import { useEffect } from 'react';
 
 import { divisionLabel, categoryLabel, powerFactorLabel } from '../../utils/constants';
 
@@ -13,6 +14,7 @@ import { useStageStore } from "../../stores/stageStore";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "../../stores/uiStore";
 import { useScoringProgress } from "../../hooks/useScoringProgress";
+import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 interface ScoringNavProps {
   /** If set, restrict the view to only this stage (for remote scorers) */
@@ -27,6 +29,12 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
   const { stages } = useStageStore();
   const { t } = useTranslation();
   const {currentShooter, currentStage, performSave, handleSelectShooter, handleSummaryBack, handleConfirm, handleStageChange, canConfirm} = useScoringNav(restrictedStageId);
+
+  useTabMenuAction('prev-shooter', () => prevShooter());
+  useTabMenuAction('next-shooter', () => nextShooter());
+  useTabMenuAction('confirm-score', () => {
+    if (canConfirm) handleConfirm();
+  });
 
   if (!activeMatchId) {
     return (

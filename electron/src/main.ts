@@ -7,6 +7,7 @@ import { PgManager } from './pg-manager.js';
 import { setupPort80Redirect, removePort80Redirect, isPort80RedirectActive } from './port80.js';
 import { initLogger, log, logError, flushLog, getLogPath } from './logger.js';
 import { showDatabaseUrlDialog } from './db-config-dialog.js';
+import { buildMenu, setMainWindow, setupMenuIpc, updateMenuState } from './menu.js';
 
 // Initialize the logger IMMEDIATELY — before any async operations or event handlers.
 // Uses a fallback directory (not app.getPath) since the app isn't ready yet.
@@ -333,6 +334,8 @@ function createWindow(port: number, lanIp: string, port80Active: boolean): void 
     },
   });
 
+  setMainWindow(mainWindow);
+
   // Set environment variables for the preload script
   process.env.ELECTRON_API_URL = `http://localhost:${port}`;
   process.env.ELECTRON_LAN_IP = lanIp;
@@ -358,27 +361,11 @@ function createWindow(port: number, lanIp: string, port80Active: boolean): void 
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    setMainWindow(null);
   });
 
-  // Build application menu
-  const template: Electron.MenuItemConstructorOptions[] = [
-    {
-      label: 'File',
-      submenu: [
-        { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() },
-      ],
-    },
-    {
-      label: 'View',
-      submenu: [
-        { label: 'Reload', accelerator: 'CmdOrCtrl+R', click: () => mainWindow?.reload() },
-        { type: 'separator' },
-        { label: 'Toggle Developer Tools', accelerator: 'CmdOrCtrl+Shift+I', click: () => mainWindow?.webContents.toggleDevTools() },
-      ],
-    },
-  ];
-
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  // Build the full native application menu.
+  buildMenu();
 }
 
 /**
@@ -492,7 +479,6 @@ async function main(): Promise<void> {
     try {
       await pgManager.initialize();
       await pgManager.start();
-      await pgManager.waitReady();
       process.env.DATABASE_URL = pgManager.getConnectionString();
       log('[Main] Bundled PostgreSQL started');
     } catch (err) {
@@ -529,6 +515,9 @@ async function main(): Promise<void> {
   try {
     await startBackend(port);
     log('[Main] Backend server started successfully');
+
+    // Set up native menu IPC after the backend is ready.
+    setupMenuIpc();
   } catch (err) {
     logError('[Main] Failed to start backend', err);
     flushLog();
@@ -606,6 +595,9 @@ app.on('activate', () => {
   if (mainWindow === null) {
     const port = parseInt(process.env.PORT || '3001', 10);
     createWindow(port, process.env.ELECTRON_LAN_IP || getLanIp(), isPort80RedirectActive());
+  } else {
+    setMainWindow(mainWindow);
+    buildMenu();
   }
 });
 

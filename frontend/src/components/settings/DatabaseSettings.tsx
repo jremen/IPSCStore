@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button, Modal, ModalHeader, ModalBody, ModalFooter, Alert } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useDatabaseBackup } from '../../hooks/useDatabaseBackup';
+import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function DatabaseSettings() {
   const { exporting, importing, handleExport, handleImport } = useDatabaseBackup();
@@ -9,6 +10,13 @@ export default function DatabaseSettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  useTabMenuAction('export-database-backup', () => {
+    if (!exporting && !importing) handleExport();
+  });
+  useTabMenuAction('import-database-backup', () => {
+    if (!exporting && !importing) fileInputRef.current?.click();
+  });
 
   const handleImportClick = () => {
     fileInputRef.current?.click();

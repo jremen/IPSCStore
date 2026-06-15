@@ -8,6 +8,7 @@ import StageImageUpload from './StageImageUpload';
 import StageFormModal from './StageFormModal';
 import PrintScoreSheetButton from './PrintScoreSheetButton';
 import type { Stage } from '../../types/stage';
+import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 function getScoringTypeLabel(type: string): string {
   const found = SCORING_TYPES.find(s => s.value === type);
@@ -24,6 +25,10 @@ export default function StageList() {
   useEffect(() => {
     if (activeMatchId) fetchStages(activeMatchId);
   }, [activeMatchId, fetchStages]);
+
+  useTabMenuAction('new-stage', () => {
+    if (activeMatchId) setShowCreate(true);
+  });
 
   const handleDelete = async (stageId: string) => {
     if (!activeMatchId) return;

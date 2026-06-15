@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { Hono } from 'hono';
 import { serveStatic } from '@hono/node-server/serve-static';
+import { streamSSE } from 'hono/streaming';
 import { corsMiddleware } from './middleware/cors.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
@@ -20,6 +21,7 @@ import { winmssImportRoutes } from './routes/winmssImport.js';
 import { authRoutes } from './routes/auth.js';
 import { backupRoutes } from './routes/backup.js';
 import { env } from './env.js';
+import { eventBroadcaster } from './services/events.js';
 
 const app = new Hono<{
   Variables: {
@@ -57,6 +59,26 @@ app.use('*', async (c, next) => {
 // Health check
 app.get('/api/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Server-Sent Events stream — pushes real-time match updates to connected clients
+app.get('/api/events', async (c) => {
+  const matchId = c.req.query('matchId') || null;
+
+  return streamSSE(c, async (stream) => {
+    eventBroadcaster.add(matchId, stream);
+    await stream.writeSSE({
+      event: 'connected',
+      data: JSON.stringify({ matchId, connectedAt: new Date().toISOString() }),
+    });
+
+    // Keep the connection alive while the client is interested.
+    // `stream.aborted` becomes true when the client disconnects; the
+    // broadcaster's onAbort listener then removes this stream.
+    while (!stream.aborted) {
+      await stream.sleep(30000);
+    }
+  });
 });
 
 // LAN info — returns server's LAN IP and port for mobile device access

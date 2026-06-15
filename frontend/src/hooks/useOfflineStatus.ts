@@ -22,8 +22,10 @@ export function useOfflineStatus() {
       setOfflineMode(false);
 
       // Trigger sync of pending saves
-      import('../services/syncManager').then(({ flushPendingSaves }) => {
+      import('../services/syncManager').then(({ flushPendingSaves, requestSync }) => {
         flushPendingSaves().catch(() => {});
+        // Also register a Background Sync in case the user goes offline again
+        requestSync().catch(() => {});
       });
     };
 
@@ -35,6 +37,13 @@ export function useOfflineStatus() {
 
     // Set initial state
     setOfflineMode(!navigator.onLine);
+
+    // If we started online but have pending saves, flush them now (fresh load)
+    if (navigator.onLine) {
+      import('../services/syncManager').then(({ flushPendingSaves }) => {
+        flushPendingSaves().catch(() => {});
+      });
+    }
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);

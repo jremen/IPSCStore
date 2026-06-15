@@ -15,6 +15,7 @@ import StageLoginPage from '../auth/StageLoginPage';
 import PublicResultsView from '../results/PublicResultsView';
 import { useOfflineStatus } from '../../hooks/useOfflineStatus';
 import { useOfflineSync } from '../../hooks/useOfflineSync';
+import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
 import MenuActionListener from '../shared/MenuActionListener';
 
 export default function AppLayout() {
@@ -25,6 +26,7 @@ export default function AppLayout() {
   // Offline support hooks — always active
   useOfflineStatus();
   useOfflineSync();
+  useRealtimeUpdates();
 
   // Native menu action bridge (Electron only)
   const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron?.();

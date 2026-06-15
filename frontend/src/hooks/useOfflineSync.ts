@@ -23,7 +23,18 @@ export function useOfflineSync() {
     refreshPendingCount();
   }, [refreshPendingCount]);
 
-  // Periodic polling when there are pending saves
+  // Immediate flush on mount if we're online and have pending saves
+  useEffect(() => {
+    if (pendingSaveCount > 0 && navigator.onLine) {
+      import('../services/syncManager').then(({ flushPendingSaves }) => {
+        flushPendingSaves().catch(() => {});
+      });
+    }
+  }, []);
+
+  // Periodic polling whenever there are pending saves. The callback checks
+  // navigator.onLine internally so the interval keeps running while offline
+  // and flushes immediately once the device is back online.
   useEffect(() => {
     // Clear any existing interval
     if (intervalRef.current !== null) {
@@ -31,8 +42,7 @@ export function useOfflineSync() {
       intervalRef.current = null;
     }
 
-    // Only poll when online and there are pending saves
-    if (pendingSaveCount > 0 && navigator.onLine) {
+    if (pendingSaveCount > 0) {
       intervalRef.current = window.setInterval(() => {
         if (navigator.onLine) {
           import('../services/syncManager').then(({ flushPendingSaves }) => {

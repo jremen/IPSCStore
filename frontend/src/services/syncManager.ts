@@ -12,6 +12,23 @@ import type { PendingSave } from './offlineDB';
 const MAX_RETRIES = 5;
 
 /**
+ * Determine whether a thrown error represents a network-level failure.
+ */
+function isNetworkError(err: any): boolean {
+  if (!navigator.onLine) return true;
+  if (err instanceof TypeError) return true;
+  const msg = String(err?.message || '').toLowerCase();
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('load failed') ||
+    msg.includes('internet connection appears to be offline') ||
+    msg.includes('offline')
+  );
+}
+
+/**
  * Flush all pending saves to the server, processing them sequentially
  * in creation order. Returns the number of successfully synced saves.
  */
@@ -39,7 +56,7 @@ export async function flushPendingSaves(): Promise<number> {
     } catch (err: any) {
       const retryCount = save.retryCount + 1;
 
-      if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError') || err.message?.includes('Network request failed')) {
+      if (isNetworkError(err)) {
         // Network error — stop processing, will retry later
         await offlineDB.updatePendingSave(save.id!, { status: 'pending', retryCount });
         break;
@@ -145,13 +162,17 @@ async function replayUndqShooter(save: PendingSave): Promise<void> {
  * if the browser is online. This is the primary trigger for syncing.
  */
 export async function requestSync(): Promise<void> {
-  // Try Background Sync API (Chrome, Edge)
+  // Try Background Sync API (Chrome, Edge). This registers a one-shot sync
+  // that fires as soon as the device is back online, even if the page is
+  // in the background.
   if ('serviceWorker' in navigator && 'SyncManager' in window) {
     try {
       const reg = await navigator.serviceWorker.ready;
       // TypeScript doesn't have SyncManager types by default
-      (reg as any).sync.register('ipscscore-sync-scores');
-    } catch {
+      await (reg as any).sync.register('ipscscore-sync-scores');
+      console.log('[SW] Background Sync registered');
+    } catch (err) {
+      console.log('[SW] Background Sync registration failed:', err);
       // Sync registration failed (e.g., permission denied) — fallback will handle it
     }
   }

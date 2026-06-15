@@ -4,15 +4,18 @@ import { api } from '../../services/api';
 import { useUIStore } from '../../stores/uiStore';
 import { useMatchStore } from '../../stores/matchStore';
 import { useResultsStore } from '../../stores/resultsStore';
+import { useSSEStore } from '../../stores/sseStore';
 import ResultsOverview from './ResultsOverview';
 import LanguageSelector from '../settings/LanguageSelector';
 import { ThemeToggle } from "../settings/ThemeToggle";
 
 const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
+const SSE_FALLBACK_INTERVAL = 300000; // 5 minutes
 
 export default function PublicResultsView() {
   const { t } = useTranslation();
-  const { activeMatchId, setActiveMatch } = useUIStore();
+  const { activeMatchId, setActiveMatch, setActiveTab } = useUIStore();
+  const sseConnected = useSSEStore((s) => s.connected);
   const { fetchMatches } = useMatchStore();
   const { fetchOverall, fetchByDivision, fetchByStage, fetchByCategory, fetchByTag } = useResultsStore();
   const [loading, setLoading] = useState(true);
@@ -22,6 +25,7 @@ export default function PublicResultsView() {
 
   // Load current match on mount
   useEffect(() => {
+    setActiveTab('results');
     (async () => {
       try {
         const currentMatch = await api.getCurrentMatch();
@@ -39,7 +43,7 @@ export default function PublicResultsView() {
         setLoading(false);
       }
     })();
-  }, [setActiveMatch, fetchMatches]);
+  }, [setActiveMatch, setActiveTab, fetchMatches]);
 
   // Fetch results when match is set
   useEffect(() => {
@@ -66,9 +70,9 @@ export default function PublicResultsView() {
   }, [fetchOverall, fetchByDivision, fetchByStage, fetchByCategory, fetchByTag]);
 
   useEffect(() => {
-    const interval = setInterval(refreshResults, AUTO_REFRESH_INTERVAL);
+    const interval = setInterval(refreshResults, sseConnected ? SSE_FALLBACK_INTERVAL : AUTO_REFRESH_INTERVAL);
     return () => clearInterval(interval);
-  }, [refreshResults]);
+  }, [refreshResults, sseConnected]);
 
   if (loading) {
     return (

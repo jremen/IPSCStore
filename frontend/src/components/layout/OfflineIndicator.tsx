@@ -16,7 +16,7 @@ export default function OfflineIndicator() {
 
   return (
     <div className="flex items-center gap-1.5">
-      {!isOfflineMode && (
+      {isOfflineMode && (
         <Badge color="failure" icon={() => <TbWifiOff className="size-4"/>} className="flex items-center gap-1 text-xs">
           {t('offline.mode')}
         </Badge>

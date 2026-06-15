@@ -629,13 +629,13 @@ function writeFromReadableStreamDefaultReader(reader, writable, currentReadPromi
     }
   }
 }
-function writeFromReadableStream(stream, writable) {
-  if (stream.locked) {
+function writeFromReadableStream(stream2, writable) {
+  if (stream2.locked) {
     throw new TypeError("ReadableStream is locked.");
   } else if (writable.destroyed) {
     return;
   }
-  return writeFromReadableStreamDefaultReader(stream.getReader(), writable);
+  return writeFromReadableStreamDefaultReader(stream2.getReader(), writable);
 }
 var buildOutgoingHttpHeaders = (headers) => {
   const res = {};
@@ -3119,24 +3119,24 @@ var pr54206Applied = () => {
   return major >= 23 || major === 22 && minor >= 7 || major === 20 && minor >= 18;
 };
 var useReadableToWeb = pr54206Applied();
-var createStreamBody = (stream) => {
+var createStreamBody = (stream2) => {
   if (useReadableToWeb) {
-    return Readable2.toWeb(stream);
+    return Readable2.toWeb(stream2);
   }
   const body = new ReadableStream({
     start(controller) {
-      stream.on("data", (chunk) => {
+      stream2.on("data", (chunk) => {
         controller.enqueue(chunk);
       });
-      stream.on("error", (err) => {
+      stream2.on("error", (err) => {
         controller.error(err);
       });
-      stream.on("end", () => {
+      stream2.on("end", () => {
         controller.close();
       });
     },
     cancel() {
-      stream.destroy();
+      stream2.destroy();
     }
   });
   return body;
@@ -3241,14 +3241,165 @@ var serveStatic = (options = { root: "" }) => {
         end = size2 - 1;
       }
       const chunksize = end - start + 1;
-      const stream = createReadStream(path4, { start, end });
+      const stream2 = createReadStream(path4, { start, end });
       c.header("Content-Length", chunksize.toString());
       c.header("Content-Range", `bytes ${start}-${end}/${stats.size}`);
-      result = c.body(createStreamBody(stream), 206);
+      result = c.body(createStreamBody(stream2), 206);
     }
     await options.onFound?.(path4, c);
     return result;
   };
+};
+
+// ../node_modules/hono/dist/utils/stream.js
+var StreamingApi = class {
+  writer;
+  encoder;
+  writable;
+  abortSubscribers = [];
+  responseReadable;
+  /**
+   * Whether the stream has been aborted.
+   */
+  aborted = false;
+  /**
+   * Whether the stream has been closed normally.
+   */
+  closed = false;
+  constructor(writable, _readable) {
+    this.writable = writable;
+    this.writer = writable.getWriter();
+    this.encoder = new TextEncoder();
+    const reader = _readable.getReader();
+    this.abortSubscribers.push(async () => {
+      await reader.cancel();
+    });
+    this.responseReadable = new ReadableStream({
+      async pull(controller) {
+        const { done, value } = await reader.read();
+        done ? controller.close() : controller.enqueue(value);
+      },
+      cancel: () => {
+        if (!this.closed) {
+          this.abort();
+        }
+      }
+    });
+  }
+  async write(input) {
+    try {
+      if (typeof input === "string") {
+        input = this.encoder.encode(input);
+      }
+      await this.writer.write(input);
+    } catch {
+    }
+    return this;
+  }
+  async writeln(input) {
+    await this.write(input + "\n");
+    return this;
+  }
+  sleep(ms) {
+    return new Promise((res) => setTimeout(res, ms));
+  }
+  async close() {
+    this.closed = true;
+    try {
+      await this.writer.close();
+    } catch {
+    }
+  }
+  async pipe(body) {
+    this.writer.releaseLock();
+    await body.pipeTo(this.writable, { preventClose: true });
+    this.writer = this.writable.getWriter();
+  }
+  onAbort(listener) {
+    this.abortSubscribers.push(listener);
+  }
+  /**
+   * Abort the stream.
+   * You can call this method when stream is aborted by external event.
+   */
+  abort() {
+    if (!this.aborted) {
+      this.aborted = true;
+      this.abortSubscribers.forEach((subscriber) => subscriber());
+    }
+  }
+};
+
+// ../node_modules/hono/dist/helper/streaming/utils.js
+var isOldBunVersion = () => {
+  const version = typeof Bun !== "undefined" ? Bun.version : void 0;
+  if (version === void 0) {
+    return false;
+  }
+  const result = version.startsWith("1.1") || version.startsWith("1.0") || version.startsWith("0.");
+  isOldBunVersion = () => result;
+  return result;
+};
+
+// ../node_modules/hono/dist/helper/streaming/sse.js
+var SSEStreamingApi = class extends StreamingApi {
+  constructor(writable, readable) {
+    super(writable, readable);
+  }
+  async writeSSE(message) {
+    const data = await resolveCallback(message.data, HtmlEscapedCallbackPhase.Stringify, false, {});
+    const dataLines = data.split(/\r\n|\r|\n/).map((line) => {
+      return `data: ${line}`;
+    }).join("\n");
+    for (const key of ["event", "id", "retry"]) {
+      if (message[key] && /[\r\n]/.test(message[key])) {
+        throw new Error(`${key} must not contain "\\r" or "\\n"`);
+      }
+    }
+    const sseData = [
+      message.event && `event: ${message.event}`,
+      dataLines,
+      message.id && `id: ${message.id}`,
+      message.retry && `retry: ${message.retry}`
+    ].filter(Boolean).join("\n") + "\n\n";
+    await this.write(sseData);
+  }
+};
+var run = async (stream2, cb, onError) => {
+  try {
+    await cb(stream2);
+  } catch (e) {
+    if (e instanceof Error && onError) {
+      await onError(e, stream2);
+      await stream2.writeSSE({
+        event: "error",
+        data: e.message
+      });
+    } else {
+      console.error(e);
+    }
+  } finally {
+    stream2.close();
+  }
+};
+var contextStash = /* @__PURE__ */ new WeakMap();
+var streamSSE = (c, cb, onError) => {
+  const { readable, writable } = new TransformStream();
+  const stream2 = new SSEStreamingApi(writable, readable);
+  if (isOldBunVersion()) {
+    c.req.raw.signal.addEventListener("abort", () => {
+      if (!stream2.closed) {
+        stream2.abort();
+      }
+    });
+  }
+  contextStash.set(stream2.responseReadable, c);
+  c.header("Transfer-Encoding", "chunked");
+  c.header("Content-Type", "text/event-stream");
+  c.header("Cache-Control", "no-cache");
+  c.header("Connection", "keep-alive");
+  run(stream2, cb, onError);
+  return c.newResponse(stream2.responseReadable);
 };
 
 // ../node_modules/hono/dist/middleware/cors/index.js
@@ -4044,7 +4195,7 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
     target_session_attrs
   } = options;
   const sent = queue_default(), id = uid++, backend = { pid: null, secret: null }, idleTimer = timer(end, options.idle_timeout), lifeTimer = timer(end, options.max_lifetime), connectTimer = timer(connectTimedOut, options.connect_timeout);
-  let socket = null, cancelMessage, errorResponse = null, result = new Result(), incoming = Buffer.alloc(0), needsTypes = options.fetch_types, backendParameters = {}, statements = {}, statementId = Math.random().toString(36).slice(2), statementCount = 1, closedTime = 0, remaining = 0, hostIndex = 0, retries = 0, length = 0, delay = 0, rows = 0, serverSignature = null, nextWriteTimer = null, terminated = false, incomings = null, results = null, initial = null, ending = null, stream = null, chunk = null, ended = null, nonce = null, query = null, final = null;
+  let socket = null, cancelMessage, errorResponse = null, result = new Result(), incoming = Buffer.alloc(0), needsTypes = options.fetch_types, backendParameters = {}, statements = {}, statementId = Math.random().toString(36).slice(2), statementCount = 1, closedTime = 0, remaining = 0, hostIndex = 0, retries = 0, length = 0, delay = 0, rows = 0, serverSignature = null, nextWriteTimer = null, terminated = false, incomings = null, results = null, initial = null, ending = null, stream2 = null, chunk = null, ended = null, nonce = null, query = null, final = null;
   const connection2 = {
     queue: queues.closed,
     idleTimer,
@@ -4087,7 +4238,7 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
   function execute(q) {
     if (terminated)
       return queryError(q, Errors.connection("CONNECTION_DESTROYED", options));
-    if (stream)
+    if (stream2)
       return queryError(q, Errors.generic("COPY_IN_PROGRESS", "You cannot execute queries during copy"));
     if (q.cancelled)
       return;
@@ -4254,7 +4405,7 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
       queryError(sent.shift(), err);
   }
   function errored(err) {
-    stream && (stream.destroy(err), stream = null);
+    stream2 && (stream2.destroy(err), stream2 = null);
     query && queryError(query, err);
     initial && (queryError(initial, err), initial = null);
   }
@@ -4277,7 +4428,7 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
   }
   function terminate() {
     terminated = true;
-    if (stream || query || initial || sent.length)
+    if (stream2 || query || initial || sent.length)
       error(Errors.connection("CONNECTION_DESTROYED", options));
     clearImmediate(nextWriteTimer);
     if (socket) {
@@ -4645,7 +4796,7 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
     query.resolve(result);
   }
   function CopyInResponse() {
-    stream = new Stream.Writable({
+    stream2 = new Stream.Writable({
       autoDestroy: true,
       write(chunk2, encoding, callback) {
         socket.write(bytes_default().d().raw(chunk2).end(), callback);
@@ -4653,26 +4804,26 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
       destroy(error2, callback) {
         callback(error2);
         socket.write(bytes_default().f().str(error2 + bytes_default.N).end());
-        stream = null;
+        stream2 = null;
       },
       final(callback) {
         socket.write(bytes_default().c().end());
         final = callback;
-        stream = null;
+        stream2 = null;
       }
     });
-    query.resolve(stream);
+    query.resolve(stream2);
   }
   function CopyOutResponse() {
-    stream = new Stream.Readable({
+    stream2 = new Stream.Readable({
       read() {
         socket.resume();
       }
     });
-    query.resolve(stream);
+    query.resolve(stream2);
   }
   function CopyBothResponse() {
-    stream = new Stream.Duplex({
+    stream2 = new Stream.Duplex({
       autoDestroy: true,
       read() {
         socket.resume();
@@ -4684,21 +4835,21 @@ function Connection(options, queues = {}, { onopen = noop, onend = noop, onclose
       destroy(error2, callback) {
         callback(error2);
         socket.write(bytes_default().f().str(error2 + bytes_default.N).end());
-        stream = null;
+        stream2 = null;
       },
       final(callback) {
         socket.write(bytes_default().c().end());
         final = callback;
       }
     });
-    query.resolve(stream);
+    query.resolve(stream2);
   }
   function CopyData(x) {
-    stream && (stream.push(x.subarray(5)) || socket.pause());
+    stream2 && (stream2.push(x.subarray(5)) || socket.pause());
   }
   function CopyDone() {
-    stream && stream.push(null);
-    stream = null;
+    stream2 && stream2.push(null);
+    stream2 = null;
   }
   function NoticeResponse(x) {
     onnotice ? onnotice(parseError(x)) : console.log(parseError(x));
@@ -4816,7 +4967,7 @@ var noop2 = () => {
 };
 function Subscribe(postgres2, options) {
   const subscribers = /* @__PURE__ */ new Map(), slot = "postgresjs_" + Math.random().toString(36).slice(2), state = {};
-  let connection2, stream, ended = false;
+  let connection2, stream2, ended = false;
   const sql2 = subscribe.sql = postgres2({
     ...options,
     transform: { column: {}, value: {}, row: {} },
@@ -4831,7 +4982,7 @@ function Subscribe(postgres2, options) {
     onclose: async function() {
       if (ended)
         return;
-      stream = null;
+      stream2 = null;
       state.pid = state.secret = void 0;
       connected(await init(sql2, slot, options.publications));
       subscribers.forEach((event) => event.forEach(({ onsubscribe }) => onsubscribe()));
@@ -4841,11 +4992,11 @@ function Subscribe(postgres2, options) {
   const end = sql2.end, close = sql2.close;
   sql2.end = async () => {
     ended = true;
-    stream && await new Promise((r) => (stream.once("close", r), stream.end()));
+    stream2 && await new Promise((r) => (stream2.once("close", r), stream2.end()));
     return end();
   };
   sql2.close = async () => {
-    stream && await new Promise((r) => (stream.once("close", r), stream.end()));
+    stream2 && await new Promise((r) => (stream2.once("close", r), stream2.end()));
     return close();
   };
   return subscribe;
@@ -4862,12 +5013,12 @@ function Subscribe(postgres2, options) {
     return connection2.then((x) => {
       connected(x);
       onsubscribe();
-      stream && stream.on("error", onerror);
+      stream2 && stream2.on("error", onerror);
       return { unsubscribe, state, sql: sql2 };
     });
   }
   function connected(x) {
-    stream = x.stream;
+    stream2 = x.stream;
     state.pid = x.state.pid;
     state.secret = x.state.secret;
   }
@@ -4878,16 +5029,16 @@ function Subscribe(postgres2, options) {
       `CREATE_REPLICATION_SLOT ${slot2} TEMPORARY LOGICAL pgoutput NOEXPORT_SNAPSHOT`
     );
     const [x] = xs;
-    const stream2 = await sql3.unsafe(
+    const stream3 = await sql3.unsafe(
       `START_REPLICATION SLOT ${slot2} LOGICAL ${x.consistent_point} (proto_version '1', publication_names '${publications}')`
     ).writable();
     const state2 = {
       lsn: Buffer.concat(x.consistent_point.split("/").map((x2) => Buffer.from(("00000000" + x2).slice(-8), "hex")))
     };
-    stream2.on("data", data);
-    stream2.on("error", error);
-    stream2.on("close", sql3.close);
-    return { stream: stream2, state: xs.state };
+    stream3.on("data", data);
+    stream3.on("error", error);
+    stream3.on("close", sql3.close);
+    return { stream: stream3, state: xs.state };
     function error(e) {
       console.error("Unexpected error during logical streaming - reconnecting", e);
     }
@@ -4913,7 +5064,7 @@ function Subscribe(postgres2, options) {
       x2[0] = "r".charCodeAt(0);
       x2.fill(state2.lsn, 1);
       x2.writeBigInt64BE(BigInt(Date.now() - Date.UTC(2e3, 0, 1)) * BigInt(1e3), 25);
-      stream2.write(x2);
+      stream3.write(x2);
     }
   }
   function call(x, a, b2) {
@@ -8249,6 +8400,43 @@ registrationRoutes.put("/matches/:matchId/registrations/:id/undq", async (c) => 
 
 // ../backend/src/routes/scoring.ts
 init_scoringCalc();
+
+// ../backend/src/services/events.ts
+var EventBroadcaster = class {
+  clients = /* @__PURE__ */ new Set();
+  add(matchId, stream2) {
+    const conn = { matchId, stream: stream2 };
+    this.clients.add(conn);
+    console.log("[SSE] client connected", { matchId, total: this.clients.size });
+    stream2.onAbort(() => {
+      console.log("[SSE] client disconnected", { matchId, total: this.clients.size - 1 });
+      this.clients.delete(conn);
+    });
+  }
+  broadcast(event) {
+    console.log("[SSE] broadcasting", event.type, event.payload, "to", this.clients.size, "clients");
+    for (const conn of this.clients) {
+      if (conn.matchId && event.payload && event.payload.matchId !== conn.matchId) {
+        continue;
+      }
+      this.write(conn.stream, event);
+    }
+  }
+  getClientCount() {
+    return this.clients.size;
+  }
+  write(stream2, event) {
+    if (stream2.aborted) return;
+    stream2.writeSSE({
+      event: event.type,
+      data: JSON.stringify(event.payload)
+    }).catch(() => {
+    });
+  }
+};
+var eventBroadcaster = new EventBroadcaster();
+
+// ../backend/src/routes/scoring.ts
 var scoringRoutes = new Hono2();
 function parseJsonbFields(score) {
   if (!score) return score;
@@ -8577,11 +8765,19 @@ scoringRoutes.put("/matches/:matchId/stages/:stageId/scores/:registrationId", as
     return score;
   });
   await recalculateStage(matchId, stageId);
+  eventBroadcaster.broadcast({
+    type: "score:saved",
+    payload: { matchId, stageId, registrationId }
+  });
   return c.json({ ...parseJsonbFields(scoreResult), targets: targets.map(parseTargetJsonbFields), calcResult });
 });
 scoringRoutes.post("/matches/:matchId/stages/:stageId/recalculate", async (c) => {
   const { matchId, stageId } = c.req.param();
   await recalculateStage(matchId, stageId);
+  eventBroadcaster.broadcast({
+    type: "score:saved",
+    payload: { matchId, stageId, registrationId: null }
+  });
   return c.json({ recalculated: true });
 });
 scoringRoutes.post("/matches/:matchId/recalculate", async (c) => {
@@ -8590,6 +8786,10 @@ scoringRoutes.post("/matches/:matchId/recalculate", async (c) => {
   for (const stage of stages) {
     await recalculateStage(matchId, stage.id);
   }
+  eventBroadcaster.broadcast({
+    type: "score:saved",
+    payload: { matchId, stageId: null, registrationId: null }
+  });
   return c.json({ recalculated: true, stage_count: stages.length });
 });
 async function recalculateStage(matchId, stageId) {
@@ -18241,6 +18441,19 @@ app.use("*", async (c, next) => {
 });
 app.get("/api/health", (c) => {
   return c.json({ status: "ok", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+});
+app.get("/api/events", async (c) => {
+  const matchId = c.req.query("matchId") || null;
+  return streamSSE(c, async (stream2) => {
+    eventBroadcaster.add(matchId, stream2);
+    await stream2.writeSSE({
+      event: "connected",
+      data: JSON.stringify({ matchId, connectedAt: (/* @__PURE__ */ new Date()).toISOString() })
+    });
+    while (!stream2.aborted) {
+      await stream2.sleep(3e4);
+    }
+  });
 });
 app.get("/api/lan-info", (c) => {
   const interfaces = os3.networkInterfaces();

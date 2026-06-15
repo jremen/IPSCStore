@@ -5,6 +5,7 @@ import {
   calculateActionSteelScore, calculateMultiGunScore, calculateRingScore,
   calculateHitCountScore, calculateAggregatedScore
 } from '../utils/scoringCalc.js';
+import { eventBroadcaster } from '../services/events.js';
 
 export const scoringRoutes = new Hono();
 
@@ -366,6 +367,11 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
   // Recalculate stage rankings (outside transaction — reads committed data)
   await recalculateStage(matchId, stageId);
 
+  eventBroadcaster.broadcast({
+    type: 'score:saved',
+    payload: { matchId, stageId, registrationId },
+  });
+
   return c.json({ ...parseJsonbFields(scoreResult), targets: targets.map(parseTargetJsonbFields), calcResult });
 });
 
@@ -373,6 +379,10 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
 scoringRoutes.post('/matches/:matchId/stages/:stageId/recalculate', async (c) => {
   const { matchId, stageId } = c.req.param();
   await recalculateStage(matchId, stageId);
+  eventBroadcaster.broadcast({
+    type: 'score:saved',
+    payload: { matchId, stageId, registrationId: null },
+  });
   return c.json({ recalculated: true });
 });
 
@@ -383,6 +393,10 @@ scoringRoutes.post('/matches/:matchId/recalculate', async (c) => {
   for (const stage of stages) {
     await recalculateStage(matchId, stage.id);
   }
+  eventBroadcaster.broadcast({
+    type: 'score:saved',
+    payload: { matchId, stageId: null, registrationId: null },
+  });
   return c.json({ recalculated: true, stage_count: stages.length });
 });
 

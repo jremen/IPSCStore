@@ -6,6 +6,40 @@ import type { Stage } from '../types/stage';
 import { buildEmptyScore } from '../utils/buildEmptyScore';
 import { buildScorePayload } from '../utils/buildScorePayload';
 
+/**
+ * Determine whether a thrown error represents a network-level failure
+ * (offline, timeout, DNS failure, etc.). Different browsers produce
+ * different messages, so we also accept TypeError and the current
+ * navigator.onLine state.
+ */
+function isNetworkError(err: any): boolean {
+  if (!navigator.onLine) return true;
+  if (err instanceof TypeError) return true;
+  const msg = String(err?.message || '').toLowerCase();
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('load failed') ||
+    msg.includes('internet connection appears to be offline') ||
+    msg.includes('offline')
+  );
+}
+
+/**
+ * Register a Background Sync and attempt an immediate flush whenever a
+ * pending save is created. Using a dynamic import avoids a circular module
+ * dependency (syncManager imports the scoring store via getState()).
+ */
+async function triggerSync() {
+  try {
+    const { requestSync } = await import('../services/syncManager');
+    await requestSync();
+  } catch {
+    // Sync is best-effort; the polling fallback will retry later.
+  }
+}
+
 interface ScoringState {
   registrations: RegistrationWithShooter[];
   currentRegistrationId: string | null;
@@ -238,18 +272,32 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
         ),
       }));
       get().refreshPendingCount();
+      // Register Background Sync so the score flushes as soon as the device
+      // is back online, even if the browser/tab was in the background.
+      triggerSync();
       return;
     }
 
     // ONLINE: normal flow
     try {
       const result = await api.saveScore(matchId, stageId, registrationId, payload);
-      set({ saving: false, isExistingScore: true });
+      set((state) => ({
+        saving: false,
+        isExistingScore: true,
+        // Update scoring progress locally so the same client's UI reflects the
+        // save immediately, even before the SSE event arrives.
+        scoringProgress: addScoredEntry(
+          state.scoringProgress,
+          stageId,
+          registrationId,
+          currentShooter?.squad ?? null,
+        ),
+      }));
       // Update cache with server response
       offlineDB.cacheScore(matchId, stageId, registrationId, result).catch(() => {});
     } catch (err: any) {
       // Network failed mid-request — queue as pending
-      if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError') || err.message?.includes('Network request failed')) {
+      if (isNetworkError(err)) {
         const token = getAuthToken() || '';
         await offlineDB.addPendingSave({
           matchId,
@@ -275,6 +323,9 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
           ),
         }));
         get().refreshPendingCount();
+        // Register Background Sync so the queued score flushes automatically
+        // when connectivity returns.
+        triggerSync();
       } else {
         set({ error: err.message, saving: false });
         throw err;

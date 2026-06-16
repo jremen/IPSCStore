@@ -193,7 +193,14 @@
     "numberOfShooters": "Počet strelcov",
     "selectStages": "Vybrať situácie",
     "selectAllStages": "Vybrať všetky",
-    "pdfGenerated": "Bodovací hárok bol vygenerovaný"
+    "pdfGenerated": "Bodovací hárok bol vygenerovaný",
+    "briefing": "Briefing",
+    "briefingPlaceholder": "Popis situácie, východisková poloha, poznámky k postupu…",
+    "stageDetails": "Detaily situácie",
+    "rounds": "Náboje",
+    "points": "Body",
+    "noBriefing": "Briefing nebol zadaný.",
+    "showDetails": "Zobraziť detaily situácie"
   },
   "shooters": {
     "title": "Databáza strelcov",

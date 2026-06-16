@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, TextInput, Select, Label, Checkbox } from 'flowbite-react';
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, TextInput, Textarea, Select, Label, Checkbox } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useStageStore } from '../../stores/stageStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -20,6 +20,7 @@ interface StageForm {
   par_time: number | null;
   config: StageConfig;
   password: string;
+  briefing: string;
 }
 
 const emptyForm = (): StageForm => ({
@@ -27,6 +28,7 @@ const emptyForm = (): StageForm => ({
   paper_targets: 0, steel_targets: 0, no_shoot_targets: 0, npm_targets: 0,
   hits_per_paper: 2, par_time: null, config: {},
   password: '',
+  briefing: '',
 });
 
 function getVisibleFields(type: ScoringType) {
@@ -78,6 +80,7 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
         hits_per_paper: editStage.hits_per_paper,
         par_time: editStage.par_time,
         config: editStage.config || {},
+        briefing: editStage.briefing ?? '',
         // Don't pre-fill password — hashes can't be reversed.
         // Send empty string = keep existing, non-empty = set new
         password: '',
@@ -226,6 +229,18 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
               <InputField label={t('stages.configPointValue')} type="number" step="1" min="1" value={form.config.point_value ?? 10} onChange={(v) => setForm({ ...form, config: { ...form.config, point_value: parseInt(v) || 10 } })} />
             </div>
           )}
+
+          <div>
+            <Label htmlFor="stage-briefing">{t('stages.briefing')}</Label>
+            <Textarea
+              id="stage-briefing"
+              rows={5}
+              value={form.briefing}
+              onChange={(e) => setForm({ ...form, briefing: e.target.value })}
+              placeholder={t('stages.briefingPlaceholder')}
+              className="dark:bg-gray-700 dark:text-white"
+            />
+          </div>
         </div>
       </ModalBody>
       <ModalFooter>

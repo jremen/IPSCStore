@@ -37,6 +37,7 @@ export interface Stage {
   max_points: number;
   par_time: number | null;
   image_path: string | null;
+  briefing: string | null;
   config?: StageConfig;
   password?: string | null;
   has_password?: boolean;
@@ -53,6 +54,7 @@ export interface CreateStageInput {
   npm_targets?: number;
   hits_per_paper?: number;
   par_time?: number | null;
+  briefing?: string | null;
   config?: StageConfig;
   password?: string;
 }

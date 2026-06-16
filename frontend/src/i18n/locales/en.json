@@ -193,7 +193,14 @@
     "numberOfShooters": "Number of shooters",
     "selectStages": "Select stages",
     "selectAllStages": "Select all",
-    "pdfGenerated": "Score sheet PDF generated"
+    "pdfGenerated": "Score sheet PDF generated",
+    "briefing": "Briefing",
+    "briefingPlaceholder": "Stage description, starting position, procedure notes…",
+    "stageDetails": "Stage Details",
+    "rounds": "Rounds",
+    "points": "Points",
+    "noBriefing": "No briefing set.",
+    "showDetails": "Show stage details"
   },
   "shooters": {
     "title": "Shooter Database",

@@ -4,20 +4,37 @@ import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { useMatchStore } from '../../stores/matchStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useStageStore } from '../../stores/stageStore';
 import LanguageSelector from '../settings/LanguageSelector';
 import LanUrlBadge from './LanUrlBadge';
 import OfflineIndicator from './OfflineIndicator';
 import SettingsModal from '../settings/SettingsModal';
 import { ThemeToggle } from "../settings/ThemeToggle";
-import { TbSettings } from "react-icons/tb";
+import StageDetailsView from '../scoring/StageDetailsView';
+import { TbSettings, TbInfoCircle, TbClipboardText } from "react-icons/tb";
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function Header() {
   const { activeMatchId } = useUIStore();
   const { currentMatch } = useMatchStore();
-  const { isAdmin, authenticatedStageName, logout, adminLogout } = useAuthStore();
+  const { isAdmin, authenticatedStageId, authenticatedStageName, authenticatedMatchId, logout, adminLogout } = useAuthStore();
+  const { stages, fetchStages } = useStageStore();
   const { t } = useTranslation();
   const [showSettings, setShowSettings] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+
+  // Load stages for the authenticated match so the details modal has the briefing/image.
+  // Stages are already loaded by ScoringNav's useScoringNav hook in normal flow, but the
+  // Header may mount independently in some cases (admin views, public results).
+  useEffect(() => {
+    if (!isAdmin && authenticatedMatchId && stages.length === 0) {
+      fetchStages(authenticatedMatchId);
+    }
+  }, [isAdmin, authenticatedMatchId, stages.length, fetchStages]);
+
+  const currentStage = !isAdmin && authenticatedStageId
+    ? stages.find((s) => s.id === authenticatedStageId) ?? null
+    : null;
 
   useTabMenuAction('open-preferences', () => {
     if (isAdmin) setShowSettings(true);
@@ -65,14 +82,24 @@ export default function Header() {
           </div>
         </div>
         {!isAdmin ? (
-          <Button
-            onClick={handleLogout}
-            color="purple"
-            className="w-full"
-            title={t('auth.logout')}
-          >
-            {t('auth.stage')} {authenticatedStageName ? `${authenticatedStageName}` : `🚪 ${t('auth.logout')}`}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleLogout}
+              color="purple"
+              className="flex-1"
+              title={t('auth.logout')}
+            >
+              {t('auth.stage')} {authenticatedStageName ? `${authenticatedStageName}` : `🚪 ${t('auth.logout')}`}
+            </Button>
+            <Button
+              onClick={() => setShowDetails(true)}
+              color="gray"
+              className="shrink-0"
+              title={t('stages.showDetails')}
+            >
+              <TbClipboardText className="size-5" />
+            </Button>
+          </div>
         ) : (
           <Button
             onClick={handleLogout}
@@ -86,6 +113,9 @@ export default function Header() {
         )}
       </header>
       {isAdmin && <SettingsModal show={showSettings} onClose={() => setShowSettings(false)} />}
+      {!isAdmin && (
+        <StageDetailsView show={showDetails} onClose={() => setShowDetails(false)} stage={currentStage} />
+      )}
     </>
   );
 }

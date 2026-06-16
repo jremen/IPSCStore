@@ -1,7 +1,8 @@
 import { Button, Badge } from 'flowbite-react';
 import { useEffect } from 'react';
 
-import { divisionLabel, categoryLabel, powerFactorLabel } from '../../utils/constants';
+import { divisionLabel } from '../../utils/constants';
+import { useConstLabels } from '../../hooks/useConstLabels';
 
 import ScoringSheet from './ScoringSheet';
 import ScoreSummarySheet from './ScoreSummarySheet';
@@ -28,6 +29,7 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
             activeStageId, showSummary } = useScoringStore();
   const { stages } = useStageStore();
   const { t } = useTranslation();
+  const { categoryLabel, powerFactorLabel } = useConstLabels();
   const {currentShooter, currentStage, performSave, handleSelectShooter, handleSummaryBack, handleConfirm, handleStageChange, canConfirm} = useScoringNav(restrictedStageId);
 
   useTabMenuAction('prev-shooter', () => prevShooter());

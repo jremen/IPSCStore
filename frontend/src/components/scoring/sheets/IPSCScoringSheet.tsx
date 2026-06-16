@@ -185,7 +185,7 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
 
       {/* DNF + DQ toggles */}
       <div className="lg:flex flex-col gap-6">
-        <div className="my-6 max-lg:dark:bg-gray-800 max-lg:rounded-lg max-lg:border max-lg:border-gray-200 max-lg:dark:border-gray-700">
+        <div className="lg:my-3 my-6 max-lg:p-3 max-lg:dark:bg-gray-800 max-lg:rounded-lg max-lg:border max-lg:border-gray-200 max-lg:dark:border-gray-700">
           <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
           <TimeInput
             value={score.time}

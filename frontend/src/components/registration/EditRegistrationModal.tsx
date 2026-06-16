@@ -29,7 +29,7 @@ export default function EditRegistrationModal({ show, onClose, registration, mat
   useEffect(() => {
     if (registration) {
       setForm({
-        squad: String(registration.squad || ''),
+        squad: registration.squad === null || registration.squad === undefined ? '' : String(registration.squad),
         division: registration.reg_division || '',
         category: registration.reg_category || '',
         power_factor: registration.reg_power_factor || '',
@@ -72,14 +72,14 @@ export default function EditRegistrationModal({ show, onClose, registration, mat
             <Label>{t('registration.categoryOverride')}</Label>
             <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
               <option value="">{t('registration.defaultOption')}</option>
-              {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{t(c.i18nKey)}</option>)}
             </Select>
           </div>
           <div>
             <Label>{t('registration.powerFactorOverride')}</Label>
             <Select value={form.power_factor} onChange={(e) => setForm({ ...form, power_factor: e.target.value })}>
               <option value="">{t('registration.defaultOption')}</option>
-              {POWER_FACTORS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+              {POWER_FACTORS.map((p) => <option key={p.value} value={p.value}>{t(p.i18nKey)}</option>)}
             </Select>
           </div>
           <div>

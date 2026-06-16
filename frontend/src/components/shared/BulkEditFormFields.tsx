@@ -78,7 +78,7 @@ export default function BulkEditFormFields({ form, onChange, showSquad = false, 
               className="mt-1"
             >
               {CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
+                <option key={c.value} value={c.value}>{t(c.i18nKey)}</option>
               ))}
             </Select>
           )}
@@ -101,7 +101,7 @@ export default function BulkEditFormFields({ form, onChange, showSquad = false, 
               className="mt-1"
             >
               {POWER_FACTORS.map((pf) => (
-                <option key={pf.value} value={pf.value}>{pf.label}</option>
+                <option key={pf.value} value={pf.value}>{t(pf.i18nKey)}</option>
               ))}
             </Select>
           )}

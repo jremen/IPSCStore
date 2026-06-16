@@ -137,7 +137,8 @@
     "current": "Current",
     "setAsCurrent": "Set as Current",
     "setAsCurrentDone": "Match set as current",
-    "unsetAsCurrent": "Unset as current"
+    "unsetAsCurrent": "Unset as current",
+    "level": "Level"
   },
   "stages": {
     "title": "Stages",
@@ -517,5 +518,34 @@
     "syncComplete": "All scores synced successfully.",
     "syncConflict": "Score for {{shooter}} on Stage {{stage}} was also modified by another device. Your version was saved.",
     "syncFailed": "Some scores could not be synced. Session may have expired."
+  },
+  "firearmTypes": {
+    "handgun": "Handgun",
+    "rifle": "Rifle",
+    "pcc": "PCC",
+    "shotgun": "Shotgun",
+    "combined": "Combined",
+    "bow": "Bow"
+  },
+  "organizations": {
+    "ipsc": "IPSC",
+    "uspsa": "USPSA",
+    "idpa": "IDPA",
+    "threeGun": "3-Gun",
+    "nrl22": "NRL22",
+    "prs": "PRS",
+    "nra": "NRA (Bullseye)",
+    "usaArchery": "USA Archery"
+  },
+  "categories": {
+    "regular": "Regular",
+    "junior": "Junior",
+    "senior": "Senior",
+    "superSenior": "Super Senior",
+    "lady": "Lady"
+  },
+  "powerFactors": {
+    "minor": "Minor",
+    "major": "Major"
   }
 }

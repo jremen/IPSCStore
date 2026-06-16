@@ -6,26 +6,34 @@ export const matchRoutes = new Hono();
 // List matches
 matchRoutes.get('/', async (c) => {
   const matches = await sql`
-    SELECT m.id, m.name, m.date, m.organization, m.firearm_type, m.is_current, m.created_at,
+    SELECT m.id, m.name, m.date, m.organization, m.firearm_type, m.match_level, m.is_current, m.created_at,
            (SELECT COUNT(*) FROM match_registrations mr WHERE mr.match_id = m.id) AS shooter_count
     FROM matches m
     ORDER BY m.date DESC
   `;
-  return c.json(matches.map(m => ({ ...m, shooter_count: Number(m.shooter_count) })));
+  return c.json(matches.map(m => ({ ...m, shooter_count: Number(m.shooter_count), match_level: m.match_level ?? null })));
 });
 
 // Create match
 matchRoutes.post('/', async (c) => {
   const body = await c.req.json();
-  const { name, date, organization, firearm_type } = body;
+  const { name, date, organization, firearm_type, match_level } = body;
 
   if (!name || !date || !organization || !firearm_type) {
     return c.json({ error: 'name, date, organization, and firearm_type are required' }, 400);
   }
 
+  // Validate match_level (optional, must be 1-5)
+  const level = match_level === null || match_level === undefined || match_level === ''
+    ? null
+    : Number(match_level);
+  if (level !== null && (!Number.isInteger(level) || level < 1 || level > 5)) {
+    return c.json({ error: 'match_level must be an integer between 1 and 5' }, 400);
+  }
+
   const [match] = await sql`
-    INSERT INTO matches (name, date, organization, firearm_type)
-    VALUES (${name}, ${date}, ${organization}, ${firearm_type})
+    INSERT INTO matches (name, date, organization, firearm_type, match_level)
+    VALUES (${name}, ${date}, ${organization}, ${firearm_type}, ${level})
     RETURNING *
   `;
   return c.json(match, 201);
@@ -34,7 +42,7 @@ matchRoutes.post('/', async (c) => {
 // Get the current match
 matchRoutes.get('/current', async (c) => {
   const [match] = await sql`
-    SELECT id, name, date, organization, firearm_type, is_current
+    SELECT id, name, date, organization, firearm_type, match_level, is_current
     FROM matches
     WHERE is_current = true
     LIMIT 1
@@ -56,7 +64,7 @@ matchRoutes.put('/:id/set-current', async (c) => {
   await sql`UPDATE matches SET is_current = true, updated_at = NOW() WHERE id = ${id}`;
 
   const [match] = await sql`
-    SELECT id, name, date, organization, firearm_type, is_current
+    SELECT id, name, date, organization, firearm_type, match_level, is_current
     FROM matches WHERE id = ${id}
   `;
   return c.json(match);
@@ -108,7 +116,22 @@ matchRoutes.get('/:id', async (c) => {
 matchRoutes.put('/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json();
-  const { name, date, organization, firearm_type } = body;
+  const { name, date, organization, firearm_type, match_level } = body;
+
+  // Validate match_level if provided (must be null or 1-5)
+  let levelValue: number | null = null;
+  let levelProvided = match_level !== undefined;
+  if (levelProvided) {
+    if (match_level === null || match_level === '') {
+      levelValue = null;
+    } else {
+      const n = Number(match_level);
+      if (!Number.isInteger(n) || n < 1 || n > 5) {
+        return c.json({ error: 'match_level must be null or an integer between 1 and 5' }, 400);
+      }
+      levelValue = n;
+    }
+  }
 
   const [updated] = await sql`
     UPDATE matches
@@ -116,6 +139,7 @@ matchRoutes.put('/:id', async (c) => {
         date = COALESCE(${date}, date),
         organization = COALESCE(${organization}, organization),
         firearm_type = COALESCE(${firearm_type}, firearm_type),
+        match_level = ${levelProvided ? levelValue : sql`match_level`},
         updated_at = NOW()
     WHERE id = ${id}
     RETURNING *

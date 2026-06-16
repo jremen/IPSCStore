@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useShooterStore } from '../../stores/shooterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useSelection } from '../../hooks/useSelection';
-import { divisionLabel, categoryLabel, powerFactorLabel } from '../../utils/constants';
+import { divisionLabel } from '../../utils/constants';
+import { useConstLabels } from '../../hooks/useConstLabels';
 import CSVImportExport from '../shared/CSVImportExport';
 import BulkActionToolbar from '../shared/BulkActionToolbar';
 import SelectAllCheckbox from '../shared/SelectAllCheckbox';
@@ -17,6 +18,7 @@ import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 export default function ShooterDatabase() {
   const { shooters, total, loading, showDeleted, fetchShooters, restoreShooter, toggleShowDeleted } = useShooterStore();
   const { addToast } = useUIStore();
+  const { categoryLabel, powerFactorLabel } = useConstLabels();
   const { t } = useTranslation();
   const [showCreate, setShowCreate] = useState(false);
   const [editShooter, setEditShooter] = useState<any>(null);

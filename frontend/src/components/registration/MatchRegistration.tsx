@@ -3,8 +3,9 @@ import { Button, Badge, Checkbox, Table, TableHead, TableBody, TableRow, TableCe
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { useSelection } from '../../hooks/useSelection';
+import { useConstLabels } from '../../hooks/useConstLabels';
 import { api } from '../../services/api';
-import { divisionLabel, categoryLabel, powerFactorLabel } from '../../utils/constants';
+import { divisionLabel } from '../../utils/constants';
 import CSVImportExport from '../shared/CSVImportExport';
 import BulkActionToolbar from '../shared/BulkActionToolbar';
 import SelectAllCheckbox from '../shared/SelectAllCheckbox';
@@ -18,6 +19,7 @@ import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 export default function MatchRegistration() {
   const { activeMatchId, addToast } = useUIStore();
   const { t } = useTranslation();
+  const { categoryLabel, powerFactorLabel } = useConstLabels();
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [showInlineCreate, setShowInlineCreate] = useState(false);
@@ -129,7 +131,7 @@ export default function MatchRegistration() {
                   <TableCell>
                     <Badge color={r.effective_power_factor === 'major' ? 'warning' : 'success'} size="sm">{powerFactorLabel(r.effective_power_factor)}</Badge>
                   </TableCell>
-                  <TableCell className="font-mono">{r.squad || '—'}</TableCell>
+                  <TableCell className="font-mono">{r.squad === null || r.squad === undefined ? '—' : Number(r.squad)}</TableCell>
                   <TableCell>
                     {r.is_dq ? (
                       <Badge color="failure" size="sm">{t('registration.dq')}</Badge>

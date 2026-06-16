@@ -2,6 +2,7 @@ import type { Stage } from './stage';
 
 export type Organization = 'IPSC' | 'USPSA' | 'IDPA' | '3GUN' | 'NRL22' | 'PRS' | 'NRA' | 'USA_ARCHERY';
 export type FirearmType = 'handgun' | 'rifle' | 'pcc' | 'shotgun' | 'combined' | 'bow';
+export type MatchLevel = 1 | 2 | 3 | 4 | 5;
 
 export interface Match {
   id: string;
@@ -9,6 +10,7 @@ export interface Match {
   date: string;
   organization: Organization;
   firearm_type: FirearmType;
+  match_level: MatchLevel | null;
   is_current: boolean;
   created_at: string;
   updated_at: string;
@@ -33,6 +35,7 @@ export interface CreateMatchInput {
   date: string;
   organization: Organization;
   firearm_type: FirearmType;
+  match_level?: MatchLevel | null;
 }
 
 // Re-export stage type used in match detail

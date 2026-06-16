@@ -55,7 +55,7 @@ export default function AddShooterModal({ show, onClose, matchId, registeredShoo
           <InputField type="number" step="1" min="0" value={squad} onChange={setSquad} placeholder={t('registration.squadPlaceholder')} />
         </div>
         <div className="flex gap-2">
-          <TextInput placeholder={t('registration.search')} value={search} onChange={(e) => setSearch(e.target.value)} className="mb-3 flex-1" />
+          <TextInput autoFocus placeholder={t('registration.search')} value={search} onChange={(e) => setSearch(e.target.value)} className="mb-3 flex-1" />
           <Button color="green" onClick={() => onCreate()}>{t('shooters.newShooter')}</Button>
         </div>
         <div className="max-h-80 overflow-y-auto space-y-1">

@@ -3,7 +3,8 @@ import { Button, Badge } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import type { Stage } from '../../types/stage';
 import type { ScoreInput } from '../../types/scoring';
-import { divisionLabel, categoryLabel, powerFactorLabel } from '../../utils/constants';
+import { divisionLabel } from '../../utils/constants';
+import { useConstLabels } from '../../hooks/useConstLabels';
 import {
   calculatePreview,
   calculateIDPAPreview,
@@ -31,6 +32,7 @@ interface ScoreSummarySheetProps {
 /** IPSC/Comstock/Virginia/FixedTime/Hit Factor summary */
 function IPSCSummary({ stage, score, shooterName, shooterDetails, onBack, onApprove }: ScoreSummarySheetProps) {
   const { t } = useTranslation();
+  const { categoryLabel, powerFactorLabel } = useConstLabels();
 
   const paperTargets = score.targets.filter(t => t.target_type === 'paper');
   const steelTargets = score.targets.filter(t => t.target_type === 'steel');
@@ -209,6 +211,7 @@ function IPSCSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
 /** IDPA summary */
 function IDPASummary({ stage, score, shooterName, shooterDetails, onBack, onApprove }: ScoreSummarySheetProps) {
   const { t } = useTranslation();
+  const { categoryLabel } = useConstLabels();
 
   const paperTargets = score.targets.filter(t => t.target_type === 'paper');
   const steelTargets = score.targets.filter(t => t.target_type === 'steel');

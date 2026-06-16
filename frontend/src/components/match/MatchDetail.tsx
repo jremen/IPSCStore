@@ -25,6 +25,7 @@ export default function MatchDetail() {
         <h2 className="text-xl font-bold dark:text-white">{currentMatch.name}</h2>
         <Badge color={currentMatch.organization === 'IPSC' ? 'info' : 'purple'}>{currentMatch.organization}</Badge>
         <Badge color="gray">{currentMatch.firearm_type}</Badge>
+        {currentMatch.match_level ? <Badge color="indigo">{`L${currentMatch.match_level}`}</Badge> : null}
       </div>
 
       <p className="text-sm text-gray-500 mb-4">{formatDate(currentMatch.date)} • {currentMatch.shooter_count} {t('matches.shooters').toLowerCase()}</p>

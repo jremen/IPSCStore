@@ -137,7 +137,8 @@
     "current": "Aktuálna",
     "setAsCurrent": "Nastaviť ako aktuálnu",
     "setAsCurrentDone": "Súťaž nastavená ako aktuálna",
-    "unsetAsCurrent": "Zrušiť aktuálnu"
+    "unsetAsCurrent": "Zrušiť aktuálnu",
+    "level": "Úroveň"
   },
   "stages": {
     "title": "Situácie",
@@ -211,7 +212,7 @@
     "lastName": "Priezvisko",
     "category": "Kategória",
     "division": "Divízia",
-    "powerFactor": "Sila náboja (PF)",
+    "powerFactor": "Power Factor",
     "region": "Región",
     "regionPlaceholder": "napr. SVK, USA",
     "tag": "Štítok",
@@ -517,5 +518,34 @@
     "syncComplete": "Všetky skóre boli úspešne synchronizované.",
     "syncConflict": "Skóre pre {{shooter}} na Stage {{stage}} bolo upravené aj na inom zariadení. Vaša verzia bola uložená.",
     "syncFailed": "Niektoré skóre sa nepodarilo synchronizovať. Relácia môže vypršala."
+  },
+  "firearmTypes": {
+    "handgun": "Pištoľ",
+    "rifle": "Puška",
+    "pcc": "PCC",
+    "shotgun": "Brokovnica",
+    "combined": "Kombinovaná",
+    "bow": "Luk"
+  },
+  "organizations": {
+    "ipsc": "IPSC",
+    "uspsa": "USPSA",
+    "idpa": "IDPA",
+    "threeGun": "3-Gun",
+    "nrl22": "Malorážka",
+    "prs": "PRS",
+    "nra": "NRA (mierenka 10 bodov)",
+    "usaArchery": "Luk"
+  },
+  "categories": {
+    "regular": "Regular",
+    "junior": "Junior",
+    "senior": "Senior",
+    "superSenior": "Super Senior",
+    "lady": "Lady"
+  },
+  "powerFactors": {
+    "minor": "Minor",
+    "major": "Major"
   }
 }

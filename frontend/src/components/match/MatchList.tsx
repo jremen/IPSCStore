@@ -76,6 +76,7 @@ export default function MatchList() {
                 <TableHeadCell>{t('matches.date')}</TableHeadCell>
                 <TableHeadCell>{t('matches.organization')}</TableHeadCell>
                 <TableHeadCell>{t('matches.firearm')}</TableHeadCell>
+                <TableHeadCell>{t('matches.level')}</TableHeadCell>
                 <TableHeadCell>{t('matches.shooters')}</TableHeadCell>
                 <TableHeadCell></TableHeadCell>
               </TableRow>
@@ -89,7 +90,10 @@ export default function MatchList() {
                     <Badge color={m.organization === 'IPSC' ? 'info' : 'purple'} size="sm">{m.organization}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge color="gray" size="sm">{m.firearm_type}</Badge>
+                    <Badge color="gray" size="sm">{t(`firearmTypes.${m.firearm_type}`)}</Badge>
+                  </TableCell>
+                  <TableCell className="text-gray-500">
+                    {m.match_level ? <Badge color="indigo" size="sm">L{m.match_level}</Badge> : '—'}
                   </TableCell>
                   <TableCell className="text-gray-500">{m.shooter_count ?? '—'}</TableCell>
                   <TableCell>

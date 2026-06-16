@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { useMatchStore } from '../../stores/matchStore';
 import { useResultsStore } from '../../stores/resultsStore';
-import { divisionLabel, categoryLabel } from '../../utils/constants';
+import { divisionLabel } from '../../utils/constants';
+import { useConstLabels } from '../../hooks/useConstLabels';
 import ExportButtons from './ExportButtons';
 import ResultsTable from './ResultsTable';
 import type { DqShooter } from '../../stores/resultsStore';
@@ -218,6 +219,7 @@ function CategoryContent({ categoryResults, dqCategories }: {
   dqCategories: DqShooter[];
 }) {
   const { t } = useTranslation();
+  const { categoryLabel } = useConstLabels();
 
   return (
     <>

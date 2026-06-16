@@ -1,9 +1,9 @@
 export const CATEGORIES = [
-  { value: 'regular', label: 'Regular' },
-  { value: 'junior', label: 'Junior' },
-  { value: 'senior', label: 'Senior' },
-  { value: 'super_senior', label: 'Super Senior' },
-  { value: 'lady', label: 'Lady' },
+  { value: 'regular', i18nKey: 'categories.regular' },
+  { value: 'junior', i18nKey: 'categories.junior' },
+  { value: 'senior', i18nKey: 'categories.senior' },
+  { value: 'super_senior', i18nKey: 'categories.superSenior' },
+  { value: 'lady', i18nKey: 'categories.lady' },
 ] as const;
 
 export const DIVISIONS = [
@@ -88,28 +88,37 @@ export function getGroupedDivisions(): { group: string; divisions: typeof DIVISI
 }
 
 export const POWER_FACTORS = [
-  { value: 'minor', label: 'Minor' },
-  { value: 'major', label: 'Major' },
+  { value: 'minor', i18nKey: 'powerFactors.minor' },
+  { value: 'major', i18nKey: 'powerFactors.major' },
 ] as const;
 
 export const ORGANIZATIONS = [
-  { value: 'IPSC', label: 'IPSC' },
-  { value: 'USPSA', label: 'USPSA' },
-  { value: 'IDPA', label: 'IDPA' },
-  { value: '3GUN', label: '3-Gun' },
-  { value: 'NRL22', label: 'NRL22' },
-  { value: 'PRS', label: 'PRS' },
-  { value: 'NRA', label: 'NRA (Bullseye)' },
-  { value: 'USA_ARCHERY', label: 'USA Archery' },
+  { value: 'IPSC', i18nKey: 'organizations.ipsc' },
+  { value: 'USPSA', i18nKey: 'organizations.uspsa' },
+  { value: 'IDPA', i18nKey: 'organizations.idpa' },
+  { value: '3GUN', i18nKey: 'organizations.threeGun' },
+  { value: 'NRL22', i18nKey: 'organizations.nrl22' },
+  { value: 'PRS', i18nKey: 'organizations.prs' },
+  { value: 'NRA', i18nKey: 'organizations.nra' },
+  { value: 'USA_ARCHERY', i18nKey: 'organizations.usaArchery' },
 ] as const;
 
 export const FIREARM_TYPES = [
-  { value: 'handgun', label: 'Handgun' },
-  { value: 'rifle', label: 'Rifle' },
-  { value: 'pcc', label: 'PCC' },
-  { value: 'shotgun', label: 'Shotgun' },
-  { value: 'combined', label: 'Combined' },
-  { value: 'bow', label: 'Bow' },
+  { value: 'handgun', i18nKey: 'firearmTypes.handgun' },
+  { value: 'rifle', i18nKey: 'firearmTypes.rifle' },
+  { value: 'pcc', i18nKey: 'firearmTypes.pcc' },
+  { value: 'shotgun', i18nKey: 'firearmTypes.shotgun' },
+  { value: 'combined', i18nKey: 'firearmTypes.combined' },
+  { value: 'bow', i18nKey: 'firearmTypes.bow' },
+] as const;
+
+/** Match level 1-5. Canonical English labels (do not translate — see CLAUDE.md). */
+export const MATCH_LEVELS = [
+  { value: 1, label: 'Level 1' },
+  { value: 2, label: 'Level 2' },
+  { value: 3, label: 'Level 3' },
+  { value: 4, label: 'Level 4' },
+  { value: 5, label: 'Level 5' },
 ] as const;
 
 export const SCORING_TYPES = [
@@ -271,22 +280,36 @@ export function ringValueLabel(value: number): string {
   return String(value);
 }
 
-/** Get human-readable division label from value (e.g. 'production_optics' → 'Production Optics') */
+/** Derive a human-readable English label from a snake_case value (e.g. 'production_optics' → 'Production Optics').
+ *  Used as the English fallback when a translation key is missing. */
+export function deriveLabel(value: string): string {
+  return value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Look up a label from an i18n key inside a constant item.
+ *  Pass the t() function from useTranslation() and the item with optional i18nKey. */
+export function translateItem(t: (key: string) => string, item: { i18nKey?: string; value: string } | undefined): string {
+  if (!item) return '';
+  if (item.i18nKey && t(item.i18nKey) !== item.i18nKey) return t(item.i18nKey);
+  return deriveLabel(item.value);
+}
+
+/** Get human-readable division label from value (e.g. 'production_optics' → 'Production Optics'). English fallback. */
 export function divisionLabel(value: string): string {
   const found = DIVISIONS.find(d => d.value === value);
-  return found ? found.label : value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return found ? deriveLabel(found.value) : deriveLabel(value);
 }
 
-/** Get human-readable category label from value (e.g. 'super_senior' → 'Super Senior') */
+/** Get human-readable category label from value (e.g. 'super_senior' → 'Super Senior'). English fallback. */
 export function categoryLabel(value: string): string {
   const found = CATEGORIES.find(c => c.value === value);
-  return found ? found.label : value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return found ? deriveLabel(found.value) : deriveLabel(value);
 }
 
-/** Get human-readable power factor label from value (e.g. 'minor' → 'Minor') */
+/** Get human-readable power factor label from value (e.g. 'minor' → 'Minor'). English fallback. */
 export function powerFactorLabel(value: string): string {
   const found = POWER_FACTORS.find(p => p.value === value);
-  return found ? found.label : value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return found ? deriveLabel(found.value) : deriveLabel(value);
 }
 
 /** Format an ISO date string using the document's lang attribute for localization */

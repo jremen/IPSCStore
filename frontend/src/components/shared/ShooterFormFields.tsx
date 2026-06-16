@@ -48,7 +48,7 @@ export default function ShooterFormFields({ form, onChange, showTagAndEmail = tr
         <div>
           <Label>{t('shooters.category')}</Label>
           <Select value={form.category} onChange={(e) => onChange({ ...form, category: e.target.value as Category })}>
-            {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{t(c.i18nKey)}</option>)}
           </Select>
         </div>
         <div>
@@ -68,7 +68,7 @@ export default function ShooterFormFields({ form, onChange, showTagAndEmail = tr
         <div>
           <Label>{t('shooters.powerFactor')}</Label>
           <Select value={form.power_factor} onChange={(e) => onChange({ ...form, power_factor: e.target.value as PowerFactor })}>
-            {POWER_FACTORS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+            {POWER_FACTORS.map((p) => <option key={p.value} value={p.value}>{t(p.i18nKey)}</option>)}
           </Select>
         </div>
         <div>

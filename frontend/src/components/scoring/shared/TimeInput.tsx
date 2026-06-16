@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
 import { formatTimeDisplay, parseTimeString, formatTimeOnBlur } from '../../../utils/timeFormat';
+import { useTranslation } from "react-i18next";
 
 interface TimeInputProps {
   value: number | null;
@@ -29,6 +30,7 @@ interface TimeInputProps {
  * - Always shows 2 decimal places on blur
  */
 export default function TimeInput({ value, onChange, disabled, className, debounceMs = 600 }: TimeInputProps) {
+  const {t} = useTranslation();
   const [displayValue, setDisplayValue] = useState(() => formatTimeDisplay(value));
   const inputRef = useRef<HTMLInputElement>(null);
   const isEditing = useRef(false);
@@ -221,6 +223,7 @@ export default function TimeInput({ value, onChange, disabled, className, deboun
       onFocus={handleFocus}
       disabled={disabled}
       autoComplete="off"
+      placeholder={t('scoring.time')}
       className={`text-center text-4xl font-semibold font-mono w-full p-2
         rounded-lg border border-gray-300 bg-gray-50 text-gray-900
         focus:border-blue-500 focus:ring-blue-500 focus:outline-none focus:ring-2

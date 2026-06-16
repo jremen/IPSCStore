@@ -115,3 +115,25 @@ These principles MUST be followed for all frontend code. Violations in existing 
 - Mobile-first scoring UI: 44px+ touch targets, sticky bottom save bar, time input always at top of scoring sheet
 - Global CSV import via `shared/CSVImportExport` component — works for shooters, registrations, and scores
 - Environment config: `.env.example` at root, Docker Compose passes env vars to containers
+
+## Labels That Must NOT Be Translated
+
+Some constants in `frontend/src/utils/constants.ts` hold canonical English domain vocabulary and stay in English regardless of UI language. Others are translated via i18n keys.
+
+**Translated** (use `{ value, i18nKey }`, render with `t(item.i18nKey)` or `useConstLabels()`):
+- `FIREARM_TYPES` — Handgun/Pistol, Rifle/Puška, PCC, Shotgun/Brokovnica, etc.
+- `ORGANIZATIONS` — IPSC, USPSA, IDPA, 3-Gun, NRL22, PRS, NRA, USA Archery
+- `CATEGORIES` — Regular, Junior, Senior, Super Senior, Lady
+- `POWER_FACTORS` — Minor, Major
+
+**Not translated** (keep `{ value, label }` with English labels, or use a derived fallback):
+- `MATCH_LEVELS` — "Level 1".."Level 5"
+- `DIVISIONS` — sport-specific names (Open, Standard, Production Optics, Carry Optics, Single Stack, etc.) where a Slovak equivalent does not exist or would confuse competitors
+- `SCORING_TYPES` — Comstock, Virginia Count, Fixed Time, Chrono, IDPA, Action Steel, Multi-Gun, Bullseye, NRL22
+- `IDPA_ZONE_LABELS` (A/C/D/M/NS)
+- `BULLSEYE_RING_VALUES`, `FCLASS_RING_VALUES`, `ARCHERY_RING_VALUES` (zone names and abbreviations)
+- Penalty keys / abbreviations: PE, HNT, FTN, FP, FTDR, FTSA
+
+**Pattern for translated items:** Use the `useConstLabels()` hook in `frontend/src/hooks/useConstLabels.ts` to get translation-aware `categoryLabel` / `powerFactorLabel` functions for badges. For `FIREARM_TYPES` and `ORGANIZATIONS`, render directly with `t(item.i18nKey)` in select options. The non-React `categoryLabel`/`powerFactorLabel` helpers in `constants.ts` are kept for non-React contexts (e.g. PDF export) where i18n is not available.
+
+Translation is reserved for full UI strings (button labels, form labels, error messages, section titles).

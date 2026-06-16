@@ -20,7 +20,7 @@ export default function ShooterFormModal({ show, onClose, editShooter }: Shooter
   useEscClose(onClose);
   const [form, setForm] = useState<ShooterFormData>({
     first_name: '', last_name: '', category: 'regular', tag: null,
-    division: 'standard', power_factor: 'minor', region: '', email: null,
+    division: 'standard', power_factor: 'minor', region: 'SVK', email: null,
   });
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export default function ShooterFormModal({ show, onClose, editShooter }: Shooter
         email: editShooter.email,
       });
     } else {
-      setForm({ first_name: '', last_name: '', category: 'regular', tag: null, division: 'standard', power_factor: 'minor', region: '', email: null });
+      setForm({ first_name: '', last_name: '', category: 'regular', tag: null, division: 'standard', power_factor: 'minor', region: 'SVK', email: null });
     }
   }, [editShooter, show]);
 

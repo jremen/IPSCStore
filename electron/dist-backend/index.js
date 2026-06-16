@@ -4,8 +4,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
 };
 var __export = (target, all) => {
   for (var name in all)
@@ -357,7 +362,7 @@ var newHeadersFromIncoming = (incoming) => {
   }
   return new Headers(headerRecord);
 };
-var wrapBodyStream = Symbol("wrapBodyStream");
+var wrapBodyStream = /* @__PURE__ */ Symbol("wrapBodyStream");
 var newRequestFromIncoming = (method, url, headers, incoming, abortController) => {
   const init = {
     method,
@@ -405,13 +410,13 @@ var newRequestFromIncoming = (method, url, headers, incoming, abortController) =
   }
   return new Request2(url, init);
 };
-var getRequestCache = Symbol("getRequestCache");
-var requestCache = Symbol("requestCache");
-var incomingKey = Symbol("incomingKey");
-var urlKey = Symbol("urlKey");
-var headersKey = Symbol("headersKey");
-var abortControllerKey = Symbol("abortControllerKey");
-var getAbortController = Symbol("getAbortController");
+var getRequestCache = /* @__PURE__ */ Symbol("getRequestCache");
+var requestCache = /* @__PURE__ */ Symbol("requestCache");
+var incomingKey = /* @__PURE__ */ Symbol("incomingKey");
+var urlKey = /* @__PURE__ */ Symbol("urlKey");
+var headersKey = /* @__PURE__ */ Symbol("headersKey");
+var abortControllerKey = /* @__PURE__ */ Symbol("abortControllerKey");
+var getAbortController = /* @__PURE__ */ Symbol("getAbortController");
 var requestPrototype = {
   get method() {
     return this[incomingKey].method || "GET";
@@ -464,7 +469,7 @@ var requestPrototype = {
     }
   });
 });
-Object.defineProperty(requestPrototype, Symbol.for("nodejs.util.inspect.custom"), {
+Object.defineProperty(requestPrototype, /* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom"), {
   value: function(depth, options, inspectFn) {
     const props = {
       method: this.method,
@@ -513,9 +518,9 @@ var newRequest = (incoming, defaultHostname) => {
   req[urlKey] = url.href;
   return req;
 };
-var responseCache = Symbol("responseCache");
-var getResponseCache = Symbol("getResponseCache");
-var cacheKey = Symbol("cache");
+var responseCache = /* @__PURE__ */ Symbol("responseCache");
+var getResponseCache = /* @__PURE__ */ Symbol("getResponseCache");
+var cacheKey = /* @__PURE__ */ Symbol("cache");
 var GlobalResponse = global.Response;
 var Response2 = class _Response {
   #body;
@@ -579,7 +584,7 @@ var Response2 = class _Response {
     }
   });
 });
-Object.defineProperty(Response2.prototype, Symbol.for("nodejs.util.inspect.custom"), {
+Object.defineProperty(Response2.prototype, /* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom"), {
   value: function(depth, options, inspectFn) {
     const props = {
       status: this.status,
@@ -660,8 +665,8 @@ var X_ALREADY_SENT = "x-hono-already-sent";
 if (typeof global.crypto === "undefined") {
   global.crypto = crypto2;
 }
-var outgoingEnded = Symbol("outgoingEnded");
-var incomingDraining = Symbol("incomingDraining");
+var outgoingEnded = /* @__PURE__ */ Symbol("outgoingEnded");
+var incomingDraining = /* @__PURE__ */ Symbol("incomingDraining");
 var DRAIN_TIMEOUT_MS = 500;
 var MAX_DRAIN_BYTES = 64 * 1024 * 1024;
 var drainIncoming = (incoming) => {
@@ -3528,7 +3533,7 @@ import fs from "fs";
 // ../node_modules/postgres/src/query.js
 var originCache = /* @__PURE__ */ new Map();
 var originStackCache = /* @__PURE__ */ new Map();
-var originError = Symbol("OriginError");
+var originError = /* @__PURE__ */ Symbol("OriginError");
 var CLOSE = {};
 var Query = class extends Promise {
   constructor(strings, args, handler, canceller, options = {}) {
@@ -5752,29 +5757,33 @@ async function scoreLockMiddleware(c, next) {
 var matchRoutes = new Hono2();
 matchRoutes.get("/", async (c) => {
   const matches = await sql`
-    SELECT m.id, m.name, m.date, m.organization, m.firearm_type, m.is_current, m.created_at,
+    SELECT m.id, m.name, m.date, m.organization, m.firearm_type, m.match_level, m.is_current, m.created_at,
            (SELECT COUNT(*) FROM match_registrations mr WHERE mr.match_id = m.id) AS shooter_count
     FROM matches m
     ORDER BY m.date DESC
   `;
-  return c.json(matches.map((m) => ({ ...m, shooter_count: Number(m.shooter_count) })));
+  return c.json(matches.map((m) => ({ ...m, shooter_count: Number(m.shooter_count), match_level: m.match_level ?? null })));
 });
 matchRoutes.post("/", async (c) => {
   const body = await c.req.json();
-  const { name, date, organization, firearm_type } = body;
+  const { name, date, organization, firearm_type, match_level } = body;
   if (!name || !date || !organization || !firearm_type) {
     return c.json({ error: "name, date, organization, and firearm_type are required" }, 400);
   }
+  const level = match_level === null || match_level === void 0 || match_level === "" ? null : Number(match_level);
+  if (level !== null && (!Number.isInteger(level) || level < 1 || level > 5)) {
+    return c.json({ error: "match_level must be an integer between 1 and 5" }, 400);
+  }
   const [match2] = await sql`
-    INSERT INTO matches (name, date, organization, firearm_type)
-    VALUES (${name}, ${date}, ${organization}, ${firearm_type})
+    INSERT INTO matches (name, date, organization, firearm_type, match_level)
+    VALUES (${name}, ${date}, ${organization}, ${firearm_type}, ${level})
     RETURNING *
   `;
   return c.json(match2, 201);
 });
 matchRoutes.get("/current", async (c) => {
   const [match2] = await sql`
-    SELECT id, name, date, organization, firearm_type, is_current
+    SELECT id, name, date, organization, firearm_type, match_level, is_current
     FROM matches
     WHERE is_current = true
     LIMIT 1
@@ -5789,7 +5798,7 @@ matchRoutes.put("/:id/set-current", async (c) => {
   await sql`UPDATE matches SET is_current = false WHERE is_current = true`;
   await sql`UPDATE matches SET is_current = true, updated_at = NOW() WHERE id = ${id}`;
   const [match2] = await sql`
-    SELECT id, name, date, organization, firearm_type, is_current
+    SELECT id, name, date, organization, firearm_type, match_level, is_current
     FROM matches WHERE id = ${id}
   `;
   return c.json(match2);
@@ -5827,13 +5836,27 @@ matchRoutes.get("/:id", async (c) => {
 matchRoutes.put("/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
-  const { name, date, organization, firearm_type } = body;
+  const { name, date, organization, firearm_type, match_level } = body;
+  let levelValue = null;
+  let levelProvided = match_level !== void 0;
+  if (levelProvided) {
+    if (match_level === null || match_level === "") {
+      levelValue = null;
+    } else {
+      const n = Number(match_level);
+      if (!Number.isInteger(n) || n < 1 || n > 5) {
+        return c.json({ error: "match_level must be null or an integer between 1 and 5" }, 400);
+      }
+      levelValue = n;
+    }
+  }
   const [updated] = await sql`
     UPDATE matches
     SET name = COALESCE(${name}, name),
         date = COALESCE(${date}, date),
         organization = COALESCE(${organization}, organization),
         firearm_type = COALESCE(${firearm_type}, firearm_type),
+        match_level = ${levelProvided ? levelValue : sql`match_level`},
         updated_at = NOW()
     WHERE id = ${id}
     RETURNING *
@@ -13604,7 +13627,7 @@ var METADATA_SYMBOL;
 if (typeof Symbol !== "function") {
   METADATA_SYMBOL = "@@xmlMetadata";
 } else {
-  METADATA_SYMBOL = Symbol("XML Node Metadata");
+  METADATA_SYMBOL = /* @__PURE__ */ Symbol("XML Node Metadata");
 }
 var XmlNode = class {
   constructor(tagname) {

@@ -226,14 +226,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   checkLocalNetwork: () => {
     const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron?.();
     const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const pathname = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
 
-    // Determine domain mode from server-injected global or hostname
+    // Determine domain mode from server-injected global, hostname, or URL path.
+    // Path-based detection is needed for Docker dev (Vite serves index.html without
+    // backend injection) and for IP-based LAN access like http://192.168.x.x:5173/hodnotenie.
     let domainMode: 'results' | 'scoring' | 'admin' = 'admin';
     if (typeof window !== 'undefined' && window.__DOMAIN_MODE__) {
       domainMode = window.__DOMAIN_MODE__;
-    } else if (hostname === 'vysledky.local' || hostname.endsWith('.vysledky.local')) {
+    } else if (hostname === 'vysledky.local' || hostname.endsWith('.vysledky.local') || pathname.startsWith('/vysledky')) {
       domainMode = 'results';
-    } else if (hostname === 'hodnotenie.local' || hostname.endsWith('.hodnotenie.local')) {
+    } else if (hostname === 'hodnotenie.local' || hostname.endsWith('.hodnotenie.local') || pathname.startsWith('/hodnotenie')) {
       domainMode = 'scoring';
     }
 

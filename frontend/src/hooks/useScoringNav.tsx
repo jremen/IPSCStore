@@ -14,7 +14,7 @@ export function useScoringNav(restrictedStageId?:string) {
   const { registrations, fetchRegistrations, currentRegistrationId, selectShooter,
           currentScore, loadScore, saveScore, validateScore, nextShooter, prevShooter,
           activeStageId, setActiveStageId, fetchScoringProgress, showSummary, setShowSummary,
-          setScore, setSquadFilter } = useScoringStore();
+          setScore, setSquadFilter, setShooterListSort, reshuffleRandomOrder } = useScoringStore();
   const { stages, fetchStages } = useStageStore();
   const { isAdmin } = useAuthStore();
   const isReadOnly = useScoringReadOnly();
@@ -38,8 +38,10 @@ export function useScoringNav(restrictedStageId?:string) {
       setActiveStageId(null);
       setScore(null);
       setSquadFilter(null);
+      setShooterListSort('none');
+      reshuffleRandomOrder();
     }
-  }, [effectiveMatchId, selectShooter, setActiveStageId, setScore, setSquadFilter]);
+  }, [effectiveMatchId, selectShooter, setActiveStageId, setScore, setSquadFilter, setShooterListSort, reshuffleRandomOrder]);
 
   useEffect(() => {
     if (effectiveMatchId) {
@@ -112,7 +114,7 @@ export function useScoringNav(restrictedStageId?:string) {
 
       // Auto-advance to next unscored shooter in current squad
       const scored = useScoringStore.getState().scoredIds();
-      const regs = useScoringStore.getState().filteredRegistrations();
+      const regs = useScoringStore.getState().orderedRegistrations();
       const currentIdx = regs.findIndex(r => r.id === currentRegistrationId);
 
       let nextRegId: string | null = null;

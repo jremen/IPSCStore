@@ -5,6 +5,7 @@ import type { ScoringAlert, TargetScore, ScoreInput, RegistrationWithShooter, Sc
 import type { Stage } from '../types/stage';
 import { buildEmptyScore } from '../utils/buildEmptyScore';
 import { buildScorePayload } from '../utils/buildScorePayload';
+import { shuffleWithSeed } from '../utils/shuffleWithSeed';
 
 /**
  * Determine whether a thrown error represents a network-level failure
@@ -53,6 +54,10 @@ interface ScoringState {
   squadFilter: number | null; // null = show all squads
   activeStageId: string | null;
   scoringProgress: ScoringProgress | null;
+  /** Sort order for the shooter list and prev/next navigation */
+  shooterListSort: 'none' | 'random';
+  /** Seed used for the random sort. Bump to reshuffle. */
+  randomSeed: number;
   /** Whether the summary confirmation view is showing (remote scorers only) */
   showSummary: boolean;
   /** True when operating in offline mode (reading from IndexedDB) */
@@ -73,6 +78,10 @@ interface ScoringActions {
   prevShooter: () => void;
   setSquadFilter: (squad: number | null) => void;
   setActiveStageId: (stageId: string | null) => void;
+  setShooterListSort: (sort: 'none' | 'random') => void;
+  reshuffleRandomOrder: () => void;
+  /** Returns registrations filtered by squad and sorted by the current sort mode. */
+  orderedRegistrations: () => RegistrationWithShooter[];
   setShowSummary: (show: boolean) => void;
   fetchScoringProgress: (matchId: string) => Promise<void>;
   /** Get registrations filtered by the current squad filter */
@@ -115,6 +124,8 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   squadFilter: null,
   activeStageId: null,
   scoringProgress: null,
+  shooterListSort: 'none',
+  randomSeed: Math.floor(Math.random() * 0xffffffff),
   showSummary: false,
   isOfflineMode: false,
   pendingSaveCount: 0,
@@ -400,6 +411,25 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
     return registrations.filter(r => r.squad === squadFilter);
   },
 
+  orderedRegistrations: () => {
+    const { registrations, squadFilter, shooterListSort, randomSeed } = get();
+    const filtered = squadFilter === null
+      ? registrations
+      : registrations.filter(r => r.squad === squadFilter);
+    if (shooterListSort === 'random') {
+      return shuffleWithSeed(filtered, randomSeed);
+    }
+    return filtered;
+  },
+
+  setShooterListSort: (sort) => {
+    set({ shooterListSort: sort });
+  },
+
+  reshuffleRandomOrder: () => {
+    set({ randomSeed: Math.floor(Math.random() * 0xffffffff) });
+  },
+
   availableSquads: () => {
     const { registrations } = get();
     const squads = new Set<number>();
@@ -408,10 +438,8 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   },
 
   nextShooter: () => {
-    const { registrations, currentRegistrationId, squadFilter } = get();
-    const filtered = squadFilter !== null
-      ? registrations.filter(r => r.squad === squadFilter)
-      : registrations;
+    const { currentRegistrationId } = get();
+    const filtered = get().orderedRegistrations();
     const idx = filtered.findIndex((r) => r.id === currentRegistrationId);
     if (idx < filtered.length - 1) {
       set({ currentRegistrationId: filtered[idx + 1].id, currentScore: null, alerts: [] });
@@ -419,10 +447,8 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   },
 
   prevShooter: () => {
-    const { registrations, currentRegistrationId, squadFilter } = get();
-    const filtered = squadFilter !== null
-      ? registrations.filter(r => r.squad === squadFilter)
-      : registrations;
+    const { currentRegistrationId } = get();
+    const filtered = get().orderedRegistrations();
     const idx = filtered.findIndex((r) => r.id === currentRegistrationId);
     if (idx > 0) {
       set({ currentRegistrationId: filtered[idx - 1].id, currentScore: null, alerts: [] });

@@ -1,12 +1,12 @@
 import { Button, Badge } from 'flowbite-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { divisionLabel } from '../../utils/constants';
 import { useConstLabels } from '../../hooks/useConstLabels';
 
 import ScoringSheet from './ScoringSheet';
 import ScoreSummarySheet from './ScoreSummarySheet';
-import ShooterDropdown from './ShooterDropdown';
+import ShooterListScreen from './ShooterListScreen';
 import SquadFilterBar from './SquadFilterBar';
 import { TbChevronLeft, TbChevronRight } from "react-icons/tb";
 import { useScoringNav } from "../../hooks/useScoringNav";
@@ -31,6 +31,7 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
   const { t } = useTranslation();
   const { categoryLabel, powerFactorLabel } = useConstLabels();
   const {currentShooter, currentStage, performSave, handleSelectShooter, handleSummaryBack, handleConfirm, handleStageChange, canConfirm} = useScoringNav(restrictedStageId);
+  const [showShooterList, setShowShooterList] = useState(false);
 
   useTabMenuAction('prev-shooter', () => prevShooter());
   useTabMenuAction('next-shooter', () => nextShooter());
@@ -83,13 +84,26 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
       </div>
       )}
 
-      {/* Shooter selector with searchable dropdown — pinned at top on mobile */}
+      {/* Shooter selector with full-screen shooter list — pinned at top on mobile */}
       {activeStageId && (
         <div className="bg-white dark:bg-gray-800 p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 no-print scoring-nav-pinned">
           <SquadFilterBar />
           <div className="flex items-center justify-between mb-2 gap-1">
             <button onClick={prevShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg disabled:opacity-30 min-h-11 min-w-11 flex items-center justify-center"><TbChevronLeft className="size-6" /></button>
-            <ShooterDropdown onSelect={handleSelectShooter} />
+            <button
+              onClick={() => setShowShooterList(true)}
+              disabled={!registrations.length}
+              className="flex-1 mx-1 sm:mx-2 px-3 py-2.5 text-lg rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white text-center hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-h-11 truncate"
+            >
+              {currentShooter ? (
+                <span className="truncate">
+                  {currentShooter.first_name} {currentShooter.last_name}
+                  <span className="ml-1 hidden sm:inline">({divisionLabel(currentShooter.effective_division)})</span>
+                </span>
+              ) : (
+                <span className="">{t('scoring.selectShooter')}</span>
+              )}
+            </button>
             <button onClick={nextShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg disabled:opacity-30 min-h-11 min-w-11 flex items-center justify-center"><TbChevronRight className="size-6" /></button>
           </div>
           {currentShooter && (
@@ -102,6 +116,13 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
           )}
         </div>
       )}
+
+      {/* Shooter list screen — opens as a full-screen overlay */}
+      <ShooterListScreen
+        show={showShooterList}
+        onClose={() => setShowShooterList(false)}
+        onSelect={handleSelectShooter}
+      />
 
       {/* Scoring Sheet — only this section scrolls on mobile */}
       <div className="scoring-scroll-area sm:pb-20">

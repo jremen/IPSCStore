@@ -60,7 +60,7 @@ export default function PaperTargetsTable({
   onNpmHitDecrement,
   onResetNpm,
 }: PaperTargetsTableProps) {
-  const {t} = useTranslation();
+  const {t, i18n} = useTranslation();
   const hasSteelRow = steelCount > 0;
   const hasNpm = npmCount > 0;
 
@@ -92,7 +92,7 @@ export default function PaperTargetsTable({
                     disabled={disabled}
                     title="Click to reset row"
                   >
-                    <span className={`text-xs font-bold uppercase ${disabled ? 'text-gray-400' : 'text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400'}`}>{t('stages.steel')}</span>
+                    <span className={`text-xs font-bold uppercase ${disabled ? 'text-gray-400' : 'hover:text-red-500 dark:text-white dark:hover:text-red-400'}`}>{t('stages.steel')}</span>
                     <Badge size="sm" color="gray">{steelCount}</Badge>
                   </button>
                 </td>
@@ -159,7 +159,7 @@ export default function PaperTargetsTable({
                 <tr
                   key={target.target_index}
                   className={`text-center border-t border-gray-100 dark:border-gray-700 transition-colors ${
-                    finished ? 'bg-green-50 dark:bg-green-900/60' : ''
+                    finished ? 'bg-green-200 dark:bg-green-500/60 text-white' : ''
                   }`}
                 >
                   <td className="py-1.5">
@@ -215,8 +215,8 @@ export default function PaperTargetsTable({
         </table>
       </div>
       {paperTargets.length > 0 && (
-        <p className="text-xs text-gray-400 mt-1.5 text-center md:text-left">
-          {paperTargets.filter(isTargetFinished).length}/{paperTargets.length} finished (≥{hpp} hits each)
+        <p className="text-sm text-gray-400 mt-1.5 text-center md:text-left">
+          {i18n.t('scoring.finished', {hpp, finished:paperTargets.filter(isTargetFinished).length, total: paperTargets.length})}
         </p>
       )}
     </div>

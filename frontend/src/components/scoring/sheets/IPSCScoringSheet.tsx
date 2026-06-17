@@ -61,7 +61,7 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
         {isDesktop ? (
           <p className="text-[10px] text-gray-500 dark:text-gray-300 px-3 my-1">{t('scoring.desktopInstruction')}</p>
         ) : (
-          <p className="text-[10px] text-gray-500 dark:text-gray-300 px-3 my-1">{t('scoring.mobileInstruction')}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-300 px-3 my-1">{t('scoring.mobileInstruction')}</p>
         )}
 
         {/* Main content area: flex row on desktop when sidebar exists */}

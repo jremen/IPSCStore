@@ -547,5 +547,14 @@
   "powerFactors": {
     "minor": "Minor",
     "major": "Major"
+  },
+  "dqReasons": {
+    "unsafeGunHandling": "Nebezpečná manipulácia so zbraňou",
+    "breaking180Rule": "Porušenie pravidla 180°",
+    "failureToFollowProcedure": "Nedodržanie postupu situácie",
+    "prematureShot": "Predčasný výstrel",
+    "droppedGun": "Padnutá zbraň",
+    "disruptiveBehavior": "Rušivé správanie",
+    "unsportsmanlikeConduct": "Nesportové správanie"
   }
 }

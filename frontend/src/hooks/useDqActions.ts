@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useScoringStore } from '../stores/scoringStore';
 import { useUIStore } from '../stores/uiStore';
 import { api } from '../services/api';
@@ -10,14 +11,15 @@ import { api } from '../services/api';
 export function useDqActions() {
   const { currentRegistrationId } = useScoringStore();
   const { activeMatchId, addToast } = useUIStore();
+  const { t } = useTranslation();
   const [dqReason, setDqReason] = useState('');
   const [showDqModal, setShowDqModal] = useState(false);
 
   const handleDq = async () => {
     if (!activeMatchId || !currentRegistrationId) return;
     try {
-      await api.dqShooter(activeMatchId, currentRegistrationId, dqReason || 'Disqualification');
-      addToast('Shooter disqualified', 'success');
+      await api.dqShooter(activeMatchId, currentRegistrationId, dqReason || t('scoring.dqReason'));
+      addToast(t('scoring.dqShooter'), 'success');
       const updatedRegs = await api.getRegistrations(activeMatchId);
       useScoringStore.setState({ registrations: updatedRegs });
       setShowDqModal(false);
@@ -31,7 +33,7 @@ export function useDqActions() {
     if (!activeMatchId || !currentRegistrationId) return;
     try {
       await api.undqShooter(activeMatchId, currentRegistrationId);
-      addToast('DQ removed', 'success');
+      addToast(t('scoring.removeDq'), 'success');
       const updatedRegs = await api.getRegistrations(activeMatchId);
       useScoringStore.setState({ registrations: updatedRegs });
     } catch (err: any) {

@@ -1,6 +1,7 @@
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Label, TextInput } from 'flowbite-react';
+import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Label, Select } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useEscClose } from '../../../hooks/useEscClose';
+import { DQ_REASONS } from '../../../utils/constants';
 
 interface DqConfirmModalProps {
   show: boolean;
@@ -24,11 +25,17 @@ export default function DqConfirmModal({ show, onClose, shooterName, dqReason, o
         </p>
         <div>
           <Label>{t('scoring.dqReason')}</Label>
-          <TextInput
-            placeholder={t('scoring.dqReasonPlaceholder')}
+          <Select
             value={dqReason}
             onChange={(e) => onReasonChange(e.target.value)}
-          />
+          >
+            <option value="">{t('scoring.dqReasonPlaceholder')}</option>
+            {DQ_REASONS.map((r) => (
+              <option key={r.value} value={t(r.i18nKey)}>
+                {t(r.i18nKey)}
+              </option>
+            ))}
+          </Select>
         </div>
       </ModalBody>
       <ModalFooter>

@@ -121,6 +121,19 @@ export const MATCH_LEVELS = [
   { value: 5, label: 'Level 5' },
 ] as const;
 
+/** Common IPSC/USPSA disqualification reasons. Translated via i18n (dqReasons.* keys).
+ *  The selected reason is stored as the translated text string (matches existing free-text
+ *  storage in `match_registrations.dq_reason`), so prior data and WinMSS imports remain valid. */
+export const DQ_REASONS = [
+  { value: 'unsafe_gun_handling', i18nKey: 'dqReasons.unsafeGunHandling' },
+  { value: 'breaking_180_rule', i18nKey: 'dqReasons.breaking180Rule' },
+  { value: 'failure_to_follow_procedure', i18nKey: 'dqReasons.failureToFollowProcedure' },
+  { value: 'premature_shot', i18nKey: 'dqReasons.prematureShot' },
+  { value: 'dropped_gun', i18nKey: 'dqReasons.droppedGun' },
+  { value: 'disruptive_behavior', i18nKey: 'dqReasons.disruptiveBehavior' },
+  { value: 'unsportsmanlike_conduct', i18nKey: 'dqReasons.unsportsmanlikeConduct' },
+] as const;
+
 export const SCORING_TYPES = [
   // IPSC/USPSA
   { value: 'comstock', label: 'Comstock', group: 'IPSC/USPSA' },

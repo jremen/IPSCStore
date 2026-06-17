@@ -547,5 +547,14 @@
   "powerFactors": {
     "minor": "Minor",
     "major": "Major"
+  },
+  "dqReasons": {
+    "unsafeGunHandling": "Unsafe gun handling",
+    "breaking180Rule": "Breaking the 180° rule",
+    "failureToFollowProcedure": "Failure to follow stage procedure",
+    "prematureShot": "Premature shot",
+    "droppedGun": "Dropped firearm",
+    "disruptiveBehavior": "Disruptive behavior",
+    "unsportsmanlikeConduct": "Unsportsmanlike conduct"
   }
 }

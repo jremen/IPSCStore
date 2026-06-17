@@ -225,9 +225,9 @@ export default function TimeInput({ value, onChange, disabled, className, deboun
       autoComplete="off"
       placeholder={t('scoring.time')}
       className={`text-center text-4xl font-semibold font-mono w-full p-2
-        rounded-lg border border-gray-300 bg-gray-50 text-gray-900
+        rounded-lg border border-purple-300 bg-gray-700 text-white
         focus:border-blue-500 focus:ring-blue-500 focus:outline-none focus:ring-2
-        dark:border-gray-600 dark:bg-gray-700 dark:text-white
+        dark:border-purple-600 dark:bg-purple-500 
         dark:focus:border-blue-500 dark:focus:ring-blue-500
         disabled:cursor-not-allowed disabled:opacity-50
         ${className ?? ''}`}

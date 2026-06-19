@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { useMatchStore } from '../../stores/matchStore';
 import { api } from '../../services/api';
-import { CATEGORIES, POWER_FACTORS, getDivisionsForOrganization } from '../../utils/constants';
+import { CATEGORIES, POWER_FACTORS, getDivisionsForMatch } from '../../utils/constants';
 import { useEscClose } from '../../hooks/useEscClose';
 
 interface EditRegistrationModalProps {
@@ -21,8 +21,8 @@ export default function EditRegistrationModal({ show, onClose, registration, mat
   const { matches } = useMatchStore();
   const { t } = useTranslation();
   useEscClose(onClose);
-  const matchOrganization = matches.find((m: any) => m.id === matchId)?.organization;
-  const divisions = getDivisionsForOrganization(matchOrganization);
+  const match = matches.find((m: any) => m.id === matchId);
+  const divisions = getDivisionsForMatch(match);
   const [form, setForm] = useState({ squad: '', division: '', category: '', power_factor: '', tag: '' });
 
   // Sync form when registration changes or modal opens

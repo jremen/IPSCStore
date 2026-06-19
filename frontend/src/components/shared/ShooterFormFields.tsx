@@ -1,7 +1,7 @@
 import { TextInput, Select, Label } from 'flowbite-react';
 import { InputField } from './InputField';
 import { useTranslation } from 'react-i18next';
-import { CATEGORIES, POWER_FACTORS, getDivisionsForOrganization, getGroupedDivisions } from '../../utils/constants';
+import { CATEGORIES, POWER_FACTORS, getDivisionsForMatch, getDivisionsForOrganization, getGroupedDivisions } from '../../utils/constants';
 import type { Category, Division, PowerFactor } from '../../types/shooter';
 
 export interface ShooterFormData {
@@ -24,13 +24,22 @@ interface ShooterFormFieldsProps {
   onSquadChange?: (squad: string) => void;
   /** Organization to filter divisions by (e.g. 'IPSC', 'USPSA') */
   organization?: string;
+  /** Firearm type to filter divisions by (e.g. 'rifle', 'shotgun').
+   *  Takes precedence over `organization` for IPSC Rifle/Shotgun matches. */
+  firearmType?: string;
 }
 
 /** Shared shooter form fields — used by both MatchRegistration and ShooterDatabase */
-export default function ShooterFormFields({ form, onChange, showTagAndEmail = true, showSquad = false, squad, onSquadChange, organization }: ShooterFormFieldsProps) {
+export default function ShooterFormFields({ form, onChange, showTagAndEmail = true, showSquad = false, squad, onSquadChange, organization, firearmType }: ShooterFormFieldsProps) {
   const { t } = useTranslation();
-  const divisions = getDivisionsForOrganization(organization);
-  const groupedDivisions = organization ? null : getGroupedDivisions();
+  // Use the firearm-aware helper when a firearm_type is known. Fall back to the
+  // org-only filter when only organization is known (legacy caller path).
+  const divisions = firearmType || organization
+    ? getDivisionsForMatch({ organization, firearm_type: firearmType })
+    : getDivisionsForOrganization(organization);
+  // Grouped divisions only make sense when we're showing all orgs at once
+  // (ShooterDatabase path), not when scoped to a single match.
+  const groupedDivisions = firearmType || organization ? null : getGroupedDivisions();
 
   return (
     <div className="flex flex-col gap-4">

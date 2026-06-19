@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, TextInput, Textarea, Select, Label, Checkbox } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useStageStore } from '../../stores/stageStore';
+import { useMatchStore } from '../../stores/matchStore';
 import { useUIStore } from '../../stores/uiStore';
 import { SCORING_TYPES } from '../../utils/constants';
 import { InputField } from '../shared/InputField';
@@ -64,9 +65,11 @@ interface StageFormModalProps {
 export default function StageFormModal({ show, onClose, editStage, matchId }: StageFormModalProps) {
   const { createStage, updateStage } = useStageStore();
   const { addToast } = useUIStore();
+  const { matches } = useMatchStore();
   const { t } = useTranslation();
   useEscClose(onClose);
   const [form, setForm] = useState<StageForm>(emptyForm());
+  const matchFirearmType = matches.find((m: any) => m.id === matchId)?.firearm_type;
 
   useEffect(() => {
     if (editStage) {
@@ -154,7 +157,14 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
           {(visibleFields.hitsPerPaper || visibleFields.parTime) && (
             <div className="grid grid-cols-2 gap-3">
               {visibleFields.hitsPerPaper && (
-                <InputField label={t('stages.hitsPerPaper')} type="number" step="1" min="1" value={form.hits_per_paper} onChange={(v) => setForm({ ...form, hits_per_paper: parseInt(v) || 2 })} />
+                <div>
+                  <InputField label={t('stages.hitsPerPaper')} type="number" step="1" min="1" value={form.hits_per_paper} onChange={(v) => setForm({ ...form, hits_per_paper: parseInt(v) || 2 })} />
+                  {matchFirearmType === 'rifle' && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {t('stages.hitsPerPaperRifleHint')}
+                    </p>
+                  )}
+                </div>
               )}
               {visibleFields.parTime && (
                 <InputField label={t('stages.parTime')} type="number" step="0.01" min="0" decimal value={form.par_time ?? ''} onChange={(v) => setForm({ ...form, par_time: v ? parseFloat(v) : null })} disabled={form.scoring_type !== 'fixed_time'} />

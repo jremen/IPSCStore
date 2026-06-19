@@ -87,8 +87,14 @@ registrationRoutes.post('/matches/:matchId/registrations/create-and-add', async 
   return c.json({ shooter, registration: reg }, 201);
 });
 
-// Bulk update registrations (division, category, power_factor, squad overrides)
-// Also propagates division/category/power_factor/tag changes to the shooters table
+// Bulk update registrations (division, category, power_factor, squad overrides).
+//
+// Propagation rule (matches single-update): division/category/power_factor are
+// mirrored to the global shooters record ONLY for registrations that had no
+// prior override for that field. This lets one shooter hold different divisions
+// across matches without one registration's edit overwriting the others via
+// the global shooter record. Tag is always propagated (no per-match tag column).
+// Squad is per-match and never propagates.
 registrationRoutes.put('/matches/:matchId/registrations/bulk', async (c) => {
   const matchId = c.req.param('matchId');
   const body = await c.req.json();
@@ -113,18 +119,16 @@ registrationRoutes.put('/matches/:matchId/registrations/bulk', async (c) => {
     return c.json({ error: 'No fields to update' }, 400);
   }
 
-  // Determine which fields should be propagated to the shooters table
-  // (everything except squad, and only non-null/non-empty values)
-  const shooterPropagateFields = ['division', 'category', 'power_factor', 'tag'] as const;
-
   let updated = 0;
   const failed: Array<{ id: string; name: string; reason: string }> = [];
 
   for (const regId of registrationIds) {
     try {
-      // Verify registration belongs to this match and get shooter_id
+      // Verify registration belongs to this match and read prior override values.
+      // Note: there's no `tag` column on match_registrations — tag is shooter-only.
       const [reg] = await sql`
-        SELECT mr.id, mr.shooter_id, s.first_name, s.last_name
+        SELECT mr.id, mr.shooter_id, mr.division, mr.category, mr.power_factor,
+               s.first_name, s.last_name
         FROM match_registrations mr
         JOIN shooters s ON s.id = mr.shooter_id
         WHERE mr.id = ${regId} AND mr.match_id = ${matchId}
@@ -144,21 +148,29 @@ registrationRoutes.put('/matches/:matchId/registrations/bulk', async (c) => {
         WHERE id = ${regId}
       `;
 
-      // Propagate to shooters table (division, category, power_factor, tag — not squad)
+      // Propagate to shooters table ONLY for fields whose prior override was NULL.
       const shooterUpdates: string[] = [];
       const shooterValues: any[] = [];
 
-      for (const field of shooterPropagateFields) {
-        if (updateFields[field] !== undefined) {
-          // For tag, allow null (clearing the tag). For others, skip null/empty.
-          if (field === 'tag') {
-            shooterUpdates.push('tag');
-            shooterValues.push(updateFields.tag);
-          } else if (updateFields[field] !== null && updateFields[field] !== '') {
-            shooterUpdates.push(field);
-            shooterValues.push(updateFields[field]);
-          }
-        }
+      if (updateFields.division !== undefined && reg.division === null
+          && updateFields.division !== null && updateFields.division !== '') {
+        shooterUpdates.push('division');
+        shooterValues.push(updateFields.division);
+      }
+      if (updateFields.category !== undefined && reg.category === null
+          && updateFields.category !== null && updateFields.category !== '') {
+        shooterUpdates.push('category');
+        shooterValues.push(updateFields.category);
+      }
+      if (updateFields.power_factor !== undefined && reg.power_factor === null
+          && updateFields.power_factor !== null && updateFields.power_factor !== '') {
+        shooterUpdates.push('power_factor');
+        shooterValues.push(updateFields.power_factor);
+      }
+      if (updateFields.tag !== undefined) {
+        // Tag has no per-match column — always propagate (null clears the shooter's tag).
+        shooterUpdates.push('tag');
+        shooterValues.push(updateFields.tag);
       }
 
       if (shooterUpdates.length > 0 && reg.shooter_id) {
@@ -229,11 +241,31 @@ registrationRoutes.delete('/matches/:matchId/registrations/bulk', async (c) => {
   return c.json({ removed, failed });
 });
 
-// Update registration (overrides, squad) and propagate shooter data changes to shooters table
+// Update registration (overrides, squad) and conditionally propagate to shooters table.
+//
+// Propagation rule for division/category/power_factor: these are mirrored to the
+// global shooters record ONLY when the registration had no prior override (i.e.
+// it was still using the shooter's default). Once a per-match override exists,
+// edits stay scoped to that match — letting the same shooter hold different
+// divisions (e.g. 'production' in a handgun match and 'sa_open' in a rifle
+// match) without one overwriting the other.
+//
+// Tag is always propagated when provided — there is no per-match tag column,
+// so the shooter's tag is the single source of truth and registration edits
+// are the only place it can be set/changed from the match-registration UI.
+// Squad is per-match and never propagates.
 registrationRoutes.put('/matches/:matchId/registrations/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json();
   const { division, category, power_factor, squad, tag } = body;
+
+  // Read prior override values BEFORE the update so we can decide what to propagate.
+  // Note: there's no `tag` column on match_registrations — tag is shooter-only.
+  const [prior] = await sql`
+    SELECT division, category, power_factor, shooter_id
+    FROM match_registrations WHERE id = ${id}
+  `;
+  if (!prior) return c.json({ error: 'Registration not found' }, 404);
 
   const [updated] = await sql`
     UPDATE match_registrations
@@ -244,21 +276,23 @@ registrationRoutes.put('/matches/:matchId/registrations/:id', async (c) => {
     WHERE id = ${id}
     RETURNING *
   `;
-  if (!updated) return c.json({ error: 'Registration not found' }, 404);
 
-  // Propagate changes to the shooters table (not squad — that's per-match)
+  // Propagate to shooters table ONLY for fields whose prior override was NULL
+  // (meaning this registration was inheriting from the shooter default). Squad
+  // is per-match and never propagates. Tag has no per-match column, so it is
+  // always propagated when provided (null clears the shooter's tag).
   const shooterUpdates: string[] = [];
   const shooterValues: any[] = [];
 
-  if (division !== undefined && division !== null && division !== '') {
+  if (division !== undefined && prior.division === null && division !== null && division !== '') {
     shooterUpdates.push('division');
     shooterValues.push(division);
   }
-  if (category !== undefined && category !== null && category !== '') {
+  if (category !== undefined && prior.category === null && category !== null && category !== '') {
     shooterUpdates.push('category');
     shooterValues.push(category);
   }
-  if (power_factor !== undefined && power_factor !== null && power_factor !== '') {
+  if (power_factor !== undefined && prior.power_factor === null && power_factor !== null && power_factor !== '') {
     shooterUpdates.push('power_factor');
     shooterValues.push(power_factor);
   }
@@ -267,10 +301,9 @@ registrationRoutes.put('/matches/:matchId/registrations/:id', async (c) => {
     shooterValues.push(tag);
   }
 
-  if (shooterUpdates.length > 0 && updated.shooter_id) {
-    // Build dynamic UPDATE for the changed fields
+  if (shooterUpdates.length > 0 && prior.shooter_id) {
     const setClauses = shooterUpdates.map((field, i) => `${field} = $${i + 1}`).join(', ');
-    shooterValues.push(updated.shooter_id, new Date().toISOString());
+    shooterValues.push(prior.shooter_id, new Date().toISOString());
     const query = `UPDATE shooters SET ${setClauses}, updated_at = $${shooterValues.length} WHERE id = $${shooterValues.length - 1}`;
     await sql.unsafe(query, shooterValues);
   }

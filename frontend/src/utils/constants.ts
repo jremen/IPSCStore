@@ -43,6 +43,16 @@ export const DIVISIONS = [
   // Bullseye
   { value: 'conventional', label: 'Conventional', group: 'Bullseye' },
   { value: 'international', label: 'International', group: 'Bullseye' },
+  // IPSC Rifle (IPSC Rifle Rules, Jan 2025)
+  { value: 'sa_standard', label: 'Semi-Auto Standard', group: 'IPSC Rifle' },
+  { value: 'sa_open', label: 'Semi-Auto Open', group: 'IPSC Rifle' },
+  { value: 'mac', label: 'Manual Action Contemporary', group: 'IPSC Rifle' },
+  { value: 'mab', label: 'Manual Action Bolt', group: 'IPSC Rifle' },
+  // IPSC Shotgun
+  { value: 'shotgun_open', label: 'Open', group: 'IPSC Shotgun' },
+  { value: 'shotgun_modified', label: 'Modified', group: 'IPSC Shotgun' },
+  { value: 'shotgun_standard', label: 'Standard', group: 'IPSC Shotgun' },
+  { value: 'shotgun_standard_manual', label: 'Standard Manual', group: 'IPSC Shotgun' },
 ] as const;
 
 /** Map organization to its applicable division values */
@@ -56,6 +66,29 @@ export const ORGANIZATION_DIVISIONS: Record<string, string[]> = {
   NRA: ['conventional', 'international'],
   USA_ARCHERY: [],
 };
+
+/** Map firearm type to its applicable division values.
+ *  Used for IPSC Rifle and IPSC Shotgun matches where the organization's
+ *  handgun/PCC divisions don't apply. Takes precedence over ORGANIZATION_DIVISIONS. */
+export const FIREARM_DIVISIONS: Record<string, string[]> = {
+  rifle: ['sa_standard', 'sa_open', 'mac', 'mab'],
+  shotgun: ['shotgun_open', 'shotgun_modified', 'shotgun_standard', 'shotgun_standard_manual'],
+};
+
+/** Get divisions filtered by both organization AND firearm type.
+ *  Firearm-specific overrides take precedence (rifle/shotgun have their own
+ *  division sets independent of the match's organization). Returns all divisions
+ *  when no recognizable context is provided. */
+export function getDivisionsForMatch(
+  match: { organization?: string; firearm_type?: string } | null | undefined,
+) {
+  const firearmType = match?.firearm_type;
+  if (firearmType && FIREARM_DIVISIONS[firearmType]) {
+    const allowed = FIREARM_DIVISIONS[firearmType];
+    return DIVISIONS.filter(d => allowed.includes(d.value));
+  }
+  return getDivisionsForOrganization(match?.organization);
+}
 
 /** Get divisions filtered by organization. Returns all if org is undefined. */
 export function getDivisionsForOrganization(org: string | undefined) {

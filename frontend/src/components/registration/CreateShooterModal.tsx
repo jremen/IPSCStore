@@ -6,6 +6,7 @@ import { useMatchStore } from '../../stores/matchStore';
 import { useShooterStore } from '../../stores/shooterStore';
 import { api } from '../../services/api';
 import ShooterFormFields, { type ShooterFormData } from '../shared/ShooterFormFields';
+import { getDivisionsForMatch } from '../../utils/constants';
 import type { Category, Division, PowerFactor } from '../../types/shooter';
 import { useEscClose } from '../../hooks/useEscClose';
 
@@ -22,11 +23,14 @@ export default function CreateShooterModal({ show, onClose, matchId, onCreated }
   const { fetchShooters } = useShooterStore();
   const { t } = useTranslation();
   useEscClose(onClose);
-  const matchOrganization = matches.find((m: any) => m.id === matchId)?.organization;
+  const match = matches.find((m: any) => m.id === matchId);
+  const matchOrganization = match?.organization;
+  const matchFirearmType = match?.firearm_type;
+  const defaultDivision = getDivisionsForMatch(match)[0]?.value ?? 'standard';
   const [squad, setSquad] = useState('');
   const [form, setForm] = useState<ShooterFormData>({
     first_name: '', last_name: '', category: 'regular', tag: null,
-    division: 'standard', power_factor: 'minor', region: '', email: null,
+    division: defaultDivision, power_factor: 'minor', region: '', email: null,
   });
 
   const handleCreate = async () => {
@@ -38,7 +42,7 @@ export default function CreateShooterModal({ show, onClose, matchId, onCreated }
       });
       addToast(t('registration.createdAndRegistered'), 'success');
       onClose();
-      setForm({ first_name: '', last_name: '', category: 'regular', tag: null, division: 'standard', power_factor: 'minor', region: '', email: null });
+      setForm({ first_name: '', last_name: '', category: 'regular', tag: null, division: defaultDivision, power_factor: 'minor', region: '', email: null });
       setSquad('');
       onCreated();
       fetchShooters();
@@ -51,7 +55,7 @@ export default function CreateShooterModal({ show, onClose, matchId, onCreated }
     <Modal show={show} onClose={onClose} size="lg">
       <ModalHeader>{t('registration.createTitle')}</ModalHeader>
       <ModalBody>
-        <ShooterFormFields form={form} onChange={setForm} showSquad squad={squad} onSquadChange={setSquad} organization={matchOrganization} />
+        <ShooterFormFields form={form} onChange={setForm} showSquad squad={squad} onSquadChange={setSquad} organization={matchOrganization} firearmType={matchFirearmType} />
       </ModalBody>
       <ModalFooter>
         <Button color="gray" onClick={onClose}>{t('common.cancel')}</Button>

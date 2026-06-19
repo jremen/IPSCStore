@@ -8144,13 +8144,13 @@ registrationRoutes.put("/matches/:matchId/registrations/bulk", async (c) => {
   if (Object.keys(updateFields).length === 0) {
     return c.json({ error: "No fields to update" }, 400);
   }
-  const shooterPropagateFields = ["division", "category", "power_factor", "tag"];
   let updated = 0;
   const failed = [];
   for (const regId of registrationIds) {
     try {
       const [reg] = await sql`
-        SELECT mr.id, mr.shooter_id, s.first_name, s.last_name
+        SELECT mr.id, mr.shooter_id, mr.division, mr.category, mr.power_factor,
+               s.first_name, s.last_name
         FROM match_registrations mr
         JOIN shooters s ON s.id = mr.shooter_id
         WHERE mr.id = ${regId} AND mr.match_id = ${matchId}
@@ -8169,16 +8169,21 @@ registrationRoutes.put("/matches/:matchId/registrations/bulk", async (c) => {
       `;
       const shooterUpdates = [];
       const shooterValues = [];
-      for (const field of shooterPropagateFields) {
-        if (updateFields[field] !== void 0) {
-          if (field === "tag") {
-            shooterUpdates.push("tag");
-            shooterValues.push(updateFields.tag);
-          } else if (updateFields[field] !== null && updateFields[field] !== "") {
-            shooterUpdates.push(field);
-            shooterValues.push(updateFields[field]);
-          }
-        }
+      if (updateFields.division !== void 0 && reg.division === null && updateFields.division !== null && updateFields.division !== "") {
+        shooterUpdates.push("division");
+        shooterValues.push(updateFields.division);
+      }
+      if (updateFields.category !== void 0 && reg.category === null && updateFields.category !== null && updateFields.category !== "") {
+        shooterUpdates.push("category");
+        shooterValues.push(updateFields.category);
+      }
+      if (updateFields.power_factor !== void 0 && reg.power_factor === null && updateFields.power_factor !== null && updateFields.power_factor !== "") {
+        shooterUpdates.push("power_factor");
+        shooterValues.push(updateFields.power_factor);
+      }
+      if (updateFields.tag !== void 0) {
+        shooterUpdates.push("tag");
+        shooterValues.push(updateFields.tag);
       }
       if (shooterUpdates.length > 0 && reg.shooter_id) {
         const setClauses = shooterUpdates.map((f, i) => `${f} = $${i + 1}`).join(", ");
@@ -8240,6 +8245,11 @@ registrationRoutes.put("/matches/:matchId/registrations/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
   const { division, category, power_factor, squad, tag } = body;
+  const [prior] = await sql`
+    SELECT division, category, power_factor, shooter_id
+    FROM match_registrations WHERE id = ${id}
+  `;
+  if (!prior) return c.json({ error: "Registration not found" }, 404);
   const [updated] = await sql`
     UPDATE match_registrations
     SET division = ${division !== void 0 ? division : sql`division`},
@@ -8249,18 +8259,17 @@ registrationRoutes.put("/matches/:matchId/registrations/:id", async (c) => {
     WHERE id = ${id}
     RETURNING *
   `;
-  if (!updated) return c.json({ error: "Registration not found" }, 404);
   const shooterUpdates = [];
   const shooterValues = [];
-  if (division !== void 0 && division !== null && division !== "") {
+  if (division !== void 0 && prior.division === null && division !== null && division !== "") {
     shooterUpdates.push("division");
     shooterValues.push(division);
   }
-  if (category !== void 0 && category !== null && category !== "") {
+  if (category !== void 0 && prior.category === null && category !== null && category !== "") {
     shooterUpdates.push("category");
     shooterValues.push(category);
   }
-  if (power_factor !== void 0 && power_factor !== null && power_factor !== "") {
+  if (power_factor !== void 0 && prior.power_factor === null && power_factor !== null && power_factor !== "") {
     shooterUpdates.push("power_factor");
     shooterValues.push(power_factor);
   }
@@ -8268,9 +8277,9 @@ registrationRoutes.put("/matches/:matchId/registrations/:id", async (c) => {
     shooterUpdates.push("tag");
     shooterValues.push(tag);
   }
-  if (shooterUpdates.length > 0 && updated.shooter_id) {
+  if (shooterUpdates.length > 0 && prior.shooter_id) {
     const setClauses = shooterUpdates.map((field, i) => `${field} = $${i + 1}`).join(", ");
-    shooterValues.push(updated.shooter_id, (/* @__PURE__ */ new Date()).toISOString());
+    shooterValues.push(prior.shooter_id, (/* @__PURE__ */ new Date()).toISOString());
     const query = `UPDATE shooters SET ${setClauses}, updated_at = $${shooterValues.length} WHERE id = $${shooterValues.length - 1}`;
     await sql.unsafe(query, shooterValues);
   }

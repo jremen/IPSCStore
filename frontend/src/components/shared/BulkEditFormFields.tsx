@@ -1,7 +1,7 @@
 import { Checkbox, Select, ToggleSwitch } from 'flowbite-react';
 import { InputField } from './InputField';
 import { useTranslation } from 'react-i18next';
-import { CATEGORIES, POWER_FACTORS, getDivisionsForOrganization, getGroupedDivisions } from '../../utils/constants';
+import { CATEGORIES, POWER_FACTORS, getDivisionsForMatch, getDivisionsForOrganization, getGroupedDivisions } from '../../utils/constants';
 
 export interface BulkEditForm {
   changeDivision: boolean;
@@ -22,14 +22,19 @@ interface BulkEditFormFieldsProps {
   showSquad?: boolean;
   /** Organization to filter divisions by (e.g. 'IPSC', 'USPSA') */
   organization?: string;
+  /** Firearm type to filter divisions by (e.g. 'rifle', 'shotgun').
+   *  Takes precedence over `organization` for IPSC Rifle/Shotgun matches. */
+  firearmType?: string;
 }
 
 /** Shared form for bulk editing shooters or registrations.
  *  Each field has a "Change this field?" checkbox — only checked fields are included in the update. */
-export default function BulkEditFormFields({ form, onChange, showSquad = false, organization }: BulkEditFormFieldsProps) {
+export default function BulkEditFormFields({ form, onChange, showSquad = false, organization, firearmType }: BulkEditFormFieldsProps) {
   const { t } = useTranslation();
-  const divisions = getDivisionsForOrganization(organization);
-  const groupedDivisions = organization ? null : getGroupedDivisions();
+  const divisions = firearmType || organization
+    ? getDivisionsForMatch({ organization, firearm_type: firearmType })
+    : getDivisionsForOrganization(organization);
+  const groupedDivisions = firearmType || organization ? null : getGroupedDivisions();
 
   const update = (patch: Partial<BulkEditForm>) => onChange({ ...form, ...patch });
 

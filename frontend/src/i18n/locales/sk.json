@@ -154,6 +154,7 @@
     "hasNoShootTargets": "Má no-shoot terče",
     "npmTargets": "NPM terče",
     "hitsPerPaper": "Zásahy na papierový terč",
+    "hitsPerPaperRifleHint": "Divízia IPSC Rifle MAB používa najlepší 1 zásah na papierový terč.",
     "parTime": "Par time (iba Fixed Time)",
     "password": "Heslo situácie",
     "passwordPlaceholder": "Nechajte prázdne pre bez hesla",

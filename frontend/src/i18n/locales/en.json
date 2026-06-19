@@ -154,6 +154,7 @@
     "hasNoShootTargets": "Has no-shoot targets",
     "npmTargets": "NPM Targets",
     "hitsPerPaper": "Hits per Paper Target",
+    "hitsPerPaperRifleHint": "IPSC Rifle MAB division uses best 1 hit per paper target.",
     "parTime": "Par Time (Fixed Time only)",
     "password": "Stage Password (for remote scorers)",
     "passwordPlaceholder": "Leave empty for no password",

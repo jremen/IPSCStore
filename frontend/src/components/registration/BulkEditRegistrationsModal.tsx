@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../services/api';
 import { useMatchStore } from '../../stores/matchStore';
 import BulkEditFormFields, { type BulkEditForm } from '../shared/BulkEditFormFields';
+import { getDivisionsForMatch } from '../../utils/constants';
 import { useEscClose } from '../../hooks/useEscClose';
 
 interface BulkEditRegistrationsModalProps {
@@ -18,11 +19,14 @@ interface BulkEditRegistrationsModalProps {
 export default function BulkEditRegistrationsModal({ show, onClose, selectedIds, selectedNames, matchId, onSaved }: BulkEditRegistrationsModalProps) {
   const { t } = useTranslation();
   const { matches } = useMatchStore();
-  const matchOrganization = matches.find((m: any) => m.id === matchId)?.organization;
+  const match = matches.find((m: any) => m.id === matchId);
+  const matchOrganization = match?.organization;
+  const matchFirearmType = match?.firearm_type;
+  const defaultDivision = getDivisionsForMatch(match)[0]?.value ?? 'standard';
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ updated: number; failed: Array<{ id: string; name: string; reason: string }> } | null>(null);
   const [form, setForm] = useState<BulkEditForm>({
-    changeDivision: false, division: 'standard',
+    changeDivision: false, division: defaultDivision,
     changeCategory: false, category: 'regular',
     changePowerFactor: false, powerFactor: 'minor',
     changeTag: false, tag: '',
@@ -31,7 +35,7 @@ export default function BulkEditRegistrationsModal({ show, onClose, selectedIds,
 
   const handleClose = () => {
     setResult(null);
-    setForm({ changeDivision: false, division: 'standard', changeCategory: false, category: 'regular', changePowerFactor: false, powerFactor: 'minor', changeTag: false, tag: '', changeSquad: false, squad: '' });
+    setForm({ changeDivision: false, division: defaultDivision, changeCategory: false, category: 'regular', changePowerFactor: false, powerFactor: 'minor', changeTag: false, tag: '', changeSquad: false, squad: '' });
     onClose();
   };
   useEscClose(handleClose);
@@ -89,7 +93,7 @@ export default function BulkEditRegistrationsModal({ show, onClose, selectedIds,
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {t('bulkEdit.selectFields')}
             </p>
-            <BulkEditFormFields form={form} onChange={setForm} showSquad organization={matchOrganization} />
+            <BulkEditFormFields form={form} onChange={setForm} showSquad organization={matchOrganization} firearmType={matchFirearmType} />
           </div>
         )}
       </ModalBody>

@@ -61,6 +61,7 @@ export default function ShooterListScreen({ show, onClose, onSelect }: ShooterLi
       {/* Toolbar — search + sort toggle + refresh */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 shrink-0 space-y-2">
         <TextInput
+          autoFocus
           placeholder={t('scoring.searchShooter')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}

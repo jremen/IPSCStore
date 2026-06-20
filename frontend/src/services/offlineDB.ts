@@ -8,7 +8,7 @@ import type { RegistrationWithShooter, ScoringProgress } from '../types/scoring'
 import type { Stage } from '../types/stage';
 
 const DB_NAME = 'ipscscore-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -88,6 +88,12 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('meta')) {
         db.createObjectStore('meta', { keyPath: 'key' });
       }
+
+      // Offline session passwords (for re-authentication when back online)
+      if (!db.objectStoreNames.contains('offlineSessions')) {
+        const sessionsStore = db.createObjectStore('offlineSessions', { keyPath: 'stageId' });
+        sessionsStore.createIndex('by_matchId', 'matchId');
+      }
     };
 
     request.onsuccess = () => {
@@ -139,6 +145,12 @@ export async function getCachedStages(matchId: string): Promise<Stage[]> {
   const { store } = await getStore('stages');
   const index = store.index('by_matchId');
   return promisify<any[]>(index.getAll(matchId));
+}
+
+export async function getCachedStageById(stageId: string): Promise<Stage | null> {
+  const { store } = await getStore('stages');
+  const result = await promisify<any>(store.get(stageId));
+  return result ?? null;
 }
 
 // ── Registrations ──────────────────────────────────────────────────────────
@@ -305,6 +317,33 @@ export async function clearMatchData(matchId: string): Promise<void> {
   await deleteByIndex(db, 'registrations', 'by_matchId', matchId);
   await deleteByIndex(db, 'scoringProgress', 'by_matchId', matchId);
   await deleteByIndex(db, 'scores', 'by_matchId', matchId);
+  await deleteByIndex(db, 'offlineSessions', 'by_matchId', matchId);
+}
+
+// ── Offline Sessions ────────────────────────────────────────────────────────
+
+export async function saveOfflinePassword(stageId: string, matchId: string, password: string): Promise<void> {
+  const { store, tx } = await getStore('offlineSessions', 'readwrite');
+  store.put({ stageId, matchId, password, createdAt: Date.now() });
+  await txComplete(tx);
+}
+
+export async function getOfflinePassword(stageId: string): Promise<string | null> {
+  const { store } = await getStore('offlineSessions');
+  const result = await promisify<any>(store.get(stageId));
+  return result?.password ?? null;
+}
+
+export async function clearOfflinePassword(stageId: string): Promise<void> {
+  const { store, tx } = await getStore('offlineSessions', 'readwrite');
+  store.delete(stageId);
+  await txComplete(tx);
+}
+
+export async function clearAllOfflinePasswords(): Promise<void> {
+  const { store, tx } = await getStore('offlineSessions', 'readwrite');
+  store.clear();
+  await txComplete(tx);
 }
 
 // ── Meta ───────────────────────────────────────────────────────────────────

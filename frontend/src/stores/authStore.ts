@@ -1,5 +1,21 @@
 import { create } from 'zustand';
+import bcrypt from 'bcryptjs';
 import { api } from '../services/api';
+import * as offlineDB from '../services/offlineDB';
+
+function isNetworkError(err: any): boolean {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
+  if (err instanceof TypeError) return true;
+  const msg = String(err?.message || '').toLowerCase();
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('load failed') ||
+    msg.includes('internet connection appears to be offline') ||
+    msg.includes('offline')
+  );
+}
 
 interface AuthState {
   /** Whether the user is authenticated (has a valid token) */
@@ -37,6 +53,8 @@ interface AuthState {
   canEditStage: (stageId: string) => boolean;
   /** Restore session from localStorage */
   restoreSession: () => Promise<void>;
+  /** Re-authenticate offline sessions with the server when back online */
+  syncOfflineAuth: () => Promise<void>;
   /** Check if client is on local network (for UI routing) */
   checkLocalNetwork: () => void;
 }
@@ -129,6 +147,54 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       return true;
     } catch (err: any) {
+      // Network error — try offline auth with cached bcrypt hash
+      if (isNetworkError(err)) {
+        try {
+          const cached = await offlineDB.getCachedStageById(stageId);
+          if (!cached?.password_hash) {
+            set({ loading: false, error: 'Cannot authenticate offline — no cached stage data. Open the app online first.' });
+            return false;
+          }
+
+          const valid = await bcrypt.compare(password, cached.password_hash);
+          if (!valid) {
+            set({ loading: false, error: 'Incorrect password.' });
+            return false;
+          }
+
+          // Generate a local token (not a real server token)
+          const localToken = crypto.randomUUID();
+          const stageName = cached.name;
+          const matchId = cached.match_id;
+
+          set({
+            isAuthenticated: true,
+            stageToken: localToken,
+            authenticatedStageId: stageId,
+            authenticatedStageName: stageName,
+            authenticatedMatchId: matchId,
+            loading: false,
+            error: null,
+          });
+
+          // Persist to localStorage
+          localStorage.setItem('auth_token', localToken);
+          localStorage.setItem('auth_stage_id', stageId);
+          localStorage.setItem('auth_stage_name', stageName);
+          localStorage.setItem('auth_match_id', matchId);
+          localStorage.setItem('auth_role', 'scorer');
+          localStorage.setItem('auth_offline', 'true');
+
+          // Store password for re-authentication when back online
+          await offlineDB.saveOfflinePassword(stageId, matchId, password);
+
+          return true;
+        } catch {
+          set({ loading: false, error: 'Offline authentication failed.' });
+          return false;
+        }
+      }
+
       set({ loading: false, error: err.message || 'Login failed' });
       return false;
     }
@@ -139,6 +205,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const token = get().stageToken;
     if (token) {
       api.auth.logout(token).catch(() => {});
+    }
+
+    // Clean up offline session data
+    const stageId = get().authenticatedStageId;
+    if (stageId) {
+      offlineDB.clearOfflinePassword(stageId).catch(() => {});
     }
 
     set({
@@ -155,6 +227,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('auth_stage_name');
     localStorage.removeItem('auth_match_id');
     localStorage.removeItem('auth_role');
+    localStorage.removeItem('auth_offline');
   },
 
   canEditStage: (stageId: string) => {
@@ -169,6 +242,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (role === 'admin') {
       const token = localStorage.getItem('admin_token');
       if (token) {
+        // If offline, trust localStorage — admin tokens are long-lived (24h)
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          set({
+            isAuthenticated: true,
+            isAdmin: true,
+            adminToken: token,
+          });
+          get().checkLocalNetwork();
+          return;
+        }
+
         // Validate the admin token with the server
         try {
           const me = await api.auth.getMe(`Bearer ${token}`);
@@ -194,6 +278,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const matchId = localStorage.getItem('auth_match_id');
 
       if (token && stageId) {
+        // If offline, trust localStorage — scorer tokens are long-lived (24h)
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          set({
+            isAuthenticated: true,
+            stageToken: token,
+            authenticatedStageId: stageId,
+            authenticatedStageName: stageName,
+            authenticatedMatchId: matchId,
+          });
+          get().checkLocalNetwork();
+          return;
+        }
+
         // Validate the scorer token with the server
         try {
           const me = await api.auth.getMe(`Bearer ${token}`);
@@ -205,6 +302,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               authenticatedStageName: me.stageName || stageName,
               authenticatedMatchId: me.matchId || matchId,
             });
+            // Token validated by server — no longer an offline session
+            localStorage.removeItem('auth_offline');
             get().checkLocalNetwork();
             return;
           }
@@ -221,6 +320,51 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     // Not authenticated — check if on local network for UI routing
     get().checkLocalNetwork();
+  },
+
+  syncOfflineAuth: async () => {
+    const role = localStorage.getItem('auth_role');
+    const isOffline = localStorage.getItem('auth_offline') === 'true';
+    if (role !== 'scorer' || !isOffline) return;
+
+    const stageId = localStorage.getItem('auth_stage_id');
+    if (!stageId) return;
+
+    // Try to retrieve the stored password
+    const password = await offlineDB.getOfflinePassword(stageId);
+    if (!password) {
+      // No password cached — can't re-auth, clear offline marker
+      localStorage.removeItem('auth_offline');
+      return;
+    }
+
+    try {
+      // Attempt server authentication with the real password
+      const response = await api.auth.stageLogin(stageId, password);
+      if (response.error) return; // Server unreachable or password rejected — keep offline token
+
+      const { token, stageId: authStageId, stageName, matchId } = response;
+
+      // Update store with real server token
+      set({
+        stageToken: token,
+        authenticatedStageId: authStageId,
+        authenticatedStageName: stageName,
+        authenticatedMatchId: matchId,
+      });
+
+      // Update localStorage — pending saves read the token from localStorage via getAuthToken()
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('auth_stage_id', authStageId);
+      localStorage.setItem('auth_stage_name', stageName);
+      localStorage.setItem('auth_match_id', matchId);
+      localStorage.removeItem('auth_offline');
+
+      // Clean up stored password
+      await offlineDB.clearOfflinePassword(stageId);
+    } catch {
+      // Server still unreachable — keep offline token, try again later
+    }
   },
 
   checkLocalNetwork: () => {

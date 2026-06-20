@@ -21,11 +21,17 @@ export function useOfflineStatus() {
       }
       setOfflineMode(false);
 
-      // Trigger sync of pending saves
-      import('../services/syncManager').then(({ flushPendingSaves, requestSync }) => {
-        flushPendingSaves().catch(() => {});
-        // Also register a Background Sync in case the user goes offline again
-        requestSync().catch(() => {});
+      // First: re-authenticate any offline stage sessions with the server,
+      // so pending saves flush with a valid server token.
+      import('../stores/authStore').then(({ useAuthStore }) => {
+        return useAuthStore.getState().syncOfflineAuth();
+      }).then(() => {
+        // Then trigger sync of pending saves
+        import('../services/syncManager').then(({ flushPendingSaves, requestSync }) => {
+          flushPendingSaves().catch(() => {});
+          // Also register a Background Sync in case the user goes offline again
+          requestSync().catch(() => {});
+        });
       });
     };
 

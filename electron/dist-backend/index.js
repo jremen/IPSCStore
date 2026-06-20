@@ -7612,7 +7612,7 @@ var STAGE_COLUMNS = `
   s.id, s.match_id, s.stage_number, s.name, s.scoring_type,
   s.paper_targets, s.steel_targets, s.no_shoot_targets, s.npm_targets, s.hits_per_paper,
   s.min_rounds, s.max_points, s.par_time, s.image_path, s.briefing, s.config,
-  s.password_hash IS NOT NULL AS has_password,
+  s.password_hash, s.password_hash IS NOT NULL AS has_password,
   s.created_at, s.updated_at
 `;
 stageRoutes.get("/matches/:matchId/stages", async (c) => {
@@ -7699,7 +7699,7 @@ stageRoutes.post("/matches/:matchId/stages", async (c) => {
     RETURNING id, match_id, stage_number, name, scoring_type,
               paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper,
               min_rounds, max_points, par_time, image_path, briefing, config,
-              password_hash IS NOT NULL AS has_password,
+              password_hash, password_hash IS NOT NULL AS has_password,
               created_at, updated_at
   `;
   return c.json(parseStageJsonb(stage), 201);
@@ -7756,7 +7756,7 @@ stageRoutes.put("/stages/:id", async (c) => {
     RETURNING id, match_id, stage_number, name, scoring_type,
               paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper,
               min_rounds, max_points, par_time, image_path, briefing, config,
-              password_hash IS NOT NULL AS has_password,
+              password_hash, password_hash IS NOT NULL AS has_password,
               created_at, updated_at
   `;
   return c.json(parseStageJsonb(updated));

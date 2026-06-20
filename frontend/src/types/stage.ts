@@ -41,6 +41,7 @@ export interface Stage {
   config?: StageConfig;
   password?: string | null;
   has_password?: boolean;
+  password_hash?: string | null;
   created_at: string;
   updated_at: string;
 }

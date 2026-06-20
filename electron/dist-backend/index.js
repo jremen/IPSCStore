@@ -106,6 +106,7 @@ function calculateScore(input) {
   let raw_points = 0;
   let miss_count = 0;
   let no_shoot_hit_count = 0;
+  const hasExplicitMissData = input.targets.some((t) => t.miss > 0);
   for (const target of input.targets) {
     if (target.target_type === "paper") {
       const hits = [];
@@ -116,8 +117,7 @@ function calculateScore(input) {
       const best = hits.slice(0, target.hits_per_paper);
       raw_points += best.reduce((sum, h) => sum + h.value, 0);
       const totalScoringHits = target.alpha + target.charlie + target.delta;
-      const hasAnyEntry = target.alpha > 0 || target.charlie > 0 || target.delta > 0 || target.miss > 0;
-      const targetMisses = hasAnyEntry ? target.miss : Math.max(0, target.hits_per_paper - totalScoringHits);
+      const targetMisses = hasExplicitMissData ? target.miss : Math.max(0, target.hits_per_paper - totalScoringHits);
       miss_count += targetMisses;
       no_shoot_hit_count += target.no_shoot_hits;
     } else if (target.target_type === "steel") {
@@ -188,12 +188,12 @@ function calculateIDPAScore(input) {
   let points_down = 0;
   let miss_count = 0;
   let no_shoot_hit_count = 0;
+  const hasExplicitMissData = input.targets.some((t) => t.miss > 0);
   for (const target of input.targets) {
     if (target.target_type === "paper") {
       points_down += target.alpha * 0 + target.charlie * 1 + target.delta * 3;
       const totalHits = target.alpha + target.charlie + target.delta;
-      const hasAnyEntry = target.alpha > 0 || target.charlie > 0 || target.delta > 0 || target.miss > 0;
-      const targetMisses = hasAnyEntry ? target.miss : Math.max(0, target.hits_per_paper - totalHits);
+      const targetMisses = hasExplicitMissData ? target.miss : Math.max(0, target.hits_per_paper - totalHits);
       miss_count += targetMisses;
       no_shoot_hit_count += target.no_shoot_hits;
     } else if (target.target_type === "steel") {

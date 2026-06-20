@@ -51,6 +51,11 @@ export function calculatePreview(
   let miss_count = 0;
   let no_shoot_hit_count = 0;
 
+  // Global check: if ANY target has explicit miss data, use per-target miss values for ALL.
+  // Only fall back to auto-calculation (hits_per_paper - actual hits) for legacy scores
+  // (e.g. WinMSS imports) where misses were never set per-target.
+  const hasExplicitMissData = targets.some(t => t.miss > 0);
+
   for (const target of targets) {
     if (target.target_type === 'paper') {
       const hits: number[] = [];
@@ -60,11 +65,9 @@ export function calculatePreview(
       hits.sort((a, b) => b - a);
       const best = hits.slice(0, target.hits_per_paper);
       raw_points += best.reduce((s, v) => s + v, 0);
-      // Misses: always use explicit miss count from per-target entry.
-      // Fallback to auto-calc only for legacy scores where miss was never set (all zeros).
+      // Misses: use explicit miss count when available; auto-calc only for legacy scores.
       const totalScoring = target.alpha + target.charlie + target.delta;
-      const hasAnyEntry = target.alpha > 0 || target.charlie > 0 || target.delta > 0 || target.miss > 0;
-      miss_count += hasAnyEntry
+      miss_count += hasExplicitMissData
         ? target.miss
         : Math.max(0, target.hits_per_paper - totalScoring);
       no_shoot_hit_count += target.no_shoot_hits;
@@ -123,14 +126,16 @@ export function calculateIDPAPreview(input: IDPAPreviewInput): PreviewScore {
   let miss_count = 0;
   let no_shoot_hit_count = 0;
 
+  // Global check: if ANY target has explicit miss data, use per-target miss values for ALL.
+  const hasExplicitMissData = input.targets.some(t => t.miss > 0);
+
   for (const target of input.targets) {
     if (target.target_type === 'paper') {
       // IDPA zones: alpha=0 pts down, charlie=1 pt down, delta=3 pts down
       points_down += target.alpha * 0 + target.charlie * 1 + target.delta * 3;
 
       const totalHits = target.alpha + target.charlie + target.delta;
-      const hasAnyEntry = target.alpha > 0 || target.charlie > 0 || target.delta > 0 || target.miss > 0;
-      const targetMisses = hasAnyEntry ? target.miss : Math.max(0, target.hits_per_paper - totalHits);
+      const targetMisses = hasExplicitMissData ? target.miss : Math.max(0, target.hits_per_paper - totalHits);
       miss_count += targetMisses;
 
       no_shoot_hit_count += target.no_shoot_hits;

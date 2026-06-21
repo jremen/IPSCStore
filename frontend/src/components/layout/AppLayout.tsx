@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import Header from './Header';
 import TabBar from './TabBar';
 import { useUIStore } from '../../stores/uiStore';
+import { useMatchStore } from '../../stores/matchStore';
 import { useAuthStore } from '../../stores/authStore';
 import { api } from '../../services/api';
 import Matches from '../match/MatchList';
@@ -20,6 +21,7 @@ import MenuActionListener from '../shared/MenuActionListener';
 
 export default function AppLayout() {
   const { activeTab, activeMatchId, setActiveMatch } = useUIStore();
+  const { fetchMatches } = useMatchStore();
   const { isAuthenticated, isAdmin, isLocalNetwork, domainMode, authenticatedStageId, authenticatedMatchId, restoreSession, logout } = useAuthStore();
   const sessionValidated = useRef(false);
 
@@ -36,6 +38,15 @@ export default function AppLayout() {
   useEffect(() => {
     restoreSession();
   }, [restoreSession]);
+
+  // Eagerly load matches list so tabs like Registration have match data
+  // available for division/organization lookups without depending on the
+  // Matches tab being visited first.
+  useEffect(() => {
+    if (isAuthenticated && isAdmin) {
+      fetchMatches();
+    }
+  }, [isAuthenticated, isAdmin, fetchMatches]);
 
   // For remote scorers: set the active match ID so scoring UI works without manual selection
   useEffect(() => {

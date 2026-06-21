@@ -136,9 +136,9 @@ export default function BulkEditFormFields({ form, onChange, showSquad = false, 
       {/* Squad (only for registrations) */}
       {showSquad && (
         <div className="flex items-center gap-3">
-          <Checkbox
+          <ToggleSwitch
             checked={form.changeSquad ?? false}
-            onChange={(e) => update({ changeSquad: e.target.checked, squad: e.target.checked ? form.squad : '' })}
+            onChange={(checked) => update({ changeSquad: checked, squad: checked ? form.squad : '' })}
           />
           <div className="flex-1">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">

@@ -5,6 +5,7 @@ const EVENT_PREFIX = 'ipscscore:menu:';
 /** Map of menu actions to the tab they should be executed on. */
 export const TAB_ACTIONS: Record<string, string> = {
   'new-match': 'matches',
+  'import-match': 'matches',
   'winmss-import': 'matches',
   'delete-all-matches': 'matches',
   'new-stage': 'stages',

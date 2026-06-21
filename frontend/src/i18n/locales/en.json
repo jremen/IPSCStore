@@ -138,7 +138,16 @@
     "setAsCurrent": "Set as Current",
     "setAsCurrentDone": "Match set as current",
     "unsetAsCurrent": "Unset as current",
-    "level": "Level"
+    "level": "Level",
+    "importMatch": "Import Match",
+    "importMatchDescription": "Import a match from a previously exported .match.json file. This will create a new match with all its stages, registrations, and scores.",
+    "importSuccess": "Match imported successfully",
+    "importError": "Failed to import match",
+    "importing": "Importing...",
+    "exportMatch": "Export",
+    "exportSuccess": "Match exported successfully",
+    "exportError": "Failed to export match",
+    "matchIdConflict": "A match with this ID already exists in the database"
   },
   "stages": {
     "title": "Stages",
@@ -263,7 +272,11 @@
     "active": "Active",
     "disqualified": "DISQUALIFIED",
     "tag": "Tag",
-    "tagPlaceholder": "e.g. member number"
+    "tagPlaceholder": "e.g. member number",
+    "allDivisions": "All divisions",
+    "allCategories": "All categories",
+    "clearFilters": "Clear filters",
+    "showingOf": "Showing {{shown}} of {{total}}"
   },
   "scoring": {
     "noMatch": "Select a match first to start scoring.",

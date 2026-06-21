@@ -20,6 +20,7 @@ import { importRoutes } from './routes/import.js';
 import { winmssImportRoutes } from './routes/winmssImport.js';
 import { authRoutes } from './routes/auth.js';
 import { backupRoutes } from './routes/backup.js';
+import { matchExportRoutes } from './routes/matchExport.js';
 import { env } from './env.js';
 import { eventBroadcaster } from './services/events.js';
 
@@ -122,6 +123,7 @@ app.route('/api', scoringRoutes);
 app.route('/api', resultsRoutes);
 app.route('/api', uploadRoutes);
 app.route('/api', backupRoutes);
+app.route('/api', matchExportRoutes);
 app.route('/api/import', importRoutes);
 app.route('/api/import', winmssImportRoutes);
 

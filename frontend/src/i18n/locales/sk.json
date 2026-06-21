@@ -138,7 +138,16 @@
     "setAsCurrent": "Nastaviť ako aktuálnu",
     "setAsCurrentDone": "Súťaž nastavená ako aktuálna",
     "unsetAsCurrent": "Zrušiť aktuálnu",
-    "level": "Úroveň"
+    "level": "Úroveň",
+    "importMatch": "Importovať súťaž",
+    "importMatchDescription": "Importujte súťaž z predtým exportovaného súboru .match.json. Tým sa vytvorí nová súťaž so všetkými situáciami, registráciami a skóre.",
+    "importSuccess": "Súťaž úspešne importovaná",
+    "importError": "Import súťaže zlyhal",
+    "importing": "Importovanie...",
+    "exportMatch": "Exportovať",
+    "exportSuccess": "Súťaž úspešne exportovaná",
+    "exportError": "Export súťaže zlyhal",
+    "matchIdConflict": "Súťaž s týmto ID už existuje v databáze"
   },
   "stages": {
     "title": "Situácie",
@@ -263,7 +272,11 @@
     "active": "Aktívny",
     "disqualified": "DISKVALIFIKOVANÝ",
     "tag": "Štítok",
-    "tagPlaceholder": "napr. číslo člena"
+    "tagPlaceholder": "napr. číslo člena",
+    "allDivisions": "Všetky divízie",
+    "allCategories": "Všetky kategórie",
+    "clearFilters": "Vymazať filtre",
+    "showingOf": "Zobrazených {{shown}} z {{total}}"
   },
   "scoring": {
     "noMatch": "Najskôr vyberte súťaž.",

@@ -175,6 +175,22 @@ export const api = {
   updateMatch: (id: string, data: any) => request<any>(`/api/matches/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteMatch: (id: string) => request<any>(`/api/matches/${id}`, { method: 'DELETE' }),
 
+  // Match Export/Import
+  exportMatch: (id: string): Promise<Blob> => requestBlob(`/api/matches/${id}/export`),
+  importMatch: async (file: File): Promise<{ success: boolean; match_id: string; counts: any }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const headers: Record<string, string> = {};
+    const token = getAuthToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/api/matches/import`, { method: 'POST', body: form, headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+
   // Stages
   getStages: (matchId: string) => request<any[]>(`/api/matches/${matchId}/stages`),
   getStage: (id: string) => request<any>(`/api/stages/${id}`),

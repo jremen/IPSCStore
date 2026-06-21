@@ -17,6 +17,8 @@ export const DIVISIONS = [
   { value: 'revolver', label: 'Revolver', group: 'IPSC' },
   { value: 'pcc_optics', label: 'PCC Optics', group: 'IPSC' },
   { value: 'pcc_iron', label: 'PCC Iron', group: 'IPSC' },
+  { value: 'standard', label: 'Pistol Tréning', group: 'IPSC' },
+  { value: 'pcc_iron', label: 'PCC Tréning', group: 'IPSC' },
   // USPSA
   { value: 'limited', label: 'Limited', group: 'USPSA' },
   { value: 'limited_optics', label: 'Limited Optics', group: 'USPSA' },

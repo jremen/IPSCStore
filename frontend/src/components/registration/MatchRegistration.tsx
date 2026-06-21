@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Button, Badge, Checkbox, Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell } from 'flowbite-react';
+import { Button, TextInput, Select, Label } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
+import { useMatchStore } from '../../stores/matchStore';
 import { useSelection } from '../../hooks/useSelection';
-import { useConstLabels } from '../../hooks/useConstLabels';
+import { useRegistrationFilter } from '../../hooks/useRegistrationFilter';
 import { api } from '../../services/api';
-import { divisionLabel } from '../../utils/constants';
+import { CATEGORIES, getDivisionsForMatch } from '../../utils/constants';
 import CSVImportExport from '../shared/CSVImportExport';
 import BulkActionToolbar from '../shared/BulkActionToolbar';
-import SelectAllCheckbox from '../shared/SelectAllCheckbox';
+import RegistrationTable from './RegistrationTable';
 import AddShooterModal from './AddShooterModal';
 import CreateShooterModal from './CreateShooterModal';
 import EditRegistrationModal from './EditRegistrationModal';
@@ -19,7 +20,7 @@ import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 export default function MatchRegistration() {
   const { activeMatchId, addToast } = useUIStore();
   const { t } = useTranslation();
-  const { categoryLabel, powerFactorLabel } = useConstLabels();
+  const { matches } = useMatchStore();
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [showInlineCreate, setShowInlineCreate] = useState(false);
@@ -27,8 +28,13 @@ export default function MatchRegistration() {
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [showBulkRemove, setShowBulkRemove] = useState(false);
 
-  const regIds = registrations.map((r) => r.id);
-  const selection = useSelection(regIds);
+  const match = matches.find((m: any) => m.id === activeMatchId);
+  const divisions = getDivisionsForMatch(match);
+
+  const { search, setSearch, divisionFilter, setDivisionFilter, categoryFilter, setCategoryFilter, filtered, hasActiveFilters, clearFilters } = useRegistrationFilter(registrations);
+
+  const filteredIds = filtered.map((r) => r.id);
+  const selection = useSelection(filteredIds);
 
   useEffect(() => {
     if (activeMatchId) loadRegistrations();
@@ -64,13 +70,23 @@ export default function MatchRegistration() {
   }
 
   const selectedNames = selection.selectedArray
-    .map((id) => { const r = registrations.find((reg) => reg.id === id); return r ? `${r.first_name} ${r.last_name}` : id; });
+    .map((id) => {
+      const r = registrations.find((reg) => reg.id === id);
+      return r ? `${r.first_name} ${r.last_name}` : id;
+    });
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
       <div className="sticky top-4 before:bg-gray-200 pb-4 dark:before:bg-gray-900 before:absolute before:h-4 before:w-full before:-top-4 bg-gray-200 dark:bg-gray-900 z-100">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <h2 className="text-xl font-bold dark:text-white">{t('registration.title')} ({registrations.length})</h2>
+          <h2 className="text-xl font-bold dark:text-white">
+            {t('registration.title')} ({registrations.length})
+            {hasActiveFilters && filtered.length !== registrations.length && (
+              <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                {t('registration.showingOf', { shown: filtered.length, total: registrations.length })}
+              </span>
+            )}
+          </h2>
           <div className="flex gap-2">
             <CSVImportExport type="registrations" matchId={activeMatchId} onImportComplete={loadRegistrations} />
             <Button size="sm" color="green" onClick={() => setShowInlineCreate(true)}>{t('shooters.newShooter')}</Button>
@@ -88,68 +104,61 @@ export default function MatchRegistration() {
         />
       </div>
 
-      {registrations.length > 0 ? (
-        <div className="overflow-x-auto rounded-lg">
-          <Table striped theme={{root: {shadow: "hidden"}}}>
-            <TableHead>
-              <TableRow>
-                <TableHeadCell className="w-10">
-                  <SelectAllCheckbox
-                    allSelected={selection.allSelected}
-                    someSelected={selection.someSelected}
-                    onToggle={selection.allSelected ? selection.deselectAll : selection.selectAll}
-                    selectedCount={selection.selectedCount}
-                    totalCount={registrations.length}
-                  />
-                </TableHeadCell>
-                <TableHeadCell>#</TableHeadCell>
-                <TableHeadCell>{t('common.name')}</TableHeadCell>
-                <TableHeadCell>{t('shooters.division')}</TableHeadCell>
-                <TableHeadCell>{t('shooters.category')}</TableHeadCell>
-                <TableHeadCell>PF</TableHeadCell>
-                <TableHeadCell>{t('registration.squad')}</TableHeadCell>
-                <TableHeadCell />
-                <TableHeadCell>{t('common.actions')}</TableHeadCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {registrations.map((r, idx) => (
-                <TableRow key={r.id} className={r.is_dq ? 'bg-red-50 dark:bg-red-900/20' : selection.isSelected(r.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}>
-                  <TableCell>
-                    <Checkbox checked={selection.isSelected(r.id)} onChange={() => selection.toggle(r.id)} />
-                  </TableCell>
-                  <TableCell className="font-mono text-gray-500">{idx + 1}</TableCell>
-                  <TableCell className="font-medium dark:text-white whitespace-nowrap">
-                    {r.first_name} {r.last_name}
-                  </TableCell>
-                  <TableCell>
-                    <Badge color="blue" size="sm">{divisionLabel(r.effective_division)}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge color="gray" size="sm">{categoryLabel(r.effective_category)}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge color={r.effective_power_factor === 'major' ? 'warning' : 'success'} size="sm">{powerFactorLabel(r.effective_power_factor)}</Badge>
-                  </TableCell>
-                  <TableCell className="font-mono">{r.squad === null || r.squad === undefined ? '—' : Number(r.squad)}</TableCell>
-                  <TableCell>
-                    {r.is_dq ? (
-                      <Badge color="failure" size="sm">{t('registration.dq')}</Badge>
-                    ) : (
-                      <Badge color="success" size="sm">{t('registration.active')}</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button size="xs" color="blue" onClick={() => setEditReg(r)}>{t('common.edit')}</Button>
-                      <Button size="xs" color="red" onClick={() => handleRemove(r.id)}>{t('common.remove')}</Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+      {registrations.length > 0 && (
+        <div className="flex flex-wrap items-end gap-3 mb-3">
+          <div className="flex-1 min-w-[200px]">
+            <Label htmlFor="reg-search">{t('common.name')}</Label>
+            <TextInput
+              id="reg-search"
+              placeholder={t('registration.search')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="min-w-[180px]">
+            <Label htmlFor="reg-div">{t('shooters.division')}</Label>
+            <Select
+              id="reg-div"
+              value={divisionFilter}
+              onChange={(e) => setDivisionFilter(e.target.value)}
+            >
+              <option value="">{t('registration.allDivisions')}</option>
+              {divisions.map((d) => (
+                <option key={d.value} value={d.value}>{d.label}</option>
               ))}
-            </TableBody>
-          </Table>
+            </Select>
+          </div>
+          <div className="min-w-[180px]">
+            <Label htmlFor="reg-cat">{t('shooters.category')}</Label>
+            <Select
+              id="reg-cat"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value="">{t('registration.allCategories')}</option>
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>{t(c.i18nKey)}</option>
+              ))}
+            </Select>
+          </div>
+          {hasActiveFilters && (
+            <Button size="sm" color="gray" onClick={clearFilters}>{t('registration.clearFilters')}</Button>
+          )}
         </div>
+      )}
+
+      {registrations.length > 0 ? (
+        filtered.length > 0 ? (
+          <RegistrationTable
+            registrations={filtered}
+            totalCount={filteredIds.length}
+            selection={selection}
+            onEdit={setEditReg}
+            onRemove={handleRemove}
+          />
+        ) : (
+          <p className="text-center text-gray-500 mt-8">{t('registration.searchEmpty')}</p>
+        )
       ) : (
         <p className="text-center text-gray-500 mt-8">{t('registration.empty')}</p>
       )}

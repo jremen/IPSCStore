@@ -3,20 +3,24 @@ import { Button, Badge, TextInput, Table, TableHead, TableBody, TableRow, TableC
 import { useTranslation } from 'react-i18next';
 import { useMatchStore } from '../../stores/matchStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useMatchExport } from '../../hooks/useMatchExport';
 import { formatDate } from '../../utils/constants';
 import MatchDetail from './MatchDetail';
 import WinMSSImport from '../settings/WinMSSImport';
 import DeleteMatchModal from './DeleteMatchModal';
 import DeleteAllMatchesModal from './DeleteAllMatchesModal';
 import CreateMatchModal from './CreateMatchModal';
-import { TbTrash } from 'react-icons/tb';
+import ImportMatchModal from './ImportMatchModal';
+import { TbTrash, TbFileExport, TbFileUpload } from 'react-icons/tb';
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function MatchList() {
   const { matches, loading, fetchMatches, markCurrent, unmarkCurrent } = useMatchStore();
   const { activeMatchId, setActiveMatch, addToast } = useUIStore();
+  const { handleExport, exporting } = useMatchExport();
   const { t } = useTranslation();
   const [showCreate, setShowCreate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showDeleteAll, setShowDeleteAll] = useState(false);
   const [search, setSearch] = useState('');
@@ -25,6 +29,7 @@ export default function MatchList() {
   useEffect(() => { fetchMatches(); }, [fetchMatches]);
 
   useTabMenuAction('new-match', () => setShowCreate(true));
+  useTabMenuAction('import-match', () => setShowImport(true));
   useTabMenuAction('delete-all-matches', () => {
     if (matches.length > 0) setShowDeleteAll(true);
   });
@@ -53,6 +58,7 @@ export default function MatchList() {
               <Button size="sm" color="red" onClick={() => setShowDeleteAll(true)}><TbTrash /> {t('matches.deleteAll')}</Button>
             )}
             <WinMSSImport />
+            <Button size="sm" color="light" onClick={() => setShowImport(true)}><TbFileUpload /> {t('matches.importMatch')}</Button>
             <Button size="sm" color="green" onClick={() => setShowCreate(true)}>{t('matches.newMatch')}</Button>
           </div>
         </div>
@@ -98,6 +104,7 @@ export default function MatchList() {
                   <TableCell className="text-gray-500">{m.shooter_count ?? '—'}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
+                      
                       <Button
                         size="xs"
                         color={m.is_current ? "green" : "gray"}
@@ -121,6 +128,18 @@ export default function MatchList() {
                       >
                         {t('matches.deleteMatch')}
                       </Button>
+                      <Button
+                        size="xs"
+                        color="light"
+                        title={t('matches.exportMatch')}
+                        disabled={exporting}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleExport(m.id, m.name);
+                        }}
+                      >
+                        <TbFileExport />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -135,6 +154,7 @@ export default function MatchList() {
       <DeleteMatchModal show={deleteTarget !== null} onClose={() => setDeleteTarget(null)} matchId={deleteTarget} />
       <DeleteAllMatchesModal show={showDeleteAll} onClose={() => setShowDeleteAll(false)} />
       <CreateMatchModal show={showCreate} onClose={() => setShowCreate(false)} />
+      <ImportMatchModal show={showImport} onClose={() => setShowImport(false)} onImported={fetchMatches} />
     </div>
   );
 }

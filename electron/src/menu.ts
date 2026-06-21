@@ -17,6 +17,16 @@ function send(action: string, payload?: any) {
   mainWindow?.webContents?.send('menu-action', action, payload);
 }
 
+function showAboutDialog() {
+  dialog.showMessageBox(mainWindow!, {
+    type: 'info',
+    title: 'About IPSC Score',
+    message: 'IPSC Score',
+    detail: `Version: ${app.getVersion()}\n\nCreated by Jozef Remeň\nŠK Strelec Dolný Kubín, Slovakia`,
+    buttons: ['OK'],
+  });
+}
+
 function buildMenuTemplate(): Electron.MenuItemConstructorOptions[] {
   const isMac = process.platform === 'darwin';
   const hasMatch = !!currentState.activeMatchId;
@@ -250,15 +260,7 @@ function buildMenuTemplate(): Electron.MenuItemConstructorOptions[] {
       },
       {
         label: 'About IPSC Score',
-        click: () => {
-          dialog.showMessageBox(mainWindow!, {
-            type: 'info',
-            title: 'About IPSC Score',
-            message: 'IPSC Score',
-            detail: `Version: ${app.getVersion()}\nElectron: ${process.versions.electron}\nNode: ${process.versions.node}`,
-            buttons: ['OK'],
-          });
-        },
+        click: showAboutDialog,
       },
     ],
   };
@@ -279,15 +281,7 @@ function buildMenuTemplate(): Electron.MenuItemConstructorOptions[] {
     template.unshift({
       label: app.name,
       submenu: [
-        { label: 'About IPSC Score', click: () => {
-          dialog.showMessageBox(mainWindow!, {
-            type: 'info',
-            title: 'About IPSC Score',
-            message: 'IPSC Score',
-            detail: `Version: ${app.getVersion()}\nElectron: ${process.versions.electron}\nNode: ${process.versions.node}`,
-            buttons: ['OK'],
-          });
-        } },
+        { label: 'About IPSC Score', click: showAboutDialog },
         { type: 'separator' },
         { label: 'Preferences…', accelerator: 'Cmd+,', click: () => send('open-preferences') },
         { type: 'separator' },

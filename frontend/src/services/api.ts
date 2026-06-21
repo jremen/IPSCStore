@@ -243,8 +243,6 @@ export const api = {
   getSingleStageResults: (matchId: string, stageId: string) => request<any>(`/api/matches/${matchId}/results/stages/${stageId}`),
   getCategoryResults: (matchId: string) => request<any>(`/api/matches/${matchId}/results/categories`),
   getTagResults: (matchId: string) => request<any>(`/api/matches/${matchId}/results/tags`),
-  exportCSV: (matchId: string) => requestText(`/api/matches/${matchId}/results/export/csv`),
-  exportHTML: (matchId: string) => requestText(`/api/matches/${matchId}/results/export/html`),
   exportRegistrationCSV: (matchId: string) => requestText(`/api/matches/${matchId}/registrations/export/csv`),
 
   // Import

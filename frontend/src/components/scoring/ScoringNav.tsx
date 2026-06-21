@@ -42,10 +42,10 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
   if (!activeMatchId) {
     return (
       <p className="p-4 text-gray-500 text-center">
-        {t('scoring.noMatch')}
+        {t('offline.noCachedData')}
       </p>
     );
-}
+  }
 
   // Summary view for remote scorers
   if (showSummary && currentStage && currentScore && currentShooter) {

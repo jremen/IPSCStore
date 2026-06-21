@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
+import * as offlineDB from '../services/offlineDB';
+import { isBackendReachable } from '../services/connectivity';
 import type { Match, MatchDetail, CreateMatchInput } from '../types/match';
 
 interface MatchState {
@@ -30,12 +32,42 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
 
   fetchMatches: async () => {
     set({ loading: true, error: null });
+
+    // When offline or backend unreachable, try cached matches first
+    if (!navigator.onLine || !(await isBackendReachable())) {
+      try {
+        const cached = await offlineDB.getCachedMatches();
+        if (cached.length > 0) {
+          const runningMatch = cached.find((m: any) => m.is_current) ?? null;
+          set({ matches: cached, runningMatch, loading: false });
+        } else {
+          set({ matches: [], error: 'No cached matches available', loading: false });
+        }
+      } catch {
+        set({ matches: [], error: 'Failed to load cached matches', loading: false });
+      }
+      return;
+    }
+
     try {
       const matches = await api.getMatches();
       const runningMatch = matches.find(m => m.is_current);
       set({ matches, runningMatch, loading: false });
+      // Pre-cache to IndexedDB when online
+      offlineDB.cacheMatches(matches).catch(() => {});
     } catch (err: any) {
-      set({ error: err.message, loading: false });
+      // Network failed — try cached matches
+      try {
+        const cached = await offlineDB.getCachedMatches();
+        if (cached.length > 0) {
+          const runningMatch = cached.find((m: any) => m.is_current) ?? null;
+          set({ matches: cached, runningMatch, loading: false });
+        } else {
+          set({ matches: [], error: err.message, loading: false });
+        }
+      } catch {
+        set({ matches: [], error: err.message, loading: false });
+      }
     }
   },
 
@@ -81,21 +113,27 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
 
   markCurrent: async (id) => {
     const updated = await api.setCurrentMatch(id);
-    set((state) => ({
-      matches: state.matches.map((m) => ({
+    set((state) => {
+      const matches = state.matches.map((m) => ({
         ...m,
-        is_current: m.id === id ? true : false,
-      })),
-    }));
+        is_current: m.id === id,
+      }));
+      const runningMatch = matches.find(m => m.is_current) ?? null;
+      // Update IndexedDB cache so offline mode reflects the change
+      offlineDB.cacheMatches(matches).catch(() => {});
+      return { matches, runningMatch };
+    });
   },
 
   unmarkCurrent: async () => {
     await api.unsetCurrentMatch();
-    set((state) => ({
-      matches: state.matches.map((m) => ({
+    set((state) => {
+      const matches = state.matches.map((m) => ({
         ...m,
         is_current: false,
-      })),
-    }));
+      }));
+      offlineDB.cacheMatches(matches).catch(() => {});
+      return { matches, runningMatch: null };
+    });
   },
 }));

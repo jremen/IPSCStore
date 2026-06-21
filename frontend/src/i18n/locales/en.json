@@ -535,7 +535,11 @@
     "backOnline": "Back online. Syncing pending scores...",
     "syncComplete": "All scores synced successfully.",
     "syncConflict": "Score for {{shooter}} on Stage {{stage}} was also modified by another device. Your version was saved.",
-    "syncFailed": "Some scores could not be synced. Session may have expired."
+    "syncFailed": "Some scores could not be synced. Session may have expired.",
+    "serverUnreachable": "Server is unreachable. Showing cached data.",
+    "noCachedData": "No cached data available. Connect to the network to load data.",
+    "noCachedStages": "No cached stages. Connect to the network to load stages.",
+    "noCachedRegistrations": "No cached registrations. Connect to the network to load shooters."
   },
   "firearmTypes": {
     "handgun": "Handgun",

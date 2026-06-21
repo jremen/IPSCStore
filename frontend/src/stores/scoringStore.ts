@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { api, getAuthToken } from '../services/api';
 import * as offlineDB from '../services/offlineDB';
+import { isBackendReachable } from '../services/connectivity';
 import type { ScoringAlert, TargetScore, ScoreInput, RegistrationWithShooter, ScoringProgress } from '../types/scoring';
 import type { Stage } from '../types/stage';
 import { buildEmptyScore } from '../utils/buildEmptyScore';
@@ -133,17 +134,17 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   fetchRegistrations: async (matchId) => {
     set({ loading: true, error: null });
 
-    // When offline, skip the API call entirely and go straight to IndexedDB
-    if (!navigator.onLine) {
+    // When offline or backend unreachable, skip the API call entirely and go straight to IndexedDB
+    if (!navigator.onLine || !(await isBackendReachable())) {
       try {
         const cached = await offlineDB.getCachedRegistrations(matchId);
         if (cached.length > 0) {
           set({ registrations: cached, loading: false, isOfflineMode: true });
         } else {
-          set({ error: 'No cached registrations available', loading: false, isOfflineMode: true });
+          set({ registrations: [], error: 'No cached registrations available', loading: false, isOfflineMode: true });
         }
       } catch {
-        set({ error: 'Failed to load cached registrations', loading: false, isOfflineMode: true });
+        set({ registrations: [], error: 'Failed to load cached registrations', loading: false, isOfflineMode: true });
       }
       return;
     }
@@ -160,10 +161,10 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
         if (cached.length > 0) {
           set({ registrations: cached, loading: false, isOfflineMode: true });
         } else {
-          set({ error: err.message, loading: false });
+          set({ registrations: [], error: err.message, loading: false });
         }
       } catch {
-        set({ error: err.message, loading: false });
+        set({ registrations: [], error: err.message, loading: false });
       }
     }
   },
@@ -214,8 +215,8 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
       };
     };
 
-    // When offline, skip the API call entirely and go straight to IndexedDB
-    if (!navigator.onLine) {
+    // When offline or backend unreachable, skip the API call entirely and go straight to IndexedDB
+    if (!navigator.onLine || !(await isBackendReachable())) {
       try {
         const cached = await offlineDB.getCachedScore(matchId, stageId, registrationId);
         if (cached) {
@@ -482,8 +483,8 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   fetchScoringProgress: async (matchId) => {
     // Don't clear existing progress before trying — avoid UI flash
 
-    // When offline, skip the API call entirely and go straight to IndexedDB
-    if (!navigator.onLine) {
+    // When offline or backend unreachable, skip the API call entirely and go straight to IndexedDB
+    if (!navigator.onLine || !(await isBackendReachable())) {
       try {
         const cached = await offlineDB.getCachedScoringProgress(matchId);
         if (cached) {

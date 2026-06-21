@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import bcrypt from 'bcryptjs';
 import { api } from '../services/api';
 import * as offlineDB from '../services/offlineDB';
+import { isBackendReachable } from '../services/connectivity';
 
 function isNetworkError(err: any): boolean {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
@@ -242,8 +243,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (role === 'admin') {
       const token = localStorage.getItem('admin_token');
       if (token) {
-        // If offline, trust localStorage — admin tokens are long-lived (24h)
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        // If offline or backend unreachable, trust localStorage — admin tokens are long-lived (24h)
+        if (!navigator.onLine || !(await isBackendReachable())) {
           set({
             isAuthenticated: true,
             isAdmin: true,
@@ -278,8 +279,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const matchId = localStorage.getItem('auth_match_id');
 
       if (token && stageId) {
-        // If offline, trust localStorage — scorer tokens are long-lived (24h)
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        // If offline or backend unreachable, trust localStorage — scorer tokens are long-lived (24h)
+        if (!navigator.onLine || !(await isBackendReachable())) {
           set({
             isAuthenticated: true,
             stageToken: token,

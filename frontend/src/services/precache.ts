@@ -9,15 +9,16 @@
  */
 import { api } from './api';
 import * as offlineDB from './offlineDB';
+import { isBackendReachable } from './connectivity';
 
 /**
  * Pre-cache all scoring data for a match (stages, registrations, progress).
  * Called when the scoring tab is first opened while online.
  */
 export async function precacheScoringData(matchId: string): Promise<void> {
-  // Skip in Electron (always has local server) or when offline
+  // Skip in Electron (always has local server) or when offline/unreachable
   if (typeof window !== 'undefined' && window.electronAPI?.isElectron?.()) return;
-  if (!navigator.onLine) return;
+  if (!navigator.onLine || !(await isBackendReachable())) return;
 
   try {
     const [stages, registrations, progress] = await Promise.all([
@@ -46,9 +47,9 @@ export async function precacheStageScores(
   stageId: string,
   registrationIds: string[],
 ): Promise<void> {
-  // Skip in Electron or when offline
+  // Skip in Electron or when offline/unreachable
   if (typeof window !== 'undefined' && window.electronAPI?.isElectron?.()) return;
-  if (!navigator.onLine) return;
+  if (!navigator.onLine || !(await isBackendReachable())) return;
 
   // Fetch all scores for this stage in parallel (non-blocking)
   const promises = registrationIds.map((regId) =>

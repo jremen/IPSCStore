@@ -5,6 +5,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useMatchStore } from '../../stores/matchStore';
 import { useAuthStore } from '../../stores/authStore';
 import { api } from '../../services/api';
+import * as offlineDB from '../../services/offlineDB';
 import Matches from '../match/MatchList';
 import Stages from '../stage/StageList';
 import ShooterDatabase from '../shooter/ShooterDatabase';
@@ -66,28 +67,42 @@ export default function AppLayout() {
       sessionValidated.current = true;
 
       (async () => {
+        let currentMatch: any = null;
         try {
-          const currentMatch = await api.getCurrentMatch();
-          if (!currentMatch?.id) return;
-
-          // On domain views, always use the running match
-          setActiveMatch(currentMatch.id);
-
-          // If a scorer is authenticated but for a different (old) match, clear their session
-          if (isAuthenticated && !isAdmin && authenticatedMatchId && authenticatedMatchId !== currentMatch.id) {
-            logout();
-          }
+          currentMatch = await api.getCurrentMatch();
         } catch {
-          // No current match — leave state as-is
+          // Backend unreachable — try cached running match from IndexedDB
+          try {
+            currentMatch = await offlineDB.getCachedCurrentMatch();
+          } catch {
+            // IndexedDB also failed — leave state as-is
+          }
+        }
+
+        if (!currentMatch?.id) return;
+
+        // On domain views, always use the running match
+        setActiveMatch(currentMatch.id);
+
+        // If a scorer is authenticated but for a different (old) match, clear their session
+        if (isAuthenticated && !isAdmin && authenticatedMatchId && authenticatedMatchId !== currentMatch.id) {
+          logout();
         }
       })();
     } else if (isAuthenticated && isAdmin && !activeMatchId && (activeTab === 'scoring' || activeTab === 'results')) {
       // Admin: auto-select the running match when entering scoring/results tabs with no match selected
       (async () => {
+        let currentMatch: any = null;
         try {
-          const currentMatch = await api.getCurrentMatch();
-          if (currentMatch?.id) setActiveMatch(currentMatch.id);
-        } catch { /* no current match — user must select manually */ }
+          currentMatch = await api.getCurrentMatch();
+        } catch {
+          try {
+            currentMatch = await offlineDB.getCachedCurrentMatch();
+          } catch {
+            // leave as-is
+          }
+        }
+        if (currentMatch?.id) setActiveMatch(currentMatch.id);
       })();
     }
   }, [domainMode, isAuthenticated, isAdmin, activeTab, activeMatchId, authenticatedMatchId, setActiveMatch, logout]);

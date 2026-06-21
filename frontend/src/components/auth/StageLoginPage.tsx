@@ -3,6 +3,7 @@ import { Card, Select, TextInput, Button, Label, Alert } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { api } from '../../services/api';
+import * as offlineDB from '../../services/offlineDB';
 import LanguageSelector from '../settings/LanguageSelector';
 
 export default function StageLoginPage() {
@@ -19,7 +20,33 @@ export default function StageLoginPage() {
         const result = await api.auth.getStages();
         setStages(result);
       } catch (err: any) {
-        setFetchError(err.message);
+        // Network failed — try cached stages from IndexedDB
+        try {
+          const allStages = await offlineDB.getCachedMatches().then(async (matches) => {
+            // Get all cached stages across all matches
+            const allStages: Array<{ id: string; name: string; stageNumber: number; matchName: string }> = [];
+            for (const match of matches) {
+              const matchStages = await offlineDB.getCachedStages(match.id);
+              for (const s of matchStages) {
+                allStages.push({
+                  id: s.id,
+                  name: s.name,
+                  stageNumber: s.stage_number,
+                  matchName: match.name,
+                });
+              }
+            }
+            return allStages;
+          });
+          if (allStages.length > 0) {
+            setStages(allStages);
+            setFetchError(null);
+          } else {
+            setFetchError(err.message);
+          }
+        } catch {
+          setFetchError(err.message);
+        }
       }
     }
     fetchStages();

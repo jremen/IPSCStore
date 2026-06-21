@@ -8,7 +8,7 @@ import type { RegistrationWithShooter, ScoringProgress } from '../types/scoring'
 import type { Stage } from '../types/stage';
 
 const DB_NAME = 'ipscscore-offline';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -29,27 +29,57 @@ export interface PendingSave {
 
 // ── Database ───────────────────────────────────────────────────────────────
 
+let dbReady: Promise<IDBDatabase> | null = null;
 let dbInstance: IDBDatabase | null = null;
 
 function openDB(): Promise<IDBDatabase> {
   if (dbInstance) return Promise.resolve(dbInstance);
+  if (dbReady) return dbReady;
 
-  return new Promise((resolve, reject) => {
+  dbReady = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result;
+      const oldVersion = event.oldVersion;
+
+      // v1→v2: fix index field name from 'match_id' to 'matchId'
+      // v2→v3: same fix (idempotent)
+      // The index field must match the key we write in cacheStages/cacheRegistrations.
 
       // Stages store
       if (!db.objectStoreNames.contains('stages')) {
-        const stagesStore = db.createObjectStore('stages', { keyPath: 'id' });
-        stagesStore.createIndex('by_matchId', 'match_id');
+        const s = db.createObjectStore('stages', { keyPath: 'id' });
+        s.createIndex('by_matchId', 'matchId');
+      } else if (oldVersion < 3) {
+        // Migration: old stores used index on 'match_id', now use 'matchId'.
+        // Delete and recreate the index to point at the correct field.
+        try {
+          const stagesStore = (event.target as IDBOpenDBRequest).transaction!.objectStore('stages');
+          if (stagesStore.indexNames.contains('by_matchId')) {
+            stagesStore.deleteIndex('by_matchId');
+          }
+          stagesStore.createIndex('by_matchId', 'matchId');
+        } catch {
+          // If the upgrade transaction doesn't expose the store, recreate will
+          // happen on the next version bump. Non-fatal for read-only cache.
+        }
       }
 
       // Registrations store
       if (!db.objectStoreNames.contains('registrations')) {
-        const regsStore = db.createObjectStore('registrations', { keyPath: 'id' });
-        regsStore.createIndex('by_matchId', 'match_id');
+        const s = db.createObjectStore('registrations', { keyPath: 'id' });
+        s.createIndex('by_matchId', 'matchId');
+      } else if (oldVersion < 3) {
+        try {
+          const regsStore = (event.target as IDBOpenDBRequest).transaction!.objectStore('registrations');
+          if (regsStore.indexNames.contains('by_matchId')) {
+            regsStore.deleteIndex('by_matchId');
+          }
+          regsStore.createIndex('by_matchId', 'matchId');
+        } catch {
+          // Non-fatal.
+        }
       }
 
       // Scoring progress store
@@ -94,25 +124,57 @@ function openDB(): Promise<IDBDatabase> {
         const sessionsStore = db.createObjectStore('offlineSessions', { keyPath: 'stageId' });
         sessionsStore.createIndex('by_matchId', 'matchId');
       }
+
+      // Matches cache (for offline match list)
+      if (!db.objectStoreNames.contains('matches')) {
+        const matchesStore = db.createObjectStore('matches', { keyPath: 'id' });
+        matchesStore.createIndex('by_current', 'is_current');
+      }
     };
 
     request.onsuccess = () => {
-      dbInstance = request.result;
-      resolve(dbInstance);
+      const db = request.result;
+
+      // Handle versionchange from another tab — close and reset so the next
+      // caller re-opens at the new version.
+      db.onversionchange = () => {
+        db.close();
+        dbInstance = null;
+        dbReady = null;
+      };
+
+      dbInstance = db;
+      resolve(db);
     };
 
     request.onerror = () => {
+      dbReady = null;
       reject(new Error(`IndexedDB open failed: ${request.error?.message}`));
     };
   });
+
+  return dbReady;
 }
 
 /** Convenience: get a transaction + object store */
 async function getStore(storeName: string, mode: IDBTransactionMode = 'readonly'): Promise<{ db: IDBDatabase; store: IDBObjectStore; tx: IDBTransaction }> {
   const db = await openDB();
-  const tx = db.transaction(storeName, mode);
-  const store = tx.objectStore(storeName);
-  return { db, store, tx };
+  try {
+    const tx = db.transaction(storeName, mode);
+    const store = tx.objectStore(storeName);
+    return { db, store, tx };
+  } catch (err: any) {
+    // Connection was closed (versionchange) — reset and retry once
+    if (err?.name === 'InvalidStateError') {
+      dbInstance = null;
+      dbReady = null;
+      const db2 = await openDB();
+      const tx = db2.transaction(storeName, mode);
+      const store = tx.objectStore(storeName);
+      return { db: db2, store, tx };
+    }
+    throw err;
+  }
 }
 
 /** Wrap an IDB request in a promise */
@@ -136,7 +198,7 @@ function txComplete(tx: IDBTransaction): Promise<void> {
 export async function cacheStages(matchId: string, stages: Stage[]): Promise<void> {
   const { store, tx } = await getStore('stages', 'readwrite');
   for (const stage of stages) {
-    store.put({ ...stage, _matchId: matchId });
+    store.put({ ...stage, matchId });
   }
   await txComplete(tx);
 }
@@ -158,7 +220,7 @@ export async function getCachedStageById(stageId: string): Promise<Stage | null>
 export async function cacheRegistrations(matchId: string, registrations: RegistrationWithShooter[]): Promise<void> {
   const { store, tx } = await getStore('registrations', 'readwrite');
   for (const reg of registrations) {
-    store.put({ ...reg, _matchId: matchId });
+    store.put({ ...reg, matchId });
   }
   await txComplete(tx);
 }
@@ -227,6 +289,28 @@ export async function getCachedScore(
   // Verify it belongs to the right match
   if (result && result.matchId === matchId) return result;
   return null;
+}
+
+// ── Matches cache ──────────────────────────────────────────────────────────
+
+export async function cacheMatches(matches: any[]): Promise<void> {
+  const { store, tx } = await getStore('matches', 'readwrite');
+  for (const match of matches) {
+    store.put(match);
+  }
+  await txComplete(tx);
+}
+
+export async function getCachedMatches(): Promise<any[]> {
+  const { store } = await getStore('matches');
+  return promisify<any[]>(store.getAll());
+}
+
+export async function getCachedCurrentMatch(): Promise<any | null> {
+  const { store } = await getStore('matches');
+  const index = store.index('by_current');
+  const results = await promisify<any[]>(index.getAll(1));
+  return results[0] ?? null;
 }
 
 // ── Pending Saves ──────────────────────────────────────────────────────────

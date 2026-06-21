@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, Badge } from 'flowbite-react';
+import { Button, Card, Badge, Alert } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useStageStore } from '../../stores/stageStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -16,7 +16,7 @@ function getScoringTypeLabel(type: string): string {
 }
 
 export default function StageList() {
-  const { stages, loading, fetchStages, deleteStage } = useStageStore();
+  const { stages, loading, error, fetchStages, deleteStage } = useStageStore();
   const { activeMatchId, addToast } = useUIStore();
   const { t } = useTranslation();
   const [showCreate, setShowCreate] = useState(false);
@@ -111,7 +111,11 @@ export default function StageList() {
       </div>
 
       {!loading && stages.length === 0 && (
-        <p className="text-center text-gray-500 mt-8">{t('stages.empty')}</p>
+        <p className="text-center text-gray-500 mt-8">{error || t('stages.empty')}</p>
+      )}
+
+      {!loading && stages.length === 0 && error && (
+        <Alert color="warning" className="mt-4">{t('offline.noCachedStages')}</Alert>
       )}
 
       <StageFormModal show={showCreate} onClose={handleCloseModal} matchId={activeMatchId!} />

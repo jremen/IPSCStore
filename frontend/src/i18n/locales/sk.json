@@ -535,7 +535,11 @@
     "backOnline": "Späť online. Synchronizujem čakajúce skóre...",
     "syncComplete": "Všetky skóre boli úspešne synchronizované.",
     "syncConflict": "Skóre pre {{shooter}} na Stage {{stage}} bolo upravené aj na inom zariadení. Vaša verzia bola uložená.",
-    "syncFailed": "Niektoré skóre sa nepodarilo synchronizovať. Relácia môže vypršala."
+    "syncFailed": "Niektoré skóre sa nepodarilo synchronizovať. Relácia môže vypršala.",
+    "serverUnreachable": "Server je nedostupný. Zobrazujem cache dáta.",
+    "noCachedData": "Žiadne cache dáta. Pripojte sa k sieti pre načítanie dát.",
+    "noCachedStages": "Žiadne cache situácie. Pripojte sa k sieti pre načítanie.",
+    "noCachedRegistrations": "Žiadne cache registrácie. Pripojte sa k sieti pre načítanie."
   },
   "firearmTypes": {
     "handgun": "Pištoľ",

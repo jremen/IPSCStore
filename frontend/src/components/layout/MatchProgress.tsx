@@ -2,6 +2,7 @@ import { memo, useEffect } from "react";
 import { useScoringStore } from "../../stores/scoringStore";
 import { useMatchStore } from "../../stores/matchStore";
 import { useStageStore } from "../../stores/stageStore";
+import { useUIStore } from "../../stores/uiStore";
 import { Progress } from "flowbite-react";
 import { useMatchProgress } from "../../hooks/useMatchProgress";
 import { useSSEStore } from "../../stores/sseStore";
@@ -11,23 +12,25 @@ const SSE_FALLBACK_INTERVAL_MS = 300000;
 
 const MatchProgress = () => {
 const runningMatchId = useMatchStore((s) => s.runningMatch?.id);
+const activeMatchId = useUIStore((s) => s.activeMatchId);
+const effectiveMatchId = runningMatchId ?? activeMatchId;
 const sseConnected = useSSEStore((s) => s.connected);
 const {scoredLength, stagesLength, registrationsLength, fetchRegistrations, fetchScoringProgress, fetchStages} = useMatchProgress();
 
   // fetch + polling (ONLY side effects)
   useEffect(() => {
-    if (!runningMatchId) return;
+    if (!effectiveMatchId) return;
 
-    fetchRegistrations(runningMatchId);
-    fetchStages(runningMatchId);
-    fetchScoringProgress(runningMatchId);
+    fetchRegistrations(effectiveMatchId);
+    fetchStages(effectiveMatchId);
+    fetchScoringProgress(effectiveMatchId);
 
     const interval = setInterval(() => {
-      fetchScoringProgress(runningMatchId);
+      fetchScoringProgress(effectiveMatchId);
     }, sseConnected ? SSE_FALLBACK_INTERVAL_MS : POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [runningMatchId, sseConnected]);
+  }, [effectiveMatchId, sseConnected]);
 
   // ✅ ALWAYS derived during render (NO useEffect)
   const full = stagesLength * registrationsLength;

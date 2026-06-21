@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
 import * as offlineDB from '../services/offlineDB';
+import { isBackendReachable } from '../services/connectivity';
 import type { Stage, CreateStageInput } from '../types/stage';
 
 /** Parse stage.config if it came back as a JSON string from postgres driver */
@@ -11,6 +12,11 @@ function parseStageConfig(stage: any): Stage {
     try { result.config = JSON.parse(result.config); } catch { result.config = {}; }
   }
   return result as Stage;
+}
+
+/** Sort stages by stage_number to ensure consistent ordering */
+function byStageNumber(a: Stage, b: Stage): number {
+  return (a.stage_number ?? 0) - (b.stage_number ?? 0);
 }
 
 interface StageState {
@@ -38,25 +44,25 @@ export const useStageStore = create<StageState & StageActions>((set) => ({
   fetchStages: async (matchId) => {
     set({ loading: true, error: null });
 
-    // When offline, skip the API call entirely and go straight to IndexedDB
-    if (!navigator.onLine) {
+    // When offline or backend unreachable, skip the API call and go straight to IndexedDB
+    if (!navigator.onLine || !(await isBackendReachable())) {
       try {
         const cached = await offlineDB.getCachedStages(matchId);
         if (cached.length > 0) {
-          const parsed = cached.map(parseStageConfig);
+          const parsed = cached.map(parseStageConfig).sort(byStageNumber);
           set({ stages: parsed, loading: false });
         } else {
-          set({ error: 'No cached stages available', loading: false });
+          set({ stages: [], error: 'No cached stages available', loading: false });
         }
       } catch {
-        set({ error: 'Failed to load cached stages', loading: false });
+        set({ stages: [], error: 'Failed to load cached stages', loading: false });
       }
       return;
     }
 
     try {
       const stages = await api.getStages(matchId);
-      const parsed = stages.map(parseStageConfig);
+      const parsed = stages.map(parseStageConfig).sort(byStageNumber);
       set({ stages: parsed, loading: false });
       // Pre-cache to IndexedDB when online
       offlineDB.cacheStages(matchId, parsed).catch(() => {});
@@ -65,13 +71,13 @@ export const useStageStore = create<StageState & StageActions>((set) => ({
       try {
         const cached = await offlineDB.getCachedStages(matchId);
         if (cached.length > 0) {
-          const parsed = cached.map(parseStageConfig);
+          const parsed = cached.map(parseStageConfig).sort(byStageNumber);
           set({ stages: parsed, loading: false });
         } else {
-          set({ error: err.message, loading: false });
+          set({ stages: [], error: err.message, loading: false });
         }
       } catch {
-        set({ error: err.message, loading: false });
+        set({ stages: [], error: err.message, loading: false });
       }
     }
   },

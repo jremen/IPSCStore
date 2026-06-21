@@ -66,7 +66,7 @@ export default function MatchRegistration() {
   };
 
   if (!activeMatchId) {
-    return <p className="p-4 text-gray-500 text-center">{t('registration.noMatch')}</p>;
+    return <p className="p-4 text-gray-500 text-center">{t('offline.noCachedData')}</p>;
   }
 
   const selectedNames = selection.selectedArray

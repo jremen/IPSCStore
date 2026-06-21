@@ -23,15 +23,25 @@ interface UIActions {
 // Read saved language from localStorage, default to 'en'
 const savedLanguage = (typeof window !== 'undefined' && localStorage.getItem('ipscscore-language')) as Language || 'en';
 
+// Read saved active match ID from localStorage (for offline fallback)
+const savedActiveMatchId = typeof window !== 'undefined' ? localStorage.getItem('ipscscore-active-match-id') : null;
+
 export const useUIStore = create<UIState & UIActions>((set) => ({
   activeTab: 'matches',
-  activeMatchId: null,
+  activeMatchId: savedActiveMatchId,
   activeStageId: null,
   language: savedLanguage,
   toasts: [],
 
   setActiveTab: (tab) => set({ activeTab: tab }),
-  setActiveMatch: (matchId) => set({ activeMatchId: matchId }),
+  setActiveMatch: (matchId) => {
+    if (matchId) {
+      localStorage.setItem('ipscscore-active-match-id', matchId);
+    } else {
+      localStorage.removeItem('ipscscore-active-match-id');
+    }
+    set({ activeMatchId: matchId });
+  },
   setActiveStage: (stageId) => set({ activeStageId: stageId }),
 
   setLanguage: (lang) => {

@@ -1,15 +1,11 @@
 import { Hono } from 'hono';
 import { sql } from '../db/client.js';
 import { isUnaccentAvailable } from '../utils/unaccent.js';
+import { audit } from '../services/audit.js';
 
 export const shooterRoutes = new Hono();
 
-// List/search shooters
-// Query params:
-//   search - search by name/email
-//   limit/offset - pagination
-//   include_deleted - if "true", include soft-deleted shooters in results
-//   deleted_only - if "true", return only soft-deleted shooters
+// List/search shooters — admin only (PII protection)
 shooterRoutes.get('/', async (c) => {
   const search = c.req.query('search') || '';
   const limitParam = c.req.query('limit');
@@ -18,15 +14,11 @@ shooterRoutes.get('/', async (c) => {
   const includeDeleted = c.req.query('include_deleted') === 'true';
   const deletedOnly = c.req.query('deleted_only') === 'true';
 
-  // Build the deleted_at filter condition
-  // deletedOnly: show only deleted shooters (WHERE deleted_at IS NOT NULL)
-  // includeDeleted: show all shooters (no filter)
-  // default: show only active shooters (WHERE deleted_at IS NULL)
   let deletedFilter: string;
   if (deletedOnly) {
     deletedFilter = 'AND deleted_at IS NOT NULL';
   } else if (includeDeleted) {
-    deletedFilter = ''; // no filter — show all
+    deletedFilter = '';
   } else {
     deletedFilter = 'AND deleted_at IS NULL';
   }
@@ -39,7 +31,6 @@ shooterRoutes.get('/', async (c) => {
     const useUnaccent = await isUnaccentAvailable();
 
     if (useUnaccent) {
-      // Diacritic-insensitive search: "Remeň" matches "REMEN"
       if (limit > 0) {
         shooters = await sql`
           SELECT * FROM shooters
@@ -69,7 +60,6 @@ shooterRoutes.get('/', async (c) => {
       `;
       total = Number(count.count);
     } else {
-      // Fallback: basic ILIKE without diacritic handling
       if (limit > 0) {
         shooters = await sql`
           SELECT * FROM shooters
@@ -115,7 +105,7 @@ shooterRoutes.get('/', async (c) => {
   return c.json({ shooters, total, limit, offset });
 });
 
-// Get all distinct tags for autocomplete (excludes soft-deleted shooters)
+// Get all distinct tags for autocomplete
 shooterRoutes.get('/tags', async (c) => {
   const tags = await sql`
     SELECT DISTINCT tag FROM shooters
@@ -125,7 +115,7 @@ shooterRoutes.get('/tags', async (c) => {
   return c.json(tags.map((t: any) => t.tag));
 });
 
-// Create shooter
+// Create shooter — admin only
 shooterRoutes.post('/', async (c) => {
   const body = await c.req.json();
   const { first_name, last_name, category, tag, division, power_factor, region, email } = body;
@@ -139,10 +129,11 @@ shooterRoutes.post('/', async (c) => {
     VALUES (${first_name}, ${last_name}, ${category}, ${tag || null}, ${division}, ${power_factor}, ${region}, ${email || null})
     RETURNING *
   `;
+  await audit(c, 'shooter.create', `shooters:${shooter.id}`, { name: `${first_name} ${last_name}` });
   return c.json(shooter, 201);
 });
 
-// Bulk update shooters (only non-deleted)
+// Bulk update shooters — admin only
 shooterRoutes.put('/bulk', async (c) => {
   const { shooterIds, updates } = await c.req.json();
   if (!Array.isArray(shooterIds) || shooterIds.length === 0) {
@@ -171,25 +162,22 @@ shooterRoutes.put('/bulk', async (c) => {
   return c.json({ updated: updated.length, failed });
 });
 
-// Bulk soft-delete shooters
+// Bulk soft-delete shooters — admin only
 shooterRoutes.delete('/bulk', async (c) => {
   const { shooterIds } = await c.req.json();
   if (!Array.isArray(shooterIds) || shooterIds.length === 0) {
     return c.json({ error: 'shooterIds must be a non-empty array' }, 400);
   }
 
-  // Soft-delete all specified shooters that are not already deleted
   const result = await sql`
     UPDATE shooters SET deleted_at = NOW()
     WHERE id = ANY(${shooterIds}::uuid[]) AND deleted_at IS NULL
     RETURNING id, first_name, last_name
   `;
 
-  // Identify any IDs that were not found or already deleted
   const updatedIds = new Set(result.map((r: any) => r.id));
   const failedIds = shooterIds.filter((id: string) => !updatedIds.has(id));
 
-  // Get names for failed entries (either not found or already deleted)
   let failed: Array<{ id: string; name: string; reason: string }> = [];
   if (failedIds.length > 0) {
     const failedShooters = await sql`
@@ -205,7 +193,7 @@ shooterRoutes.delete('/bulk', async (c) => {
   return c.json({ deleted: result.length, failed });
 });
 
-// Get matches a shooter is registered in (for confirmation dialog)
+// Get matches a shooter is registered in
 shooterRoutes.get('/:id/matches', async (c) => {
   const id = c.req.param('id');
   const registrations = await sql`
@@ -221,13 +209,12 @@ shooterRoutes.get('/:id/matches', async (c) => {
   return c.json(registrations);
 });
 
-// Get shooter detail (works for both active and soft-deleted shooters)
+// Get shooter detail
 shooterRoutes.get('/:id', async (c) => {
   const id = c.req.param('id');
   const [shooter] = await sql`SELECT * FROM shooters WHERE id = ${id}`;
   if (!shooter) return c.json({ error: 'Shooter not found' }, 404);
 
-  // Get match history
   const history = await sql`
     SELECT mr.id, mr.match_id, m.name as match_name, m.date, mr.division, mr.category, mr.power_factor, mr.is_dq
     FROM match_registrations mr
@@ -239,7 +226,7 @@ shooterRoutes.get('/:id', async (c) => {
   return c.json({ ...shooter, match_history: history });
 });
 
-// Update shooter (only non-deleted)
+// Update shooter — admin only
 shooterRoutes.put('/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json();
@@ -260,15 +247,15 @@ shooterRoutes.put('/:id', async (c) => {
     RETURNING *
   `;
   if (!updated) {
-    // Check if shooter exists but is deleted
     const [existing] = await sql`SELECT id FROM shooters WHERE id = ${id}`;
     if (!existing) return c.json({ error: 'Shooter not found' }, 404);
     return c.json({ error: 'Shooter is deleted and cannot be edited' }, 410);
   }
+  await audit(c, 'shooter.update', `shooters:${id}`);
   return c.json(updated);
 });
 
-// Soft-delete shooter
+// Soft-delete shooter — admin only
 shooterRoutes.delete('/:id', async (c) => {
   const id = c.req.param('id');
   const result = await sql`
@@ -277,15 +264,15 @@ shooterRoutes.delete('/:id', async (c) => {
     RETURNING id, first_name, last_name
   `;
   if (result.length === 0) {
-    // Check if shooter exists but is already deleted
     const [existing] = await sql`SELECT id FROM shooters WHERE id = ${id}`;
     if (!existing) return c.json({ error: 'Shooter not found' }, 404);
     return c.json({ error: 'Shooter already deleted' }, 410);
   }
+  await audit(c, 'shooter.delete', `shooters:${id}`);
   return c.json({ deleted: true });
 });
 
-// Restore a soft-deleted shooter
+// Restore a soft-deleted shooter — admin only
 shooterRoutes.post('/:id/restore', async (c) => {
   const id = c.req.param('id');
   const [shooter] = await sql`
@@ -298,5 +285,6 @@ shooterRoutes.post('/:id/restore', async (c) => {
     if (!existing) return c.json({ error: 'Shooter not found' }, 404);
     return c.json({ error: 'Shooter is not deleted' }, 400);
   }
+  await audit(c, 'shooter.restore', `shooters:${id}`);
   return c.json(shooter);
 });

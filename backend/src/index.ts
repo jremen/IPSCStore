@@ -15,8 +15,11 @@ async function main() {
     console.log(`Serving frontend from ${frontendDistPath}`);
   }
 
-  serve({ fetch: app.fetch, port: env.PORT }, (info) => {
-    console.log(`Server running at http://localhost:${info.port}`);
+  // TLS is recommended to be handled by a reverse proxy (Caddy, nginx) in production.
+  // For direct TLS, set TLS_CERT_PATH and TLS_KEY_PATH env vars.
+  // The server binds to BIND_ADDRESS (default 0.0.0.0).
+  serve({ fetch: app.fetch, port: env.PORT, hostname: env.BIND_ADDRESS }, (info) => {
+    console.log(`Server running at http://${env.BIND_ADDRESS}:${info.port}`);
   });
 }
 

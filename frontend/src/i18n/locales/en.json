@@ -87,7 +87,7 @@
     "confirmNewPassword": "Confirm New Password",
     "passwordChanged": "Password changed successfully.",
     "passwordMismatch": "New passwords do not match.",
-    "passwordTooShort": "New password must be at least 4 characters."
+    "passwordTooShort": "New password must be at least 10 characters."
   },
   "tabs": {
     "matches": "Matches",

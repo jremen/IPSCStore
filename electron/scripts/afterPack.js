@@ -43,6 +43,11 @@ exports.default = async function afterPack(context) {
   if (context.electronPlatformName === 'win32') {
     validateWindowsPgArch(context);
   }
+
+  // Linux: validate PG binary ELF architecture matches target
+  if (context.electronPlatformName === 'linux') {
+    validateLinuxPgArch(context);
+  }
 };
 
 async function thinMacBinaries(context) {
@@ -153,5 +158,86 @@ function validateWindowsPgArch(context) {
     console.warn(`[afterPack] The PG binaries may be for a different architecture.`);
   } else {
     console.log(`[afterPack] PG binary architecture looks correct for ${targetArch}`);
+  }
+}
+
+/**
+ * Validate that the bundled PostgreSQL binaries match the target Linux architecture.
+ * On Linux ARM64, x86-64 binaries cause a cryptic shell error because the kernel
+ * returns ENOEXEC, glibc falls back to /bin/sh, and dash tries to parse ELF as a script.
+ * This check catches the mismatch at build time with a clear error message.
+ *
+ * ELF header reference:
+ *   Bytes 0-3:   Magic (\x7fELF)
+ *   Byte 4:      Class (2 = 64-bit)
+ *   Byte 5:      Data encoding (1 = little-endian)
+ *   Bytes 18-19: e_machine (0x3E = x86-64, 0xB7 = AArch64)
+ */
+function validateLinuxPgArch(context) {
+  const arch = context.arch;
+  // electron-builder arch: 1 = x64, 3 = arm64
+  const targetArch = arch === 3 ? 'arm64' : 'x64';
+
+  const pgDir = path.join(context.appOutDir, 'resources', 'pg');
+  if (!fs.existsSync(pgDir)) {
+    console.log('[afterPack] PG directory not found at', pgDir, ', skipping validation');
+    return;
+  }
+
+  const pgBinDir = path.join(pgDir, 'bin');
+  if (!fs.existsSync(pgBinDir)) {
+    console.log('[afterPack] PG bin directory not found, skipping validation');
+    return;
+  }
+
+  // ELF e_machine values
+  const ELF_MAGIC = Buffer.from([0x7f, 0x45, 0x4c, 0x46]); // \x7fELF
+  const E_MACHINE = { x86_64: 0x3e, arm64: 0xb7 };
+
+  // Read the first bytes of initdb to check the ELF header
+  const initdbPath = path.join(pgBinDir, 'initdb');
+  if (!fs.existsSync(initdbPath)) {
+    console.log('[afterPack] initdb not found at', initdbPath, ', skipping validation');
+    return;
+  }
+
+  const fd = fs.openSync(initdbPath, 'r');
+  try {
+    const header = Buffer.alloc(20);
+    fs.readSync(fd, header, 0, 20, 0);
+
+    // Check ELF magic
+    if (header.subarray(0, 4).equals(ELF_MAGIC)) {
+      const e_machine = header.readUInt16LE(18);
+      const actualArch = e_machine === E_MACHINE.arm64 ? 'arm64'
+        : e_machine === E_MACHINE.x86_64 ? 'x64'
+        : `unknown (0x${e_machine.toString(16)})`;
+
+      console.log(`[afterPack] PG initdb ELF e_machine: 0x${e_machine.toString(16)} (${actualArch}), target: ${targetArch}`);
+
+      if (targetArch === 'arm64' && e_machine !== E_MACHINE.arm64) {
+        throw new Error(
+          `[afterPack] BUILD FAILED: Linux ARM64 AppImage requires AArch64 PostgreSQL binaries, ` +
+          `but initdb is ${actualArch}.\n` +
+          `Run: npm run download-pg:linux-arm64\n` +
+          `Then rebuild with: npm run build:linux-arm64`
+        );
+      }
+
+      if (targetArch === 'x64' && e_machine !== E_MACHINE.x86_64) {
+        throw new Error(
+          `[afterPack] BUILD FAILED: Linux x64 AppImage requires x86_64 PostgreSQL binaries, ` +
+          `but initdb is ${actualArch}.\n` +
+          `Run: npm run download-pg:linux\n` +
+          `Then rebuild with: npm run build:linux`
+        );
+      }
+
+      console.log(`[afterPack] PG binary architecture is correct for ${targetArch}`);
+    } else {
+      console.log(`[afterPack] initdb is not an ELF binary (file magic: ${header.subarray(0, 4).toString('hex')}), skipping architecture check`);
+    }
+  } finally {
+    fs.closeSync(fd);
   }
 }

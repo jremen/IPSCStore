@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { sql } from '../db/client.js';
 import { parse } from 'csv-parse/sync';
 import { isUnaccentAvailable } from '../utils/unaccent.js';
+import { audit } from '../services/audit.js';
 
 export const importRoutes = new Hono();
 
@@ -147,6 +148,7 @@ importRoutes.post('/shooters', async (c) => {
     }
   }
 
+  await audit(c, 'import.shooters', null, { imported, skipped, errors: errors.length });
   return c.json({ imported, skipped, errors });
 });
 
@@ -219,6 +221,7 @@ importRoutes.post('/matches/:matchId/registrations', async (c) => {
     }
   }
 
+  await audit(c, 'import.registrations', null, { matchId, imported, skipped, errors: errors.length });
   return c.json({ imported, skipped, errors });
 });
 
@@ -369,5 +372,6 @@ importRoutes.post('/matches/:matchId/scores', async (c) => {
     }
   }
 
+  await audit(c, 'import.scores', null, { matchId, imported, skipped, errors: errors.length });
   return c.json({ imported, skipped, errors });
 });

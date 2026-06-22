@@ -6,6 +6,7 @@ import {
   calculateHitCountScore, calculateAggregatedScore
 } from '../utils/scoringCalc.js';
 import { eventBroadcaster } from '../services/events.js';
+import { audit } from '../services/audit.js';
 
 export const scoringRoutes = new Hono();
 
@@ -372,10 +373,12 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
     payload: { matchId, stageId, registrationId },
   });
 
+  await audit(c, 'score.write', `stage_scores:${stageId}:${registrationId}`, { matchId, stageId, registrationId });
+
   return c.json({ ...parseJsonbFields(scoreResult), targets: targets.map(parseTargetJsonbFields), calcResult });
 });
 
-// Recalculate all scores for a stage
+// Recalculate all scores for a stage — admin only (enforced in app.ts)
 scoringRoutes.post('/matches/:matchId/stages/:stageId/recalculate', async (c) => {
   const { matchId, stageId } = c.req.param();
   await recalculateStage(matchId, stageId);
@@ -383,10 +386,11 @@ scoringRoutes.post('/matches/:matchId/stages/:stageId/recalculate', async (c) =>
     type: 'score:saved',
     payload: { matchId, stageId, registrationId: null },
   });
+  await audit(c, 'score.recalculate-stage', `stages:${stageId}`, { matchId });
   return c.json({ recalculated: true });
 });
 
-// Recalculate all scores for a match
+// Recalculate all scores for a match — admin only (enforced in app.ts)
 scoringRoutes.post('/matches/:matchId/recalculate', async (c) => {
   const matchId = c.req.param('matchId');
   const stages = await sql`SELECT id FROM stages WHERE match_id = ${matchId}`;
@@ -397,6 +401,7 @@ scoringRoutes.post('/matches/:matchId/recalculate', async (c) => {
     type: 'score:saved',
     payload: { matchId, stageId: null, registrationId: null },
   });
+  await audit(c, 'score.recalculate-match', `matches:${matchId}`, { stage_count: stages.length });
   return c.json({ recalculated: true, stage_count: stages.length });
 });
 

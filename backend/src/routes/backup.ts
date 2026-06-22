@@ -6,14 +6,14 @@ import os from 'os';
 import path from 'path';
 import { getPgDumpPath, getPsqlPath, parseDatabaseUrl } from '../utils/pgBin.js';
 import { env } from '../env.js';
+import { audit } from '../services/audit.js';
 
 const execFileAsync = promisify(execFile);
 
 export const backupRoutes = new Hono();
 
 /**
- * POST /api/backup — Export database as a .sql dump file
- * Uses pg_dump with --clean --if-exists for a full restore-capable backup.
+ * POST /api/backup — Export database as a .sql dump file (admin only)
  */
 backupRoutes.post('/backup', async (c) => {
   let pgDumpPath: string;
@@ -38,11 +38,13 @@ backupRoutes.post('/backup', async (c) => {
       '-f', tmpFile,
     ], {
       env: { ...process.env, ...dbParams },
-      maxBuffer: 50 * 1024 * 1024, // 50 MB buffer for large databases
+      maxBuffer: 50 * 1024 * 1024,
     });
 
     const fileContent = await fs.readFile(tmpFile);
     const date = new Date().toISOString().slice(0, 10);
+
+    await audit(c, 'backup.export');
 
     c.header('Content-Disposition', `attachment; filename="ipscscore-backup-${date}.sql"`);
     c.header('Content-Type', 'text/sql; charset=utf-8');
@@ -57,8 +59,7 @@ backupRoutes.post('/backup', async (c) => {
 });
 
 /**
- * POST /api/restore — Restore database from a .sql dump file
- * Uses psql to execute the dump (which contains DROP/CREATE from --clean --if-exists).
+ * POST /api/restore — Restore database from a .sql dump file (admin only)
  */
 backupRoutes.post('/restore', async (c) => {
   const body = await c.req.parseBody();
@@ -82,11 +83,9 @@ backupRoutes.post('/restore', async (c) => {
   const tmpFile = path.join(os.tmpdir(), `ipscscore-restore-${Date.now()}.sql`);
 
   try {
-    // Write uploaded file to temp location
     const arrayBuffer = await file.arrayBuffer();
     await fs.writeFile(tmpFile, Buffer.from(arrayBuffer));
 
-    // Run psql to restore — the dump has --clean --if-exists so it drops first
     const { stderr } = await execFileAsync(psqlPath, [
       '--no-password',
       '-f', tmpFile,
@@ -95,8 +94,9 @@ backupRoutes.post('/restore', async (c) => {
       maxBuffer: 50 * 1024 * 1024,
     });
 
-    // psql writes notices to stderr even on success
     console.log('[Restore] psql stderr:', stderr?.slice(0, 500));
+
+    await audit(c, 'backup.restore');
 
     return c.json({ success: true, message: 'Database restored successfully' });
   } catch (err: any) {

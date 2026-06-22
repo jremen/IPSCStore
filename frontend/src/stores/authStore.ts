@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import bcrypt from 'bcryptjs';
 import { api } from '../services/api';
 import * as offlineDB from '../services/offlineDB';
 import { isBackendReachable } from '../services/connectivity';
@@ -148,52 +147,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       return true;
     } catch (err: any) {
-      // Network error — try offline auth with cached bcrypt hash
+      // Network error — cannot authenticate offline without server
+      // The password_hash is no longer exposed to the client for security
       if (isNetworkError(err)) {
-        try {
-          const cached = await offlineDB.getCachedStageById(stageId);
-          if (!cached?.password_hash) {
-            set({ loading: false, error: 'Cannot authenticate offline — no cached stage data. Open the app online first.' });
-            return false;
-          }
-
-          const valid = await bcrypt.compare(password, cached.password_hash);
-          if (!valid) {
-            set({ loading: false, error: 'Incorrect password.' });
-            return false;
-          }
-
-          // Generate a local token (not a real server token)
-          const localToken = crypto.randomUUID();
-          const stageName = cached.name;
-          const matchId = cached.match_id;
-
-          set({
-            isAuthenticated: true,
-            stageToken: localToken,
-            authenticatedStageId: stageId,
-            authenticatedStageName: stageName,
-            authenticatedMatchId: matchId,
-            loading: false,
-            error: null,
-          });
-
-          // Persist to localStorage
-          localStorage.setItem('auth_token', localToken);
-          localStorage.setItem('auth_stage_id', stageId);
-          localStorage.setItem('auth_stage_name', stageName);
-          localStorage.setItem('auth_match_id', matchId);
-          localStorage.setItem('auth_role', 'scorer');
-          localStorage.setItem('auth_offline', 'true');
-
-          // Store password for re-authentication when back online
-          await offlineDB.saveOfflinePassword(stageId, matchId, password);
-
-          return true;
-        } catch {
-          set({ loading: false, error: 'Offline authentication failed.' });
-          return false;
-        }
+        set({ loading: false, error: 'Cannot authenticate offline. Please connect to the network and try again.' });
+        return false;
       }
 
       set({ loading: false, error: err.message || 'Login failed' });
@@ -324,47 +282,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   syncOfflineAuth: async () => {
-    const role = localStorage.getItem('auth_role');
+    // Offline auth is no longer supported — password_hash is not exposed to client.
+    // Clear any stale offline markers.
     const isOffline = localStorage.getItem('auth_offline') === 'true';
-    if (role !== 'scorer' || !isOffline) return;
-
-    const stageId = localStorage.getItem('auth_stage_id');
-    if (!stageId) return;
-
-    // Try to retrieve the stored password
-    const password = await offlineDB.getOfflinePassword(stageId);
-    if (!password) {
-      // No password cached — can't re-auth, clear offline marker
+    if (isOffline) {
       localStorage.removeItem('auth_offline');
-      return;
-    }
-
-    try {
-      // Attempt server authentication with the real password
-      const response = await api.auth.stageLogin(stageId, password);
-      if (response.error) return; // Server unreachable or password rejected — keep offline token
-
-      const { token, stageId: authStageId, stageName, matchId } = response;
-
-      // Update store with real server token
-      set({
-        stageToken: token,
-        authenticatedStageId: authStageId,
-        authenticatedStageName: stageName,
-        authenticatedMatchId: matchId,
-      });
-
-      // Update localStorage — pending saves read the token from localStorage via getAuthToken()
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('auth_stage_id', authStageId);
-      localStorage.setItem('auth_stage_name', stageName);
-      localStorage.setItem('auth_match_id', matchId);
-      localStorage.removeItem('auth_offline');
-
-      // Clean up stored password
-      await offlineDB.clearOfflinePassword(stageId);
-    } catch {
-      // Server still unreachable — keep offline token, try again later
     }
   },
 

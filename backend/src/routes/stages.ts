@@ -4,7 +4,6 @@ import bcrypt from 'bcryptjs';
 
 export const stageRoutes = new Hono();
 
-/** Parse JSONB config field that comes back as string from postgres driver */
 function parseStageJsonb(stage: any): any {
   if (!stage) return stage;
   const result = { ...stage };
@@ -14,8 +13,15 @@ function parseStageJsonb(stage: any): any {
   return result;
 }
 
-// Columns to select from stages — includes password_hash for offline client-side verification
-const STAGE_COLUMNS = `
+const PUBLIC_STAGE_COLUMNS = `
+  s.id, s.match_id, s.stage_number, s.name, s.scoring_type,
+  s.paper_targets, s.steel_targets, s.no_shoot_targets, s.npm_targets, s.hits_per_paper,
+  s.min_rounds, s.max_points, s.par_time, s.image_path, s.briefing, s.config,
+  s.password_hash IS NOT NULL AS has_password,
+  s.created_at, s.updated_at
+`;
+
+const ADMIN_STAGE_COLUMNS = `
   s.id, s.match_id, s.stage_number, s.name, s.scoring_type,
   s.paper_targets, s.steel_targets, s.no_shoot_targets, s.npm_targets, s.hits_per_paper,
   s.min_rounds, s.max_points, s.par_time, s.image_path, s.briefing, s.config,
@@ -23,19 +29,6 @@ const STAGE_COLUMNS = `
   s.created_at, s.updated_at
 `;
 
-// List stages for a match
-stageRoutes.get('/matches/:matchId/stages', async (c) => {
-  const matchId = c.req.param('matchId');
-  const stages = await sql`
-    SELECT ${sql.unsafe(STAGE_COLUMNS)}
-    FROM stages s
-    WHERE s.match_id = ${matchId}
-    ORDER BY s.stage_number
-  `;
-  return c.json(stages.map(parseStageJsonb));
-});
-
-// Calculate min_rounds and max_points based on scoring_type and config
 function calcStageParams(scoring_type: string, paper_targets: number, steel_targets: number, no_shoot_targets: number, npm_targets: number, hits_per_paper: number, config: any): { min_rounds: number; max_points: number } {
   switch (scoring_type) {
     case 'comstock':
@@ -51,7 +44,7 @@ function calcStageParams(scoring_type: string, paper_targets: number, steel_targ
       const strings = config?.number_of_strings || 5;
       const targets = config?.targets_per_string || 5;
       const min_rounds = strings * targets;
-      const max_points = strings * targets * 5; // each plate hit = 5 pts (conceptual)
+      const max_points = strings * targets * 5;
       return { min_rounds, max_points };
     }
     case 'multi_gun': {
@@ -73,7 +66,6 @@ function calcStageParams(scoring_type: string, paper_targets: number, steel_targ
         const shots = config?.shots_per_string || 20;
         return { min_rounds: shots, max_points: shots * 10 };
       }
-      // PRS: hit/miss per target
       const numTargets = config?.num_targets || paper_targets || 10;
       return { min_rounds: numTargets, max_points: numTargets };
     }
@@ -90,7 +82,19 @@ function calcStageParams(scoring_type: string, paper_targets: number, steel_targ
   }
 }
 
-// Create stage
+// List stages for a match (public — no password_hash)
+stageRoutes.get('/matches/:matchId/stages', async (c) => {
+  const matchId = c.req.param('matchId');
+  const stages = await sql`
+    SELECT ${sql.unsafe(PUBLIC_STAGE_COLUMNS)}
+    FROM stages s
+    WHERE s.match_id = ${matchId}
+    ORDER BY s.stage_number
+  `;
+  return c.json(stages.map(parseStageJsonb));
+});
+
+// Create stage — auth enforced in app.ts
 stageRoutes.post('/matches/:matchId/stages', async (c) => {
   const matchId = c.req.param('matchId');
   const body = await c.req.json();
@@ -100,7 +104,10 @@ stageRoutes.post('/matches/:matchId/stages', async (c) => {
     return c.json({ error: 'name and scoring_type are required' }, 400);
   }
 
-  // Auto-assign next stage number
+  if (password && password.length < 8) {
+    return c.json({ error: 'Stage password must be at least 8 characters.' }, 400);
+  }
+
   const [maxNum] = await sql`
     SELECT COALESCE(MAX(stage_number), 0) as max_num FROM stages WHERE match_id = ${matchId}
   `;
@@ -109,28 +116,23 @@ stageRoutes.post('/matches/:matchId/stages', async (c) => {
   const stageConfig = config || {};
   const { min_rounds, max_points } = calcStageParams(scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, stageConfig);
 
-  // Hash password with bcrypt (auto-generates salt, cost 10)
-  const password_hash = password ? await bcrypt.hash(password, 10) : null;
+  const password_hash = password ? await bcrypt.hash(password, 12) : null;
 
   const [stage] = await sql`
     INSERT INTO stages (match_id, stage_number, name, scoring_type, paper_targets, steel_targets,
                         no_shoot_targets, npm_targets, hits_per_paper, min_rounds, max_points, par_time, briefing, config, password_hash)
     VALUES (${matchId}, ${stage_number}, ${name}, ${scoring_type}, ${paper_targets}, ${steel_targets},
             ${no_shoot_targets}, ${npm_targets}, ${hits_per_paper}, ${min_rounds}, ${max_points}, ${par_time || null}, ${briefing || null}, ${JSON.stringify(stageConfig)}, ${password_hash})
-    RETURNING id, match_id, stage_number, name, scoring_type,
-              paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper,
-              min_rounds, max_points, par_time, image_path, briefing, config,
-              password_hash, password_hash IS NOT NULL AS has_password,
-              created_at, updated_at
+    RETURNING ${sql.unsafe(ADMIN_STAGE_COLUMNS)}
   `;
   return c.json(parseStageJsonb(stage), 201);
 });
 
-// Get stage detail
+// Get stage detail (public — no password_hash)
 stageRoutes.get('/stages/:id', async (c) => {
   const id = c.req.param('id');
   const [stage] = await sql`
-    SELECT ${sql.unsafe(STAGE_COLUMNS)}
+    SELECT ${sql.unsafe(PUBLIC_STAGE_COLUMNS)}
     FROM stages s
     WHERE s.id = ${id}
   `;
@@ -138,13 +140,12 @@ stageRoutes.get('/stages/:id', async (c) => {
   return c.json(parseStageJsonb(stage));
 });
 
-// Update stage
+// Update stage — auth enforced in app.ts
 stageRoutes.put('/stages/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json();
   const { name, scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, par_time, config, password, briefing } = body;
 
-  // Recalculate min_rounds and max_points if targets changed
   const [existing] = await sql`SELECT * FROM stages WHERE id = ${id}`;
   if (!existing) return c.json({ error: 'Stage not found' }, 404);
 
@@ -157,14 +158,16 @@ stageRoutes.put('/stages/:id', async (c) => {
   const stageConfig = config ?? (typeof existing.config === 'string' ? JSON.parse(existing.config) : existing.config || {});
   const { min_rounds, max_points } = calcStageParams(st, pt, stl, nst, npmt, hpp, stageConfig);
 
-  // Handle password: empty string = remove, non-empty = hash & set, undefined = keep existing
   let password_hash: string | null;
   if (password === '') {
-    password_hash = null; // Remove password
+    password_hash = null;
   } else if (password) {
-    password_hash = await bcrypt.hash(password, 10); // New password
+    if (password.length < 8) {
+      return c.json({ error: 'Stage password must be at least 8 characters.' }, 400);
+    }
+    password_hash = await bcrypt.hash(password, 12);
   } else {
-    password_hash = existing.password_hash; // Keep existing
+    password_hash = existing.password_hash;
   }
 
   const [updated] = await sql`
@@ -184,16 +187,12 @@ stageRoutes.put('/stages/:id', async (c) => {
         password_hash = ${password_hash},
         updated_at = NOW()
     WHERE id = ${id}
-    RETURNING id, match_id, stage_number, name, scoring_type,
-              paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper,
-              min_rounds, max_points, par_time, image_path, briefing, config,
-              password_hash, password_hash IS NOT NULL AS has_password,
-              created_at, updated_at
+    RETURNING ${sql.unsafe(ADMIN_STAGE_COLUMNS)}
   `;
   return c.json(parseStageJsonb(updated));
 });
 
-// Delete stage
+// Delete stage — auth enforced in app.ts
 stageRoutes.delete('/stages/:id', async (c) => {
   const id = c.req.param('id');
   const result = await sql`DELETE FROM stages WHERE id = ${id} RETURNING id`;
@@ -201,7 +200,7 @@ stageRoutes.delete('/stages/:id', async (c) => {
   return c.json({ deleted: true });
 });
 
-// Upload stage image
+// Upload stage image — auth enforced in app.ts
 stageRoutes.post('/stages/:id/image', async (c) => {
   const id = c.req.param('id');
   const [stage] = await sql`SELECT id, match_id FROM stages WHERE id = ${id}`;
@@ -228,7 +227,7 @@ stageRoutes.post('/stages/:id/image', async (c) => {
   return c.json({ image_path: filePath });
 });
 
-// Delete stage image
+// Delete stage image — auth enforced in app.ts
 stageRoutes.delete('/stages/:id/image', async (c) => {
   const id = c.req.param('id');
   const [stage] = await sql`SELECT image_path FROM stages WHERE id = ${id}`;

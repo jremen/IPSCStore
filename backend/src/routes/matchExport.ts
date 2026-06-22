@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { sql } from '../db/client.js';
+import { audit } from '../services/audit.js';
 
 export const matchExportRoutes = new Hono();
 
@@ -123,6 +124,9 @@ matchExportRoutes.get('/matches/:id/export', async (c) => {
 
   const safeName = (match.name || 'match').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50);
   const date = new Date().toISOString().slice(0, 10);
+
+  await audit(c, 'match.export', `matches:${matchId}`);
+
   c.header('Content-Disposition', `attachment; filename="${safeName}-${date}.match.json"`);
   c.header('Content-Type', 'application/json; charset=utf-8');
   return c.json(result);
@@ -209,6 +213,12 @@ matchExportRoutes.post('/matches/import', async (c) => {
       await tx`INSERT INTO chrono_results (id, stage_score_id, bullet_weight, velocity_1, velocity_2, velocity_3, avg_velocity, calculated_pf, pf_passed)
         VALUES (${chrono.id}, ${chrono.stage_score_id}, ${chrono.bullet_weight}, ${chrono.velocity_1 || null}, ${chrono.velocity_2 || null}, ${chrono.velocity_3 || null}, ${chrono.avg_velocity}, ${chrono.calculated_pf}, ${chrono.pf_passed})`;
     }
+  });
+
+  await audit(c, 'match.import', `matches:${matchId}`, {
+    stages: data.stages.length,
+    registrations: data.registrations.length,
+    scores: data.stage_scores.length,
   });
 
   return c.json({

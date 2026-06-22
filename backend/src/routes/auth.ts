@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { sql } from '../db/client.js';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import { env } from '../env.js';
 
 export const authRoutes = new Hono<{
   Variables: {
@@ -10,6 +11,38 @@ export const authRoutes = new Hono<{
 }>();
 
 const DEFAULT_ADMIN_PASSWORD = 'admin';
+const BCRYPT_COST = 12;
+
+const WEAK_PASSWORDS = ['admin', 'password', '1234', '12345', '123456', '1234567', '12345678', '123456789', '1234567890', 'qwerty', 'letmein', 'welcome', 'monkey', 'dragon'];
+
+function isWeakPassword(pw: string): boolean {
+  return WEAK_PASSWORDS.includes(pw.toLowerCase());
+}
+
+function isValidPassword(pw: string, minLength: number): { valid: boolean; error?: string } {
+  if (pw.length < minLength) {
+    return { valid: false, error: `Password must be at least ${minLength} characters.` };
+  }
+  if (isWeakPassword(pw)) {
+    return { valid: false, error: 'This password is too common. Please choose a stronger password.' };
+  }
+  return { valid: true };
+}
+
+async function getCurrentSessionEpoch(): Promise<string> {
+  const [setting] = await sql`SELECT value FROM app_settings WHERE key = 'session_epoch'`;
+  return setting?.value || '0';
+}
+
+async function bumpSessionEpoch(): Promise<void> {
+  const current = await getCurrentSessionEpoch();
+  const next = String(Number(current) + 1);
+  await sql`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('session_epoch', ${next}, now())
+    ON CONFLICT (key) DO UPDATE SET value = ${next}, updated_at = now()
+  `;
+}
 
 /**
  * POST /api/auth/admin-login
@@ -24,20 +57,16 @@ authRoutes.post('/admin-login', async (c) => {
     return c.json({ error: 'Password is required.' }, 400);
   }
 
-  // Get the stored password hash
-  const [setting] = await sql`
+  const storedHashSetting = await sql`
     SELECT value FROM app_settings WHERE key = 'admin_password_hash'
   `;
+  const storedHash = storedHashSetting[0]?.value || '';
 
-  const storedHash = setting?.value || '';
-
-  // If no hash is stored, use the default password
   let valid: boolean;
   if (!storedHash) {
     valid = password === DEFAULT_ADMIN_PASSWORD;
-    // Hash the default password on first use so the fallback is eliminated
     if (valid) {
-      const hash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
+      const hash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, BCRYPT_COST);
       await sql`
         INSERT INTO app_settings (key, value, updated_at)
         VALUES ('admin_password_hash', ${hash}, now())
@@ -52,12 +81,10 @@ authRoutes.post('/admin-login', async (c) => {
     return c.json({ error: 'Incorrect password.' }, 401);
   }
 
-  // Delete expired admin sessions
   await sql`DELETE FROM admin_sessions WHERE expires_at < now()`;
 
-  // Create a new admin session token
   const token = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   await sql`
     INSERT INTO admin_sessions (token, expires_at)
@@ -81,9 +108,34 @@ authRoutes.post('/admin-logout', async (c) => {
 });
 
 /**
+ * POST /api/auth/admin-logout-all
+ * Invalidate all admin sessions and bump session epoch (admin only).
+ */
+authRoutes.post('/admin-logout-all', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required.' }, 401);
+  }
+
+  const token = authHeader.slice(7);
+  const [session] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${token} AND expires_at > now()
+  `;
+  if (!session) {
+    return c.json({ error: 'Invalid or expired admin session.' }, 401);
+  }
+
+  await sql`DELETE FROM admin_sessions WHERE 1=1`;
+  await bumpSessionEpoch();
+
+  return c.json({ success: true });
+});
+
+/**
  * PUT /api/auth/admin-password
  * Change the admin password. Requires current admin token.
  * Body: { currentPassword: string, newPassword: string }
+ * Bumps session_epoch to invalidate all existing tokens.
  */
 authRoutes.put('/admin-password', async (c) => {
   const authHeader = c.req.header('Authorization');
@@ -93,11 +145,9 @@ authRoutes.put('/admin-password', async (c) => {
 
   const token = authHeader.slice(7);
 
-  // Verify admin token
   const [session] = await sql`
     SELECT id FROM admin_sessions WHERE token = ${token} AND expires_at > now()
   `;
-
   if (!session) {
     return c.json({ error: 'Invalid or expired admin session.' }, 401);
   }
@@ -108,23 +158,28 @@ authRoutes.put('/admin-password', async (c) => {
     return c.json({ error: 'Current password and new password are required.' }, 400);
   }
 
-  if (newPassword.length < 4) {
-    return c.json({ error: 'New password must be at least 4 characters.' }, 400);
+  // Password must differ from current
+  if (currentPassword === newPassword) {
+    return c.json({ error: 'New password must be different from the current password.' }, 400);
+  }
+
+  // Password policy: minimum 10 chars
+  const validation = isValidPassword(newPassword, 10);
+  if (!validation.valid) {
+    return c.json({ error: validation.error }, 400);
   }
 
   // Verify current password
   const [setting] = await sql`
     SELECT value FROM app_settings WHERE key = 'admin_password_hash'
   `;
-
   const storedHash = setting?.value || '';
 
   let valid: boolean;
   if (!storedHash) {
     valid = currentPassword === DEFAULT_ADMIN_PASSWORD;
-    // Hash the default password on first use so the fallback is eliminated
     if (valid) {
-      const hash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
+      const hash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, BCRYPT_COST);
       await sql`
         INSERT INTO app_settings (key, value, updated_at)
         VALUES ('admin_password_hash', ${hash}, now())
@@ -139,28 +194,27 @@ authRoutes.put('/admin-password', async (c) => {
     return c.json({ error: 'Incorrect current password.' }, 401);
   }
 
-  // Hash and store new password
-  const newHash = await bcrypt.hash(newPassword, 10);
-
+  const newHash = await bcrypt.hash(newPassword, BCRYPT_COST);
   await sql`
     INSERT INTO app_settings (key, value, updated_at)
     VALUES ('admin_password_hash', ${newHash}, now())
     ON CONFLICT (key) DO UPDATE SET value = ${newHash}, updated_at = now()
   `;
 
+  // Bump session epoch to invalidate all existing tokens
+  await bumpSessionEpoch();
+
   return c.json({ success: true });
 });
 
 /**
  * GET /api/auth/admin-password-status
- * Check if an admin password has been set (for frontend to prompt initial setup).
- * Returns: { hasPassword: boolean }
+ * Check if an admin password has been set.
  */
 authRoutes.get('/admin-password-status', async (c) => {
   const [setting] = await sql`
     SELECT value FROM app_settings WHERE key = 'admin_password_hash'
   `;
-
   const hasPassword = !!(setting?.value);
   return c.json({ hasPassword });
 });
@@ -178,7 +232,11 @@ authRoutes.post('/stage-login', async (c) => {
     return c.json({ error: 'Stage ID and password are required.' }, 400);
   }
 
-  // Find the stage and verify password
+  // Stage password minimum 8 chars
+  if (password.length < 8) {
+    return c.json({ error: 'Stage password must be at least 8 characters.' }, 400);
+  }
+
   const [stage] = await sql`
     SELECT s.id, s.name, s.password_hash, s.match_id
     FROM stages s
@@ -193,25 +251,22 @@ authRoutes.post('/stage-login', async (c) => {
     return c.json({ error: 'This stage does not require authentication.' }, 400);
   }
 
-  // Verify password with bcrypt (includes salt)
   const valid = await bcrypt.compare(password, stage.password_hash);
   if (!valid) {
     return c.json({ error: 'Incorrect password.' }, 401);
   }
 
-  // Delete any existing sessions for this stage that have expired
   await sql`
     DELETE FROM stage_sessions
     WHERE stage_id = ${stageId} AND expires_at < now()
   `;
 
-  // Create a new session token
   const token = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   await sql`
-    INSERT INTO stage_sessions (stage_id, token, expires_at)
-    VALUES (${stageId}, ${token}, ${expiresAt.toISOString()})
+    INSERT INTO stage_sessions (stage_id, token, expires_at, last_used_at)
+    VALUES (${stageId}, ${token}, ${expiresAt.toISOString()}, now())
   `;
 
   return c.json({
@@ -225,14 +280,10 @@ authRoutes.post('/stage-login', async (c) => {
 /**
  * GET /api/auth/stages
  * Get list of stages that have passwords set (for the login dropdown).
- * If matchId query param is provided, filter to that match.
- * If no matchId, auto-filter to the current match.
- * If no current match, return all stages.
  */
 authRoutes.get('/stages', async (c) => {
   let matchId = c.req.query('matchId');
 
-  // If no matchId specified, try to use the current match
   if (!matchId) {
     const [currentMatch] = await sql`
       SELECT id FROM matches WHERE is_current = true LIMIT 1
@@ -271,19 +322,41 @@ authRoutes.get('/stages', async (c) => {
 });
 
 /**
+ * POST /api/auth/stage-hash
+ * Server-side bcrypt compare for offline mode cache validation.
+ * Never returns the hash — only { valid: boolean }.
+ * Body: { stageId: string, password: string }
+ */
+authRoutes.post('/stage-hash', async (c) => {
+  const { stageId, password } = await c.req.json();
+
+  if (!stageId || !password) {
+    return c.json({ error: 'Stage ID and password are required.' }, 400);
+  }
+
+  const [stage] = await sql`
+    SELECT id, password_hash FROM stages WHERE id = ${stageId}
+  `;
+
+  if (!stage || !stage.password_hash) {
+    return c.json({ valid: false });
+  }
+
+  const valid = await bcrypt.compare(password, stage.password_hash);
+  return c.json({ valid });
+});
+
+/**
  * GET /api/auth/me
- * Get current auth info based on token or client IP.
- * Returns auth role, stage info (for scorers), and whether on local network.
+ * Get current auth info based on token.
  */
 authRoutes.get('/me', async (c) => {
   const authHeader = c.req.header('Authorization');
   const domainMode = c.get('domainMode') as string || 'admin';
 
-  // Check for admin token first
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.slice(7);
 
-    // Check admin session
     const [adminSession] = await sql`
       SELECT id FROM admin_sessions WHERE token = ${token} AND expires_at > now()
     `;
@@ -291,7 +364,6 @@ authRoutes.get('/me', async (c) => {
       return c.json({ role: 'admin', stageId: null, isLocalNetwork: true, domainMode });
     }
 
-    // Check scorer session
     const [scorerSession] = await sql`
       SELECT ss.stage_id, ss.expires_at, s.name as stage_name, s.match_id
       FROM stage_sessions ss
@@ -307,13 +379,7 @@ authRoutes.get('/me', async (c) => {
     }
   }
 
-  // No valid token — check if on local network for UI routing
-  const clientIp = c.req.header('x-forwarded-for')?.split(',')[0].trim()
-    || c.req.header('x-real-ip')?.trim()
-    || '';
-  const isLocal = isTrustedIp(clientIp);
-
-  return c.json({ role: 'anonymous', stageId: null, isLocalNetwork: isLocal, domainMode });
+  return c.json({ role: 'anonymous', stageId: null, isLocalNetwork: false, domainMode });
 });
 
 /**
@@ -324,24 +390,8 @@ authRoutes.post('/logout', async (c) => {
   const authHeader = c.req.header('Authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.slice(7);
-    // Try deleting from both session tables
     await sql`DELETE FROM stage_sessions WHERE token = ${token}`;
     await sql`DELETE FROM admin_sessions WHERE token = ${token}`;
   }
   return c.json({ success: true });
 });
-
-function isTrustedIp(ip: string): boolean {
-  if (!ip) return false;
-  let trimmed = ip.split(',')[0].trim();
-  const v4Mapped = trimmed.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (v4Mapped) trimmed = v4Mapped[1];
-  if (trimmed === '127.0.0.1' || trimmed === '::1' || trimmed === 'localhost') return true;
-  if (/^172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+$/.test(trimmed)) return true;
-  if (/^172\.\d+\.\d+\.\d+$/.test(trimmed)) return true;
-  if (/^10\.\d+\.\d+\.\d+$/.test(trimmed)) return true;
-  if (/^192\.168\.\d+\.\d+$/.test(trimmed)) return true;
-  if (/^f[cd]/i.test(trimmed) || /^fe[89ab]/i.test(trimmed)) return true;
-  if (trimmed === 'host.docker.internal') return true;
-  return false;
-}

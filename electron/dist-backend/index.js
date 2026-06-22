@@ -26,7 +26,12 @@ var init_env = __esm({
       DATABASE_URL: process.env.DATABASE_URL || "postgresql://ipscscore:ipscscore_dev@localhost:5432/ipscscore",
       PORT: parseInt(process.env.PORT || "3001", 10),
       UPLOAD_DIR: process.env.UPLOAD_DIR || "./uploads",
-      NODE_ENV: "production"
+      NODE_ENV: "production",
+      BIND_ADDRESS: process.env.BIND_ADDRESS || "0.0.0.0",
+      TLS_CERT_PATH: process.env.TLS_CERT_PATH || "",
+      TLS_KEY_PATH: process.env.TLS_KEY_PATH || "",
+      CORS_ORIGINS: process.env.CORS_ORIGINS || "*",
+      PUBLIC_HIDE_EMAIL: process.env.PUBLIC_HIDE_EMAIL !== "false"
     };
   }
 });
@@ -3493,9 +3498,14 @@ var cors = (options) => {
 };
 
 // ../backend/src/middleware/cors.ts
+init_env();
+function getAllowedOrigins() {
+  if (env.CORS_ORIGINS === "*") return "*";
+  return env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean);
+}
+var origins = getAllowedOrigins();
 var corsMiddleware = cors({
-  origin: "*",
-  // Allow all origins — local network app
+  origin: origins,
   allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowHeaders: ["Content-Type", "Authorization"]
 });
@@ -5675,6 +5685,7 @@ async function authMiddleware(c, next) {
         WHERE ss.token = ${token2}
       `;
       if (session2 && new Date(session2.expires_at) >= /* @__PURE__ */ new Date()) {
+        await sql`UPDATE stage_sessions SET last_used_at = now() WHERE token = ${token2}`;
         c.set("authRole", "scorer");
         c.set("authStageId", session2.stage_id);
         return next();
@@ -5693,8 +5704,13 @@ async function authMiddleware(c, next) {
     SELECT id FROM admin_sessions WHERE token = ${token} AND expires_at > now()
   `;
   if (adminSession) {
+    const [epochSetting] = await sql`
+      SELECT value FROM app_settings WHERE key = 'session_epoch'
+    `;
+    const currentEpoch = epochSetting?.value || "0";
     c.set("authRole", "admin");
     c.set("authStageId", "*");
+    c.set("sessionEpoch", currentEpoch);
     return next();
   }
   const [session] = await sql`
@@ -5709,6 +5725,7 @@ async function authMiddleware(c, next) {
     await sql`DELETE FROM stage_sessions WHERE token = ${token}`;
     return c.json({ error: "Session token has expired. Please log in again." }, 401);
   }
+  await sql`UPDATE stage_sessions SET last_used_at = now() WHERE token = ${token}`;
   c.set("authRole", "scorer");
   c.set("authStageId", session.stage_id);
   return next();
@@ -5753,6 +5770,61 @@ async function scoreLockMiddleware(c, next) {
   return next();
 }
 
+// ../backend/src/middleware/securityHeaders.ts
+async function securityHeaders(c, next) {
+  await next();
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("Referrer-Policy", "no-referrer");
+  c.header("X-Frame-Options", "DENY");
+  c.header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:");
+  const proto = c.req.header("x-forwarded-proto") || "http";
+  if (proto === "https") {
+    c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+}
+
+// ../backend/src/middleware/roles.ts
+async function requireAdmin(c, next) {
+  const role = c.get("authRole");
+  if (role !== "admin") {
+    return c.json({ error: "Admin access required." }, 401);
+  }
+  return next();
+}
+function methodGuard(allowedWriteRoles = ["admin"]) {
+  return async (c, next) => {
+    if (c.req.method === "GET") {
+      return next();
+    }
+    const role = c.get("authRole");
+    if (!allowedWriteRoles.includes(role)) {
+      return c.json({ error: "Insufficient permissions." }, 401);
+    }
+    return next();
+  };
+}
+
+// ../backend/src/services/audit.ts
+async function audit(c, action, target, meta) {
+  try {
+    const role = c.get("authRole") || "anonymous";
+    const ip = c.req.header("x-forwarded-for")?.split(",")[0].trim() || c.req.header("x-real-ip") || "";
+    let targetTable = null;
+    let targetId = null;
+    if (target) {
+      const parts = target.split(":");
+      targetTable = parts[0] || null;
+      targetId = parts[1] || null;
+    }
+    await sql`
+      INSERT INTO audit_log (actor_role, actor_token_id, action, target_table, target_id, ip, at, meta)
+      VALUES (${role}, null, ${action}, ${targetTable}, ${targetId}, ${ip}, now(), ${meta ? JSON.stringify(meta) : null}::jsonb)
+    `;
+  } catch (err) {
+    console.error("[Audit] Failed to write audit log:", err);
+  }
+}
+
 // ../backend/src/routes/matches.ts
 var matchRoutes = new Hono2();
 matchRoutes.get("/", async (c) => {
@@ -5779,6 +5851,7 @@ matchRoutes.post("/", async (c) => {
     VALUES (${name}, ${date}, ${organization}, ${firearm_type}, ${level})
     RETURNING *
   `;
+  await audit(c, "match.create", `matches:${match2.id}`, { name });
   return c.json(match2, 201);
 });
 matchRoutes.get("/current", async (c) => {
@@ -5797,6 +5870,7 @@ matchRoutes.put("/:id/set-current", async (c) => {
   if (!existing) return c.json({ error: "Match not found" }, 404);
   await sql`UPDATE matches SET is_current = false WHERE is_current = true`;
   await sql`UPDATE matches SET is_current = true, updated_at = NOW() WHERE id = ${id}`;
+  await audit(c, "match.set-current", `matches:${id}`);
   const [match2] = await sql`
     SELECT id, name, date, organization, firearm_type, match_level, is_current
     FROM matches WHERE id = ${id}
@@ -5805,6 +5879,7 @@ matchRoutes.put("/:id/set-current", async (c) => {
 });
 matchRoutes.put("/unset-current", async (c) => {
   await sql`UPDATE matches SET is_current = false WHERE is_current = true`;
+  await audit(c, "match.unset-current");
   return c.json({ success: true });
 });
 matchRoutes.get("/:id", async (c) => {
@@ -5862,12 +5937,14 @@ matchRoutes.put("/:id", async (c) => {
     RETURNING *
   `;
   if (!updated) return c.json({ error: "Match not found" }, 404);
+  await audit(c, "match.update", `matches:${id}`);
   return c.json(updated);
 });
 matchRoutes.delete("/:id", async (c) => {
   const id = c.req.param("id");
   const result = await sql`DELETE FROM matches WHERE id = ${id} RETURNING id`;
   if (result.length === 0) return c.json({ error: "Match not found" }, 404);
+  await audit(c, "match.delete", `matches:${id}`);
   return c.json({ deleted: true });
 });
 
@@ -7608,23 +7685,20 @@ function parseStageJsonb(stage) {
   }
   return result;
 }
-var STAGE_COLUMNS = `
+var PUBLIC_STAGE_COLUMNS = `
+  s.id, s.match_id, s.stage_number, s.name, s.scoring_type,
+  s.paper_targets, s.steel_targets, s.no_shoot_targets, s.npm_targets, s.hits_per_paper,
+  s.min_rounds, s.max_points, s.par_time, s.image_path, s.briefing, s.config,
+  s.password_hash IS NOT NULL AS has_password,
+  s.created_at, s.updated_at
+`;
+var ADMIN_STAGE_COLUMNS = `
   s.id, s.match_id, s.stage_number, s.name, s.scoring_type,
   s.paper_targets, s.steel_targets, s.no_shoot_targets, s.npm_targets, s.hits_per_paper,
   s.min_rounds, s.max_points, s.par_time, s.image_path, s.briefing, s.config,
   s.password_hash, s.password_hash IS NOT NULL AS has_password,
   s.created_at, s.updated_at
 `;
-stageRoutes.get("/matches/:matchId/stages", async (c) => {
-  const matchId = c.req.param("matchId");
-  const stages = await sql`
-    SELECT ${sql.unsafe(STAGE_COLUMNS)}
-    FROM stages s
-    WHERE s.match_id = ${matchId}
-    ORDER BY s.stage_number
-  `;
-  return c.json(stages.map(parseStageJsonb));
-});
 function calcStageParams(scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, config) {
   switch (scoring_type) {
     case "comstock":
@@ -7677,6 +7751,16 @@ function calcStageParams(scoring_type, paper_targets, steel_targets, no_shoot_ta
     }
   }
 }
+stageRoutes.get("/matches/:matchId/stages", async (c) => {
+  const matchId = c.req.param("matchId");
+  const stages = await sql`
+    SELECT ${sql.unsafe(PUBLIC_STAGE_COLUMNS)}
+    FROM stages s
+    WHERE s.match_id = ${matchId}
+    ORDER BY s.stage_number
+  `;
+  return c.json(stages.map(parseStageJsonb));
+});
 stageRoutes.post("/matches/:matchId/stages", async (c) => {
   const matchId = c.req.param("matchId");
   const body = await c.req.json();
@@ -7684,30 +7768,29 @@ stageRoutes.post("/matches/:matchId/stages", async (c) => {
   if (!name || !scoring_type) {
     return c.json({ error: "name and scoring_type are required" }, 400);
   }
+  if (password && password.length < 8) {
+    return c.json({ error: "Stage password must be at least 8 characters." }, 400);
+  }
   const [maxNum] = await sql`
     SELECT COALESCE(MAX(stage_number), 0) as max_num FROM stages WHERE match_id = ${matchId}
   `;
   const stage_number = Number(maxNum.max_num) + 1;
   const stageConfig = config || {};
   const { min_rounds, max_points } = calcStageParams(scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, stageConfig);
-  const password_hash = password ? await bcryptjs_default.hash(password, 10) : null;
+  const password_hash = password ? await bcryptjs_default.hash(password, 12) : null;
   const [stage] = await sql`
     INSERT INTO stages (match_id, stage_number, name, scoring_type, paper_targets, steel_targets,
                         no_shoot_targets, npm_targets, hits_per_paper, min_rounds, max_points, par_time, briefing, config, password_hash)
     VALUES (${matchId}, ${stage_number}, ${name}, ${scoring_type}, ${paper_targets}, ${steel_targets},
             ${no_shoot_targets}, ${npm_targets}, ${hits_per_paper}, ${min_rounds}, ${max_points}, ${par_time || null}, ${briefing || null}, ${JSON.stringify(stageConfig)}, ${password_hash})
-    RETURNING id, match_id, stage_number, name, scoring_type,
-              paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper,
-              min_rounds, max_points, par_time, image_path, briefing, config,
-              password_hash, password_hash IS NOT NULL AS has_password,
-              created_at, updated_at
+    RETURNING ${sql.unsafe(ADMIN_STAGE_COLUMNS)}
   `;
   return c.json(parseStageJsonb(stage), 201);
 });
 stageRoutes.get("/stages/:id", async (c) => {
   const id = c.req.param("id");
   const [stage] = await sql`
-    SELECT ${sql.unsafe(STAGE_COLUMNS)}
+    SELECT ${sql.unsafe(PUBLIC_STAGE_COLUMNS)}
     FROM stages s
     WHERE s.id = ${id}
   `;
@@ -7732,7 +7815,10 @@ stageRoutes.put("/stages/:id", async (c) => {
   if (password === "") {
     password_hash = null;
   } else if (password) {
-    password_hash = await bcryptjs_default.hash(password, 10);
+    if (password.length < 8) {
+      return c.json({ error: "Stage password must be at least 8 characters." }, 400);
+    }
+    password_hash = await bcryptjs_default.hash(password, 12);
   } else {
     password_hash = existing.password_hash;
   }
@@ -7753,11 +7839,7 @@ stageRoutes.put("/stages/:id", async (c) => {
         password_hash = ${password_hash},
         updated_at = NOW()
     WHERE id = ${id}
-    RETURNING id, match_id, stage_number, name, scoring_type,
-              paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper,
-              min_rounds, max_points, par_time, image_path, briefing, config,
-              password_hash, password_hash IS NOT NULL AS has_password,
-              created_at, updated_at
+    RETURNING ${sql.unsafe(ADMIN_STAGE_COLUMNS)}
   `;
   return c.json(parseStageJsonb(updated));
 });
@@ -7927,6 +8009,7 @@ shooterRoutes.post("/", async (c) => {
     VALUES (${first_name}, ${last_name}, ${category}, ${tag || null}, ${division}, ${power_factor}, ${region}, ${email || null})
     RETURNING *
   `;
+  await audit(c, "shooter.create", `shooters:${shooter.id}`, { name: `${first_name} ${last_name}` });
   return c.json(shooter, 201);
 });
 shooterRoutes.put("/bulk", async (c) => {
@@ -8026,6 +8109,7 @@ shooterRoutes.put("/:id", async (c) => {
     if (!existing) return c.json({ error: "Shooter not found" }, 404);
     return c.json({ error: "Shooter is deleted and cannot be edited" }, 410);
   }
+  await audit(c, "shooter.update", `shooters:${id}`);
   return c.json(updated);
 });
 shooterRoutes.delete("/:id", async (c) => {
@@ -8040,6 +8124,7 @@ shooterRoutes.delete("/:id", async (c) => {
     if (!existing) return c.json({ error: "Shooter not found" }, 404);
     return c.json({ error: "Shooter already deleted" }, 410);
   }
+  await audit(c, "shooter.delete", `shooters:${id}`);
   return c.json({ deleted: true });
 });
 shooterRoutes.post("/:id/restore", async (c) => {
@@ -8054,13 +8139,21 @@ shooterRoutes.post("/:id/restore", async (c) => {
     if (!existing) return c.json({ error: "Shooter not found" }, 404);
     return c.json({ error: "Shooter is not deleted" }, 400);
   }
+  await audit(c, "shooter.restore", `shooters:${id}`);
   return c.json(shooter);
 });
 
 // ../backend/src/routes/registrations.ts
 var registrationRoutes = new Hono2();
+function scrubPII(row, isPublic) {
+  if (!isPublic) return row;
+  const { email, region, winmss_member_id, ...rest } = row;
+  return rest;
+}
 registrationRoutes.get("/matches/:matchId/registrations", async (c) => {
   const matchId = c.req.param("matchId");
+  const role = c.get("authRole") || "anonymous";
+  const isPublic = role === "anonymous";
   const registrations = await sql`
     SELECT mr.id, mr.squad, mr.division as reg_division, mr.category as reg_category,
            mr.power_factor as reg_power_factor, mr.is_dq, mr.dq_reason,
@@ -8072,7 +8165,7 @@ registrationRoutes.get("/matches/:matchId/registrations", async (c) => {
     ORDER BY mr.squad NULLS LAST, s.last_name, s.first_name
   `;
   const resolved = registrations.map((r) => ({
-    ...r,
+    ...scrubPII(r, isPublic),
     effective_division: r.reg_division || r.division,
     effective_category: r.reg_category || r.category,
     effective_power_factor: r.reg_power_factor || r.power_factor
@@ -8103,6 +8196,7 @@ registrationRoutes.post("/matches/:matchId/registrations", async (c) => {
       }
     }
   }
+  await audit(c, "registration.create", `registrations:${matchId}`, { shooterIds });
   return c.json(results, 201);
 });
 registrationRoutes.post("/matches/:matchId/registrations/create-and-add", async (c) => {
@@ -8122,6 +8216,7 @@ registrationRoutes.post("/matches/:matchId/registrations/create-and-add", async 
     VALUES (${matchId}, ${shooter.id}, ${squad || null})
     RETURNING *
   `;
+  await audit(c, "registration.create-and-add", `registrations:${matchId}`, { shooterId: shooter.id });
   return c.json({ shooter, registration: reg }, 201);
 });
 registrationRoutes.put("/matches/:matchId/registrations/bulk", async (c) => {
@@ -8289,6 +8384,7 @@ registrationRoutes.delete("/matches/:matchId/registrations/:id", async (c) => {
   const id = c.req.param("id");
   const result = await sql`DELETE FROM match_registrations WHERE id = ${id} RETURNING id`;
   if (result.length === 0) return c.json({ error: "Registration not found" }, 404);
+  await audit(c, "registration.delete", `registrations:${id}`);
   return c.json({ deleted: true });
 });
 registrationRoutes.get("/matches/:matchId/squads", async (c) => {
@@ -8353,6 +8449,7 @@ registrationRoutes.put("/matches/:matchId/registrations/:id/dq", async (c) => {
     UPDATE stage_scores SET stage_points = 0, stage_percent = 0
     WHERE registration_id = ${id}
   `;
+  await audit(c, "registration.dq", `registrations:${id}`, { dq_reason });
   return c.json(updated);
 });
 registrationRoutes.put("/matches/:matchId/registrations/:id/undq", async (c) => {
@@ -8428,6 +8525,7 @@ registrationRoutes.put("/matches/:matchId/registrations/:id/undq", async (c) => 
       WHERE stage_id = ${stage.id} AND is_dnf = TRUE
     `;
   }
+  await audit(c, "registration.undq", `registrations:${id}`);
   return c.json(updated);
 });
 
@@ -8802,6 +8900,7 @@ scoringRoutes.put("/matches/:matchId/stages/:stageId/scores/:registrationId", as
     type: "score:saved",
     payload: { matchId, stageId, registrationId }
   });
+  await audit(c, "score.write", `stage_scores:${stageId}:${registrationId}`, { matchId, stageId, registrationId });
   return c.json({ ...parseJsonbFields(scoreResult), targets: targets.map(parseTargetJsonbFields), calcResult });
 });
 scoringRoutes.post("/matches/:matchId/stages/:stageId/recalculate", async (c) => {
@@ -8811,6 +8910,7 @@ scoringRoutes.post("/matches/:matchId/stages/:stageId/recalculate", async (c) =>
     type: "score:saved",
     payload: { matchId, stageId, registrationId: null }
   });
+  await audit(c, "score.recalculate-stage", `stages:${stageId}`, { matchId });
   return c.json({ recalculated: true });
 });
 scoringRoutes.post("/matches/:matchId/recalculate", async (c) => {
@@ -8823,6 +8923,7 @@ scoringRoutes.post("/matches/:matchId/recalculate", async (c) => {
     type: "score:saved",
     payload: { matchId, stageId: null, registrationId: null }
   });
+  await audit(c, "score.recalculate-match", `matches:${matchId}`, { stage_count: stages.length });
   return c.json({ recalculated: true, stage_count: stages.length });
 });
 async function recalculateStage(matchId, stageId) {
@@ -11001,6 +11102,7 @@ importRoutes.post("/shooters", async (c) => {
       errors.push(`Row ${i + 2}: ${err.message}`);
     }
   }
+  await audit(c, "import.shooters", null, { imported, skipped, errors: errors.length });
   return c.json({ imported, skipped, errors });
 });
 importRoutes.post("/matches/:matchId/registrations", async (c) => {
@@ -11061,6 +11163,7 @@ importRoutes.post("/matches/:matchId/registrations", async (c) => {
       }
     }
   }
+  await audit(c, "import.registrations", null, { matchId, imported, skipped, errors: errors.length });
   return c.json({ imported, skipped, errors });
 });
 importRoutes.post("/matches/:matchId/scores", async (c) => {
@@ -11194,6 +11297,7 @@ importRoutes.post("/matches/:matchId/scores", async (c) => {
       errors.push(`Row ${i + 2}: ${err.message}`);
     }
   }
+  await audit(c, "import.scores", null, { matchId, imported, skipped, errors: errors.length });
   return c.json({ imported, skipped, errors });
 });
 
@@ -17896,20 +18000,47 @@ winmssImportRoutes.post("/winmss", async (c) => {
 import crypto4 from "crypto";
 var authRoutes = new Hono2();
 var DEFAULT_ADMIN_PASSWORD = "admin";
+var BCRYPT_COST = 12;
+var WEAK_PASSWORDS = ["admin", "password", "1234", "12345", "123456", "1234567", "12345678", "123456789", "1234567890", "qwerty", "letmein", "welcome", "monkey", "dragon"];
+function isWeakPassword(pw) {
+  return WEAK_PASSWORDS.includes(pw.toLowerCase());
+}
+function isValidPassword(pw, minLength) {
+  if (pw.length < minLength) {
+    return { valid: false, error: `Password must be at least ${minLength} characters.` };
+  }
+  if (isWeakPassword(pw)) {
+    return { valid: false, error: "This password is too common. Please choose a stronger password." };
+  }
+  return { valid: true };
+}
+async function getCurrentSessionEpoch() {
+  const [setting] = await sql`SELECT value FROM app_settings WHERE key = 'session_epoch'`;
+  return setting?.value || "0";
+}
+async function bumpSessionEpoch() {
+  const current = await getCurrentSessionEpoch();
+  const next = String(Number(current) + 1);
+  await sql`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('session_epoch', ${next}, now())
+    ON CONFLICT (key) DO UPDATE SET value = ${next}, updated_at = now()
+  `;
+}
 authRoutes.post("/admin-login", async (c) => {
   const { password } = await c.req.json();
   if (!password) {
     return c.json({ error: "Password is required." }, 400);
   }
-  const [setting] = await sql`
+  const storedHashSetting = await sql`
     SELECT value FROM app_settings WHERE key = 'admin_password_hash'
   `;
-  const storedHash = setting?.value || "";
+  const storedHash = storedHashSetting[0]?.value || "";
   let valid;
   if (!storedHash) {
     valid = password === DEFAULT_ADMIN_PASSWORD;
     if (valid) {
-      const hash3 = await bcryptjs_default.hash(DEFAULT_ADMIN_PASSWORD, 10);
+      const hash3 = await bcryptjs_default.hash(DEFAULT_ADMIN_PASSWORD, BCRYPT_COST);
       await sql`
         INSERT INTO app_settings (key, value, updated_at)
         VALUES ('admin_password_hash', ${hash3}, now())
@@ -17939,6 +18070,22 @@ authRoutes.post("/admin-logout", async (c) => {
   }
   return c.json({ success: true });
 });
+authRoutes.post("/admin-logout-all", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Authentication required." }, 401);
+  }
+  const token = authHeader.slice(7);
+  const [session] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${token} AND expires_at > now()
+  `;
+  if (!session) {
+    return c.json({ error: "Invalid or expired admin session." }, 401);
+  }
+  await sql`DELETE FROM admin_sessions WHERE 1=1`;
+  await bumpSessionEpoch();
+  return c.json({ success: true });
+});
 authRoutes.put("/admin-password", async (c) => {
   const authHeader = c.req.header("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -17955,8 +18102,12 @@ authRoutes.put("/admin-password", async (c) => {
   if (!currentPassword || !newPassword) {
     return c.json({ error: "Current password and new password are required." }, 400);
   }
-  if (newPassword.length < 4) {
-    return c.json({ error: "New password must be at least 4 characters." }, 400);
+  if (currentPassword === newPassword) {
+    return c.json({ error: "New password must be different from the current password." }, 400);
+  }
+  const validation = isValidPassword(newPassword, 10);
+  if (!validation.valid) {
+    return c.json({ error: validation.error }, 400);
   }
   const [setting] = await sql`
     SELECT value FROM app_settings WHERE key = 'admin_password_hash'
@@ -17966,7 +18117,7 @@ authRoutes.put("/admin-password", async (c) => {
   if (!storedHash) {
     valid = currentPassword === DEFAULT_ADMIN_PASSWORD;
     if (valid) {
-      const hash3 = await bcryptjs_default.hash(DEFAULT_ADMIN_PASSWORD, 10);
+      const hash3 = await bcryptjs_default.hash(DEFAULT_ADMIN_PASSWORD, BCRYPT_COST);
       await sql`
         INSERT INTO app_settings (key, value, updated_at)
         VALUES ('admin_password_hash', ${hash3}, now())
@@ -17979,12 +18130,13 @@ authRoutes.put("/admin-password", async (c) => {
   if (!valid) {
     return c.json({ error: "Incorrect current password." }, 401);
   }
-  const newHash = await bcryptjs_default.hash(newPassword, 10);
+  const newHash = await bcryptjs_default.hash(newPassword, BCRYPT_COST);
   await sql`
     INSERT INTO app_settings (key, value, updated_at)
     VALUES ('admin_password_hash', ${newHash}, now())
     ON CONFLICT (key) DO UPDATE SET value = ${newHash}, updated_at = now()
   `;
+  await bumpSessionEpoch();
   return c.json({ success: true });
 });
 authRoutes.get("/admin-password-status", async (c) => {
@@ -17998,6 +18150,9 @@ authRoutes.post("/stage-login", async (c) => {
   const { stageId, password } = await c.req.json();
   if (!stageId || !password) {
     return c.json({ error: "Stage ID and password are required." }, 400);
+  }
+  if (password.length < 8) {
+    return c.json({ error: "Stage password must be at least 8 characters." }, 400);
   }
   const [stage] = await sql`
     SELECT s.id, s.name, s.password_hash, s.match_id
@@ -18021,8 +18176,8 @@ authRoutes.post("/stage-login", async (c) => {
   const token = crypto4.randomUUID();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1e3);
   await sql`
-    INSERT INTO stage_sessions (stage_id, token, expires_at)
-    VALUES (${stageId}, ${token}, ${expiresAt.toISOString()})
+    INSERT INTO stage_sessions (stage_id, token, expires_at, last_used_at)
+    VALUES (${stageId}, ${token}, ${expiresAt.toISOString()}, now())
   `;
   return c.json({
     token,
@@ -18067,6 +18222,20 @@ authRoutes.get("/stages", async (c) => {
     matchName: s.match_name
   })));
 });
+authRoutes.post("/stage-hash", async (c) => {
+  const { stageId, password } = await c.req.json();
+  if (!stageId || !password) {
+    return c.json({ error: "Stage ID and password are required." }, 400);
+  }
+  const [stage] = await sql`
+    SELECT id, password_hash FROM stages WHERE id = ${stageId}
+  `;
+  if (!stage || !stage.password_hash) {
+    return c.json({ valid: false });
+  }
+  const valid = await bcryptjs_default.compare(password, stage.password_hash);
+  return c.json({ valid });
+});
 authRoutes.get("/me", async (c) => {
   const authHeader = c.req.header("Authorization");
   const domainMode = c.get("domainMode") || "admin";
@@ -18092,9 +18261,7 @@ authRoutes.get("/me", async (c) => {
       return c.json({ role: "scorer", stageId: scorerSession.stage_id, stageName: scorerSession.stage_name, matchId: scorerSession.match_id, isLocalNetwork: false, domainMode });
     }
   }
-  const clientIp = c.req.header("x-forwarded-for")?.split(",")[0].trim() || c.req.header("x-real-ip")?.trim() || "";
-  const isLocal = isTrustedIp(clientIp);
-  return c.json({ role: "anonymous", stageId: null, isLocalNetwork: isLocal, domainMode });
+  return c.json({ role: "anonymous", stageId: null, isLocalNetwork: false, domainMode });
 });
 authRoutes.post("/logout", async (c) => {
   const authHeader = c.req.header("Authorization");
@@ -18105,20 +18272,6 @@ authRoutes.post("/logout", async (c) => {
   }
   return c.json({ success: true });
 });
-function isTrustedIp(ip) {
-  if (!ip) return false;
-  let trimmed = ip.split(",")[0].trim();
-  const v4Mapped = trimmed.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (v4Mapped) trimmed = v4Mapped[1];
-  if (trimmed === "127.0.0.1" || trimmed === "::1" || trimmed === "localhost") return true;
-  if (/^172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+$/.test(trimmed)) return true;
-  if (/^172\.\d+\.\d+\.\d+$/.test(trimmed)) return true;
-  if (/^10\.\d+\.\d+\.\d+$/.test(trimmed)) return true;
-  if (/^192\.168\.\d+\.\d+$/.test(trimmed)) return true;
-  if (/^f[cd]/i.test(trimmed) || /^fe[89ab]/i.test(trimmed)) return true;
-  if (trimmed === "host.docker.internal") return true;
-  return false;
-}
 
 // ../backend/src/routes/backup.ts
 import { execFile } from "child_process";
@@ -18214,10 +18367,10 @@ backupRoutes.post("/backup", async (c) => {
     ], {
       env: { ...process.env, ...dbParams },
       maxBuffer: 50 * 1024 * 1024
-      // 50 MB buffer for large databases
     });
     const fileContent = await fs3.readFile(tmpFile);
     const date = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    await audit(c, "backup.export");
     c.header("Content-Disposition", `attachment; filename="ipscscore-backup-${date}.sql"`);
     c.header("Content-Type", "text/sql; charset=utf-8");
     return c.body(fileContent);
@@ -18259,6 +18412,7 @@ backupRoutes.post("/restore", async (c) => {
       maxBuffer: 50 * 1024 * 1024
     });
     console.log("[Restore] psql stderr:", stderr?.slice(0, 500));
+    await audit(c, "backup.restore");
     return c.json({ success: true, message: "Database restored successfully" });
   } catch (err) {
     console.error("[Restore] Error:", err);
@@ -18393,6 +18547,7 @@ matchExportRoutes.get("/matches/:id/export", async (c) => {
   };
   const safeName = (match2.name || "match").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 50);
   const date = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  await audit(c, "match.export", `matches:${matchId}`);
   c.header("Content-Disposition", `attachment; filename="${safeName}-${date}.match.json"`);
   c.header("Content-Type", "application/json; charset=utf-8");
   return c.json(result);
@@ -18453,6 +18608,11 @@ matchExportRoutes.post("/matches/import", async (c) => {
         VALUES (${chrono.id}, ${chrono.stage_score_id}, ${chrono.bullet_weight}, ${chrono.velocity_1 || null}, ${chrono.velocity_2 || null}, ${chrono.velocity_3 || null}, ${chrono.avg_velocity}, ${chrono.calculated_pf}, ${chrono.pf_passed})`;
     }
   });
+  await audit(c, "match.import", `matches:${matchId}`, {
+    stages: data.stages.length,
+    registrations: data.registrations.length,
+    scores: data.stage_scores.length
+  });
   return c.json({
     success: true,
     match_id: matchId,
@@ -18471,6 +18631,7 @@ init_env();
 var app = new Hono2();
 app.use("*", corsMiddleware);
 app.use("*", requestLogger);
+app.use("*", securityHeaders);
 app.onError(errorHandler2);
 function getDomainMode(host, urlPath) {
   if (!host) return "admin";
@@ -18521,21 +18682,47 @@ app.get("/api/lan-info", (c) => {
   }
   return c.json({ ip: lanIp || fallbackIp || "127.0.0.1", port: env.PORT });
 });
-app.route("/api/matches", matchRoutes);
-app.route("/api", stageRoutes);
-app.route("/api/shooters", shooterRoutes);
-app.route("/api", registrationRoutes);
 app.route("/api/auth", authRoutes);
+app.route("/api", resultsRoutes);
+app.route("/api", uploadRoutes);
+app.use("/api/matches", authMiddleware);
+app.use("/api/matches", methodGuard(["admin"]));
+app.route("/api/matches", matchRoutes);
+app.use("/api/matches/:matchId/stages", authMiddleware);
+app.use("/api/matches/:matchId/stages", methodGuard(["admin"]));
+app.use("/api/stages", authMiddleware);
+app.use("/api/stages", methodGuard(["admin"]));
+app.route("/api", stageRoutes);
+app.use("/api/shooters", authMiddleware);
+app.use("/api/shooters", requireAdmin);
+app.route("/api/shooters", shooterRoutes);
+app.use("/api/matches/:matchId/registrations", authMiddleware);
+app.use("/api/matches/:matchId/registrations", methodGuard(["admin"]));
+app.use("/api/matches/:matchId/squads", authMiddleware);
+app.route("/api", registrationRoutes);
 app.use("/api/matches/:matchId/stages/:stageId/scores/*", authMiddleware);
 app.use("/api/matches/:matchId/stages/:stageId/scores/*", stageAccessMiddleware);
 app.use("/api/matches/:matchId/stages/:stageId/scores/*", scoreLockMiddleware);
+app.use("/api/matches/:matchId/scoring-progress", authMiddleware);
+app.use("/api/matches/:matchId/stages/:stageId/recalculate", authMiddleware);
+app.use("/api/matches/:matchId/stages/:stageId/recalculate", requireAdmin);
+app.use("/api/matches/:matchId/recalculate", authMiddleware);
+app.use("/api/matches/:matchId/recalculate", requireAdmin);
 app.route("/api", scoringRoutes);
-app.route("/api", resultsRoutes);
-app.route("/api", uploadRoutes);
+app.use("/api/backup", authMiddleware);
+app.use("/api/backup", requireAdmin);
+app.use("/api/restore", authMiddleware);
+app.use("/api/restore", requireAdmin);
 app.route("/api", backupRoutes);
-app.route("/api", matchExportRoutes);
+app.use("/api/import", authMiddleware);
+app.use("/api/import", requireAdmin);
 app.route("/api/import", importRoutes);
 app.route("/api/import", winmssImportRoutes);
+app.use("/api/matches/import", authMiddleware);
+app.use("/api/matches/import", requireAdmin);
+app.use("/api/matches/:id/export", authMiddleware);
+app.use("/api/matches/:id/export", requireAdmin);
+app.route("/api", matchExportRoutes);
 app.get("/manifest.json", async (c) => {
   let mode = c.req.query("mode");
   if (!mode) {
@@ -18603,12 +18790,8 @@ function enableStaticServing(frontendDistPath) {
   console.log(`[Static] Found index.html at: ${indexPath}`);
   app.use("*", async (c, next) => {
     const urlPath = c.req.path;
-    if (urlPath.startsWith("/api/")) {
-      return next();
-    }
-    if (urlPath !== "/" && urlPath.includes(".")) {
-      return next();
-    }
+    if (urlPath.startsWith("/api/")) return next();
+    if (urlPath !== "/" && urlPath.includes(".")) return next();
     try {
       let html = fs4.readFileSync(indexPath, "utf-8");
       const domainMode = c.get("domainMode");
@@ -18701,8 +18884,8 @@ async function main() {
     await enableStaticServing(frontendDistPath);
     console.log(`Serving frontend from ${frontendDistPath}`);
   }
-  serve({ fetch: app.fetch, port: env.PORT }, (info) => {
-    console.log(`Server running at http://localhost:${info.port}`);
+  serve({ fetch: app.fetch, port: env.PORT, hostname: env.BIND_ADDRESS }, (info) => {
+    console.log(`Server running at http://${env.BIND_ADDRESS}:${info.port}`);
   });
 }
 main().catch((err) => {

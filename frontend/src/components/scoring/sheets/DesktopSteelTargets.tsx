@@ -44,20 +44,22 @@ export default function DesktopSteelTargets({
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <label className="text-xs font-bold text-gray-500 dark:text-white uppercase">{t('scoring.misses')}</label>
-            <InputField
-              type="number"
-              step="1"
-              min="0"
-              max={String(steelTargets.length)}
-              className="w-16 text-center font-mono text-sm font-bold border-red-400 focus:ring-red-400"
-              value={steelMisses}
-              disabled={disabled}
-              onChange={(v) => {
-                const val = v === '' ? 0 : parseInt(v, 10);
-                const clamped = Math.max(0, Math.min(isNaN(val) ? 0 : val, steelTargets.length));
-                onSteelMissChange(clamped);
-              }}
-            />
+              <InputField
+                type="number"
+                step="1"
+                min="0"
+                max={String(steelTargets.length)}
+                numeric
+                onFocus={(e) => e.target.select()}
+                className="w-16 text-center font-mono text-sm font-bold border-red-400 focus:ring-red-400"
+                value={steelMisses}
+                disabled={disabled}
+                onChange={(v) => {
+                  const val = v === '' ? 0 : parseInt(v, 10);
+                  const clamped = Math.max(0, Math.min(isNaN(val) ? 0 : val, steelTargets.length));
+                  onSteelMissChange(clamped);
+                }}
+              />
           </div>
 
           <div className="text-center">
@@ -118,6 +120,8 @@ export default function DesktopSteelTargets({
                 step="1"
                 min="0"
                 max={String(npmCount)}
+                numeric
+                onFocus={(e) => e.target.select()}
                 className="w-16 text-center font-mono text-sm font-bold border-green-400 focus:ring-green-400"
                 value={npmHits}
                 disabled={disabled}

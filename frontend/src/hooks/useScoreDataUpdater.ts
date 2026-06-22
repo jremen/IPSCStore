@@ -10,7 +10,10 @@ export function useScoreDataUpdater(score: ScoreInput) {
   const sd: ScoreData = score.score_data || {};
 
   const updateScoreData = (updates: Partial<ScoreData>) => {
-    setScore({ ...score, score_data: { ...sd, ...updates } });
+    const currentScore = useScoringStore.getState().currentScore;
+    if (!currentScore) return;
+    const currentSd: ScoreData = currentScore.score_data || {};
+    setScore({ ...currentScore, score_data: { ...currentSd, ...updates } });
   };
 
   return { sd, updateScoreData };

@@ -66,6 +66,8 @@ export default function DesktopPaperTargets({
               step="1"
               min="0"
               sizing="sm"
+              numeric
+              onFocus={(e) => e.target.select()}
               className={`w-20 h-9 text-center font-mono text-lg font-bold rounded-lg border-2 ${color}`}
               value={paperTotals[field]}
               disabled={disabled}

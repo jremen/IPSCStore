@@ -8,6 +8,7 @@ interface InputFieldProps {
   value: string | number;
   onChange: (value: string) => void;
   onBlur?: () => void;
+  onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   type?: 'text' | 'number';
   step?: string;
@@ -23,6 +24,8 @@ interface InputFieldProps {
   className?: string;
   /** Use text input with decimal keyboard. Fixes locale-dependent decimal separator issues in type="number". */
   decimal?: boolean;
+  /** Use text input with numeric keyboard. Enables selectOnFocus-friendly number inputs. */
+  numeric?: boolean;
 }
 
 export const InputField = memo(
@@ -34,6 +37,7 @@ export const InputField = memo(
         value,
         onChange,
         onBlur,
+        onFocus,
         onKeyDown,
         type = 'number',
         step = '0.01',
@@ -47,6 +51,7 @@ export const InputField = memo(
         disabled,
         className,
         decimal = false,
+        numeric = false,
       },
       ref,
     ) => {
@@ -114,11 +119,11 @@ export const InputField = memo(
             <input
               ref={ref}
               id={id}
-              type={decimal ? 'text' : type}
-              inputMode={decimal ? 'decimal' : undefined}
-              step={type === 'number' && !decimal ? step : undefined}
-              min={type === 'number' && !decimal ? min : undefined}
-              max={type === 'number' && !decimal ? max : undefined}
+              type={decimal || numeric ? 'text' : type}
+              inputMode={decimal ? 'decimal' : numeric ? 'numeric' : undefined}
+              step={type === 'number' && !decimal && !numeric ? step : undefined}
+              min={type === 'number' && !decimal && !numeric ? min : undefined}
+              max={type === 'number' && !decimal && !numeric ? max : undefined}
               value={value}
               onChange={(e) => {
                 const v = e.target.value;
@@ -129,9 +134,16 @@ export const InputField = memo(
                   !/^-?\d*([.,]\d*)?$/.test(v)
                 )
                   return;
+                if (
+                  numeric &&
+                  v !== '' &&
+                  !/^\d*$/.test(v)
+                )
+                  return;
                 onChange(decimal ? v.replace(/,/g, '.') : v);
               }}
               onBlur={onBlur}
+              onFocus={onFocus}
               onKeyDown={onKeyDown}
               required={required}
               placeholder={placeholder}
@@ -139,7 +151,7 @@ export const InputField = memo(
               autoComplete="off"
               className={`block w-full [appearance:textfield] rounded-lg border text-sm focus:ring-1 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${sizeClass} ${colorClass} ${className ?? ''}`}
             />
-            {type === 'number' && !decimal && (
+            {type === 'number' && !decimal && !numeric && (
               <div
                 className={`absolute top-0 right-0 flex h-full flex-col border-l ${spinnerBorderClass}`}
               >

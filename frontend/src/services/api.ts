@@ -259,6 +259,11 @@ export const api = {
   getSingleStageResults: (matchId: string, stageId: string) => request<any>(`/api/matches/${matchId}/results/stages/${stageId}`),
   getCategoryResults: (matchId: string) => request<any>(`/api/matches/${matchId}/results/categories`),
   getTagResults: (matchId: string) => request<any>(`/api/matches/${matchId}/results/tags`),
+  getShooterStageSummaries: async (matchId: string, registrationId: string): Promise<any> => {
+    const res = await fetch(`${API_BASE}/api/matches/${matchId}/shooters/${registrationId}/stage-summaries`, { headers: authHeaders() });
+    if (!res.ok) throw new Error(`Failed to fetch stage summaries: ${res.statusText}`);
+    return res.json();
+  },
   exportRegistrationCSV: (matchId: string) => requestText(`/api/matches/${matchId}/registrations/export/csv`),
 
   // Import

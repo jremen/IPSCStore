@@ -52,8 +52,5 @@ win:
 linux:
   target:
     - target: AppImage
-      arch:
-        - x64
-        - arm64
   icon: resources/icon.png
   category: Utility

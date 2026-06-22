@@ -10,6 +10,32 @@ const execFileAsync = promisify(execFile);
 /** Whether we're running on Windows */
 const isWin32 = process.platform === 'win32';
 
+/** Whether we're running on Linux ARM64 */
+const isLinuxArm64 = process.platform === 'linux' && process.arch === 'arm64';
+
+/**
+ * Read the ELF e_machine field from a binary file.
+ * Returns the machine type number, or null if the file is not a valid ELF.
+ *
+ * ELF header: bytes 0-3 = magic (\x7fELF), bytes 18-19 = e_machine (LE)
+ */
+async function readElfMachine(binPath: string): Promise<number | null> {
+  try {
+    const fh = await fs.open(binPath, 'r');
+    try {
+      const buf = Buffer.alloc(20);
+      const { bytesRead } = await fh.read(buf, 0, 20, 0);
+      if (bytesRead < 20) return null;
+      if (buf[0] !== 0x7f || buf[1] !== 0x45 || buf[2] !== 0x4c || buf[3] !== 0x46) return null;
+      return buf.readUInt16LE(18);
+    } finally {
+      await fh.close();
+    }
+  } catch {
+    return null;
+  }
+}
+
 /** Common system PostgreSQL binary directories to search */
 const SYSTEM_PG_PATHS: Record<string, string[]> = {
   darwin: [
@@ -118,6 +144,66 @@ export class PgManager {
     return paths[0];
   }
 
+  /**
+   * Check that PostgreSQL binaries can load all required shared libraries on Linux.
+   * Runs `ldd` on a small PG binary (e.g. pg_config or initdb) to detect missing deps.
+   * Returns an array of missing library objects, or empty if all deps are satisfied.
+   */
+  private async checkLinuxSharedLibs(): Promise<Array<{ name: string; path: string }>> {
+    if (process.platform !== 'linux') return [];
+
+    // Find a suitable binary to check — prefer pg_config (small, no PG instance needed)
+    const candidates = ['pg_config', 'initdb', 'postgres', 'pg_ctl'];
+    let checkBin = '';
+    for (const name of candidates) {
+      const p = this.getBin(name);
+      try {
+        await fs.access(p);
+        checkBin = p;
+        break;
+      } catch {
+        continue;
+      }
+    }
+    if (!checkBin) {
+      log('[PgManager] No PG binary found to check shared libraries');
+      return [];
+    }
+
+    try {
+      // Run ldd to list all shared library dependencies
+      const { stdout } = await execFileAsync('ldd', [checkBin], { timeout: 5000 });
+      const missing: Array<{ name: string; path: string }> = [];
+
+      for (const line of stdout.split('\n')) {
+        // ldd output format:
+        //   "libxml2.so.2 => /usr/lib/aarch64-linux-gnu/libxml2.so.2 (0x...)"  — found
+        //   "libxml2.so.2 => not found"  — missing
+        //   "linux-vdso.so.1 (0x...)"  — kernel-provided, always available
+        const notFound = line.match(/^\s*(\S+)\s+=>\s+not found$/);
+        if (notFound) {
+          missing.push({ name: notFound[1], path: 'not found' });
+          continue;
+        }
+
+        // Also catch direct errors from ldd itself
+        const directError = line.match(/^\s*(\S+)\s+=>\s*$/);
+        if (directError) {
+          missing.push({ name: directError[1], path: 'not found' });
+        }
+      }
+
+      if (missing.length > 0) {
+        log(`[PgManager] Missing shared libraries: ${missing.map(m => m.name).join(', ')}`);
+      }
+      return missing;
+    } catch (err: any) {
+      // ldd might fail if the binary is completely broken
+      log(`[PgManager] Cannot check shared libraries (ldd failed): ${err?.message || String(err)}`);
+      return [];
+    }
+  }
+
   /** Get the connection string for the database */
   getConnectionString(): string {
     return `postgresql://${this.config.user}:${this.config.password}@${this.config.host}:${this.config.port}/${this.config.database}`;
@@ -179,6 +265,42 @@ export class PgManager {
 
     // Create data directory
     await fs.mkdir(this.config.dataDir, { recursive: true });
+
+    // On Linux ARM64, verify PG binary is actually AArch64 before running initdb
+    if (isLinuxArm64) {
+      const initdbPath = this.getBin('initdb');
+      const eMachine = await readElfMachine(initdbPath);
+      if (eMachine !== null && eMachine !== 0xb7) {
+        const archName = eMachine === 0x3e ? 'x86_64' : `0x${eMachine.toString(16)}`;
+        throw new Error(
+          `PostgreSQL binary is ${archName} but this is Linux ARM64. ` +
+          `Download the ARM64 build:\n` +
+          `  npm run download-pg:linux-arm64\n` +
+          `Then rebuild the app.\n` +
+          `See electron/scripts/download-pg.sh for fallback options.`
+        );
+      }
+    }
+
+    // On Linux, check that shared libraries are loadable before running initdb.
+    // Missing libraries produce cryptic errors (ENOEXEC / "/bin/sh" fallback) that are
+    // hard to debug. Catch them early with a clear error message and install instructions.
+    if (process.platform === 'linux') {
+      const missing = await this.checkLinuxSharedLibs();
+      if (missing.length > 0) {
+        const libNames = missing.map((m: { name: string; path: string }) => m.name);
+        const pkgNames = libNames.map((n: string) => n.replace(/\.so.*/, ''));
+        throw new Error(
+          `PostgreSQL cannot start: missing shared libraries: ${libNames.join(', ')}\n\n` +
+          `Install the required libraries:\n` +
+          `  Debian/Ubuntu:  sudo apt install ${pkgNames.join(' ')}\n` +
+          `  Fedora/RHEL:    sudo dnf install ${pkgNames.join(' ')}\n` +
+          `  Arch Linux:     sudo pacman -S ${pkgNames.join(' ')}\n\n` +
+          `Alternatively, set PG_BIN_DIR to point to a system PostgreSQL installation,\n` +
+          `or set DATABASE_URL to connect to an external PostgreSQL server.`
+        );
+      }
+    }
 
     // Run initdb
     const initdb = this.getBin('initdb');

@@ -19,6 +19,7 @@
     "build:mac": "npm run build:backend && npm run build:frontend && cd electron && npm run build:mac",
     "build:win": "npm run build:backend && npm run build:frontend && cd electron && npm run build:win",
     "build:linux": "npm run build:backend && npm run build:frontend && cd electron && npm run build:linux",
+    "build:linux-arm64": "npm run build:backend && npm run build:frontend && cd electron && npm run build:linux-arm64",
     "build:all": "npm run build:backend && npm run build:frontend && cd electron && npm run build:all"
   }
 }

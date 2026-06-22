@@ -388,6 +388,97 @@ if [ "$EDB_SUCCESS" = false ]; then
   rm -rf "$TMPDIR"
 fi
 
+# --- Bundle system shared libraries for Linux ---
+# On Linux, PostgreSQL binaries dynamically link against system libraries (libxml2, libssl,
+# libicu, libkrb5, etc.). These must be bundled with the app for portability.
+# RPATH is already set to $ORIGIN/../lib by theseus-rs patchelf, so the bundled .so files
+# will be found automatically. Exception: libc.so.6, ld-linux-*.so.1, and linux-vdso.so.1
+# cannot be bundled — they are loaded by the kernel before RPATH is consulted.
+if [[ "$PLATFORM" == linux-* ]] && [ -d "$PG_BIN_DIR" ]; then
+  echo ""
+  echo "Bundling system shared libraries for Linux..."
+
+  # Check if ldd is available
+  if command -v ldd &>/dev/null; then
+    SO_COUNT=0
+
+    # Find all PG binaries and resolve their shared library dependencies
+    for bin_file in "$PG_BIN_DIR"/*; do
+      [ -f "$bin_file" ] || continue
+      # Skip non-ELF files
+      file "$bin_file" 2>/dev/null | grep -q "ELF" || continue
+
+      # Get resolved library paths from ldd (follows symlinks)
+      ldd "$bin_file" 2>/dev/null | while read -r line; do
+        # Parse "libxml2.so.2 => /usr/lib/aarch64-linux-gnu/libxml2.so.2 (0x...)"
+        SO_PATH=$(echo "$line" | grep -oE '/\S+\.so(\.[0-9]+)*')
+        [ -z "$SO_PATH" ] && continue
+        [ -f "$SO_PATH" ] || continue
+
+        # Skip system libraries that cannot be bundled
+        SO_BASENAME=$(basename "$SO_PATH")
+        case "$SO_BASENAME" in
+          libc.so.*|libm.so.*|libpthread.so.*|libdl.so.*|librt.so.*|libresolv.so.*)
+            # Part of glibc — cannot bundle, user's system must provide
+            ;;
+          ld-linux-aarch64.so.*|ld-linux.so.*|ld-linux-x86-64.so.*)
+            # Dynamic linker — cannot bundle, loaded by kernel
+            ;;
+          linux-vdso.so.*|linux-gate.so.*)
+            # Virtual shared objects — provided by kernel, cannot bundle
+            ;;
+          *)
+            # Bundlable library — copy to pg/lib/
+            DEST_DIR="$PG_DIR/lib"
+            mkdir -p "$DEST_DIR"
+            cp -L "$SO_PATH" "$DEST_DIR/" 2>/dev/null && {
+              # Preserve symlinks if the source has them
+              SO_REAL=$(readlink -f "$SO_PATH" 2>/dev/null)
+              if [ -n "$SO_REAL" ] && [ "$SO_REAL" != "$SO_PATH" ]; then
+                SO_REAL_NAME=$(basename "$SO_REAL")
+                cp "$SO_REAL" "$DEST_DIR/$SO_REAL_NAME" 2>/dev/null || true
+              fi
+              SO_COUNT=$((SO_COUNT + 1))
+            }
+            ;;
+        esac
+      done
+    done
+
+    if [ "$SO_COUNT" -gt 0 ]; then
+      echo "  Copied: $SO_COUNT shared libraries to pg/lib/"
+    else
+      echo "  No additional shared libraries found (all deps may already be static or in pg/lib/)"
+    fi
+
+    # Ensure RPATH is set on all ELF binaries (safety net — theseus-rs already does this)
+    if command -v patchelf &>/dev/null; then
+      for bin_file in "$PG_BIN_DIR"/*; do
+        [ -f "$bin_file" ] || continue
+        file "$bin_file" 2>/dev/null | grep -q "ELF" || continue
+        patchelf --set-rpath '$ORIGIN/../lib' "$bin_file" 2>/dev/null && \
+          echo "  Set RPATH on: $(basename "$bin_file")"
+      done
+    else
+      echo "  WARNING: patchelf not found — RPATH may not be set correctly"
+    fi
+
+    # List final bundled .so files
+    if [ -d "$PG_DIR/lib" ]; then
+      echo ""
+      echo "Bundled libraries in pg/lib/:"
+      ls -1 "$PG_DIR/lib"/*.so* 2>/dev/null | head -20
+      TOTAL=$(ls -1 "$PG_DIR/lib"/*.so* 2>/dev/null | wc -l)
+      if [ "$TOTAL" -gt 20 ]; then
+        echo "  ... and $((TOTAL - 20)) more"
+      fi
+    fi
+  else
+    echo "  WARNING: ldd not found — cannot bundle shared libraries"
+    echo "  User must install required system libraries (libxml2, libssl, etc.)"
+  fi
+fi
+
 if [ "$EDB_SUCCESS" = false ]; then
   echo "ERROR: Could not obtain PostgreSQL binaries from any source"
   exit 1

@@ -3,6 +3,7 @@ import { sql } from '../db/client.js';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { env } from '../env.js';
+import { STAGE_PASSWORD_MIN_LENGTH } from '../utils/passwords.js';
 
 export const authRoutes = new Hono<{
   Variables: {
@@ -233,8 +234,8 @@ authRoutes.post('/stage-login', async (c) => {
   }
 
   // Stage password minimum 8 chars
-  if (password.length < 8) {
-    return c.json({ error: 'Stage password must be at least 8 characters.' }, 400);
+  if (password.length < STAGE_PASSWORD_MIN_LENGTH) {
+    return c.json({ error: `Stage password must be at least ${STAGE_PASSWORD_MIN_LENGTH} characters.` }, 400);
   }
 
   const [stage] = await sql`

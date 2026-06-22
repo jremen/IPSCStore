@@ -87,7 +87,7 @@
     "confirmNewPassword": "Potvrdiť nové heslo",
     "passwordChanged": "Heslo bolo úspešne zmenené.",
     "passwordMismatch": "Nové heslá sa nezhodujú.",
-    "passwordTooShort": "Nové heslo musí mať aspoň 4 znaky."
+    "passwordTooShort": "Nové heslo musí mať aspoň 10 znakov."
   },
   "tabs": {
     "matches": "Súťaže",

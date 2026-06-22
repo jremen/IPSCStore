@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { sql } from '../db/client.js';
 import bcrypt from 'bcryptjs';
+import { STAGE_PASSWORD_MIN_LENGTH } from '../utils/passwords.js';
 
 export const stageRoutes = new Hono();
 
@@ -27,6 +28,14 @@ const ADMIN_STAGE_COLUMNS = `
   s.min_rounds, s.max_points, s.par_time, s.image_path, s.briefing, s.config,
   s.password_hash, s.password_hash IS NOT NULL AS has_password,
   s.created_at, s.updated_at
+`;
+
+const RETURNING_STAGE_COLUMNS = `
+  id, match_id, stage_number, name, scoring_type,
+  paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper,
+  min_rounds, max_points, par_time, image_path, briefing, config,
+  password_hash, password_hash IS NOT NULL AS has_password,
+  created_at, updated_at
 `;
 
 function calcStageParams(scoring_type: string, paper_targets: number, steel_targets: number, no_shoot_targets: number, npm_targets: number, hits_per_paper: number, config: any): { min_rounds: number; max_points: number } {
@@ -104,8 +113,8 @@ stageRoutes.post('/matches/:matchId/stages', async (c) => {
     return c.json({ error: 'name and scoring_type are required' }, 400);
   }
 
-  if (password && password.length < 8) {
-    return c.json({ error: 'Stage password must be at least 8 characters.' }, 400);
+  if (password && password.length < STAGE_PASSWORD_MIN_LENGTH) {
+    return c.json({ error: `Stage password must be at least ${STAGE_PASSWORD_MIN_LENGTH} characters.` }, 400);
   }
 
   const [maxNum] = await sql`
@@ -123,7 +132,7 @@ stageRoutes.post('/matches/:matchId/stages', async (c) => {
                         no_shoot_targets, npm_targets, hits_per_paper, min_rounds, max_points, par_time, briefing, config, password_hash)
     VALUES (${matchId}, ${stage_number}, ${name}, ${scoring_type}, ${paper_targets}, ${steel_targets},
             ${no_shoot_targets}, ${npm_targets}, ${hits_per_paper}, ${min_rounds}, ${max_points}, ${par_time || null}, ${briefing || null}, ${JSON.stringify(stageConfig)}, ${password_hash})
-    RETURNING ${sql.unsafe(ADMIN_STAGE_COLUMNS)}
+    RETURNING ${sql.unsafe(RETURNING_STAGE_COLUMNS)}
   `;
   return c.json(parseStageJsonb(stage), 201);
 });
@@ -162,8 +171,8 @@ stageRoutes.put('/stages/:id', async (c) => {
   if (password === '') {
     password_hash = null;
   } else if (password) {
-    if (password.length < 8) {
-      return c.json({ error: 'Stage password must be at least 8 characters.' }, 400);
+    if (password.length < STAGE_PASSWORD_MIN_LENGTH) {
+      return c.json({ error: `Stage password must be at least ${STAGE_PASSWORD_MIN_LENGTH} characters.` }, 400);
     }
     password_hash = await bcrypt.hash(password, 12);
   } else {
@@ -187,7 +196,7 @@ stageRoutes.put('/stages/:id', async (c) => {
         password_hash = ${password_hash},
         updated_at = NOW()
     WHERE id = ${id}
-    RETURNING ${sql.unsafe(ADMIN_STAGE_COLUMNS)}
+    RETURNING ${sql.unsafe(RETURNING_STAGE_COLUMNS)}
   `;
   return c.json(parseStageJsonb(updated));
 });

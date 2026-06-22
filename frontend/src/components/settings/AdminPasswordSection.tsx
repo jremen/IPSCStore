@@ -21,7 +21,7 @@ export default function AdminPasswordSection() {
       return;
     }
 
-    if (newPassword.length < 4) {
+    if (newPassword.length < 10) {
       setMessage({ type: 'error', text: t('auth.passwordTooShort') });
       return;
     }

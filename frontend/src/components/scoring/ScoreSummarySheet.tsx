@@ -39,10 +39,10 @@ function IPSCSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
   const noShootTargets = score.targets.filter(t => t.target_type === 'no_shoot');
   const npmTargets = score.targets.filter(t => t.target_type === 'npm');
 
-  const totalAlpha = paperTargets.reduce((s, t) => s + t.alpha, 0);
+  const totalAlpha = paperTargets.reduce((s, t) => s + t.alpha, 0) + steelTargets.filter(t => t.steel_hit === true).length;
   const totalCharlie = paperTargets.reduce((s, t) => s + t.charlie, 0);
   const totalDelta = paperTargets.reduce((s, t) => s + t.delta, 0);
-  const totalMiss = paperTargets.reduce((s, t) => s + t.miss, 0) + steelTargets.filter(t => !t.steel_hit).length;
+  const totalMiss = paperTargets.reduce((s, t) => s + t.miss, 0) + steelTargets.filter(t => t.steel_hit === false).length;
   const totalNS = score.targets.reduce((s, t) => s + t.no_shoot_hits, 0);
   const totalNPM = npmTargets.filter(t => t.steel_hit === true).length;
 
@@ -216,10 +216,10 @@ function IDPASummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
   const paperTargets = score.targets.filter(t => t.target_type === 'paper');
   const steelTargets = score.targets.filter(t => t.target_type === 'steel');
 
-  const totalAlpha = paperTargets.reduce((s, t) => s + t.alpha, 0);
+  const totalAlpha = paperTargets.reduce((s, t) => s + t.alpha, 0) + steelTargets.filter(t => t.steel_hit === true).length;
   const totalCharlie = paperTargets.reduce((s, t) => s + t.charlie, 0);
   const totalDelta = paperTargets.reduce((s, t) => s + t.delta, 0);
-  const totalMiss = paperTargets.reduce((s, t) => s + t.miss, 0) + steelTargets.filter(t => !t.steel_hit).length;
+  const totalMiss = paperTargets.reduce((s, t) => s + t.miss, 0) + steelTargets.filter(t => t.steel_hit === false).length;
   const totalNS = score.targets.reduce((s, t) => s + t.no_shoot_hits, 0);
 
   const sd = score.score_data || {};

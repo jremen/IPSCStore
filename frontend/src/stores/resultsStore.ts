@@ -1,5 +1,32 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
+import type { ShooterStageSummariesResponse } from '../types/results';
+
+/** Convert postgres numeric strings → JS numbers. The postgres npm driver
+ *  serializes all `numeric` columns as strings. This normalizer ensures
+ *  runtime data matches the TypeScript `number` types. */
+function num(v: any): number {
+  if (v == null) return 0;
+  const n = Number(v);
+  return Number.isNaN(n) ? 0 : n;
+}
+
+function normalizeNumericFields<T extends Record<string, any>>(row: T): T {
+  const out: any = { ...row };
+  for (const key of Object.keys(out)) {
+    if (
+      key === 'hit_factor' || key === 'net_points' || key === 'stage_points' ||
+      key === 'stage_percent' || key === 'match_points' || key === 'match_percent' ||
+      key === 'time' || key === 'raw_points' || key === 'penalty_points' ||
+      key === 'position' || key === 'division_position' ||
+      key === 'alpha' || key === 'charlie' || key === 'delta' ||
+      key === 'miss' || key === 'no_shoot' || key === 'total_time'
+    ) {
+      out[key] = num(out[key]);
+    }
+  }
+  return out;
+}
 
 interface DqShooter {
   registration_id: string;
@@ -38,6 +65,11 @@ interface OverallResult {
   match_points: number;
   match_percent: number;
   position: number;
+  alpha: number;
+  charlie: number;
+  delta: number;
+  miss: number;
+  no_shoot: number;
 }
 
 interface StageResult {
@@ -52,6 +84,11 @@ interface StageResult {
   time: number | null;
   position: number;
   division_position?: number;
+  alpha: number;
+  charlie: number;
+  delta: number;
+  miss: number;
+  no_shoot: number;
 }
 
 interface StageResultGroup {
@@ -73,6 +110,8 @@ interface ResultsState {
   dqCategories: DqShooter[];
   tagResults: Record<string, Record<string, OverallResult[]>>;
   dqTags: DqShooter[];
+  shooterSummary: ShooterStageSummariesResponse | null;
+  shooterSummaryLoading: boolean;
   loading: boolean;
   error: string | null;
 }
@@ -83,6 +122,8 @@ interface ResultsActions {
   fetchByStage: (matchId: string) => Promise<void>;
   fetchByCategory: (matchId: string) => Promise<void>;
   fetchByTag: (matchId: string) => Promise<void>;
+  fetchShooterStageSummaries: (matchId: string, registrationId: string) => Promise<void>;
+  clearShooterSummary: () => void;
 }
 
 export const useResultsStore = create<ResultsState & ResultsActions>((set) => ({
@@ -95,6 +136,8 @@ export const useResultsStore = create<ResultsState & ResultsActions>((set) => ({
   dqCategories: [],
   tagResults: {},
   dqTags: [],
+  shooterSummary: null,
+  shooterSummaryLoading: false,
   loading: false,
   error: null,
 
@@ -102,9 +145,8 @@ export const useResultsStore = create<ResultsState & ResultsActions>((set) => ({
     set({ loading: true, error: null });
     try {
       const data: any = await api.getOverallResults(matchId);
-      // API returns { results: [...], dq: [...] }
-      const results = data.results || data;
-      const dq = data.dq || [];
+      const results = (data.results || data).map(normalizeNumericFields);
+      const dq = (data.dq || []).map(normalizeNumericFields);
       set({ overallResults: results, dqOverall: dq, loading: false });
     } catch (err: any) {
       set({ error: err.message, loading: false });
@@ -115,10 +157,13 @@ export const useResultsStore = create<ResultsState & ResultsActions>((set) => ({
     set({ loading: true, error: null });
     try {
       const data = await api.getDivisionResults(matchId);
-      // API returns { [division]: [...results], dq: [...] }
-      const dq = data.dq || [];
+      const dq = (data.dq || []).map(normalizeNumericFields);
       const { dq: _dq, ...divisionData } = data;
-      set({ divisionResults: divisionData, dqDivisions: dq, loading: false });
+      const normalizedDivisions: Record<string, any[]> = {};
+      for (const [div, rows] of Object.entries(divisionData)) {
+        normalizedDivisions[div] = (rows as any[]).map(normalizeNumericFields);
+      }
+      set({ divisionResults: normalizedDivisions, dqDivisions: dq, loading: false });
     } catch (err: any) {
       set({ error: err.message, loading: false });
     }
@@ -128,7 +173,18 @@ export const useResultsStore = create<ResultsState & ResultsActions>((set) => ({
     set({ loading: true, error: null });
     try {
       const data = await api.getStageResults(matchId);
-      set({ stageResults: data, loading: false });
+      const normalized = data.map((stage: any) => ({
+        ...stage,
+        scores: stage.scores.map(normalizeNumericFields),
+        dq_scores: stage.dq_scores.map(normalizeNumericFields),
+        divisions: Object.fromEntries(
+          Object.entries(stage.divisions).map(([div, rows]: [string, any]) => [
+            div,
+            rows.map(normalizeNumericFields),
+          ])
+        ),
+      }));
+      set({ stageResults: normalized, loading: false });
     } catch (err: any) {
       set({ error: err.message, loading: false });
     }
@@ -138,9 +194,16 @@ export const useResultsStore = create<ResultsState & ResultsActions>((set) => ({
     set({ loading: true, error: null });
     try {
       const data = await api.getCategoryResults(matchId);
-      const dq = data.dq || [];
+      const dq = (data.dq || []).map(normalizeNumericFields);
       const { dq: _dq, ...categoryData } = data;
-      set({ categoryResults: categoryData, dqCategories: dq, loading: false });
+      const normalized: Record<string, Record<string, any[]>> = {};
+      for (const [cat, divisions] of Object.entries(categoryData)) {
+        normalized[cat] = {};
+        for (const [div, rows] of Object.entries(divisions as Record<string, any[]>)) {
+          normalized[cat][div] = rows.map(normalizeNumericFields);
+        }
+      }
+      set({ categoryResults: normalized, dqCategories: dq, loading: false });
     } catch (err: any) {
       set({ error: err.message, loading: false });
     }
@@ -150,13 +213,32 @@ export const useResultsStore = create<ResultsState & ResultsActions>((set) => ({
     set({ loading: true, error: null });
     try {
       const data = await api.getTagResults(matchId);
-      const dq = data.dq || [];
+      const dq = (data.dq || []).map(normalizeNumericFields);
       const { dq: _dq, ...tagData } = data;
-      set({ tagResults: tagData, dqTags: dq, loading: false });
+      const normalized: Record<string, Record<string, any[]>> = {};
+      for (const [tag, divisions] of Object.entries(tagData)) {
+        normalized[tag] = {};
+        for (const [div, rows] of Object.entries(divisions as Record<string, any[]>)) {
+          normalized[tag][div] = rows.map(normalizeNumericFields);
+        }
+      }
+      set({ tagResults: normalized, dqTags: dq, loading: false });
     } catch (err: any) {
       set({ error: err.message, loading: false });
     }
   },
+
+  fetchShooterStageSummaries: async (matchId, registrationId) => {
+    set({ shooterSummaryLoading: true });
+    try {
+      const data = await api.getShooterStageSummaries(matchId, registrationId);
+      set({ shooterSummary: data, shooterSummaryLoading: false });
+    } catch (err: any) {
+      set({ shooterSummary: null, shooterSummaryLoading: false });
+    }
+  },
+
+  clearShooterSummary: () => set({ shooterSummary: null }),
 }));
 
 export type { OverallResult, DqShooter, DqStageShooter, StageResultGroup };

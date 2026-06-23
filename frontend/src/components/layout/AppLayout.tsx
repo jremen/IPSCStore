@@ -15,6 +15,7 @@ import Results from '../results/ResultsOverview';
 import AdminLoginPage from '../auth/AdminLoginPage';
 import StageLoginPage from '../auth/StageLoginPage';
 import PublicResultsView from '../results/PublicResultsView';
+import PublicSquadsView from '../squads/PublicSquadsView';
 import { useOfflineStatus } from '../../hooks/useOfflineStatus';
 import { useOfflineSync } from '../../hooks/useOfflineSync';
 import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
@@ -110,6 +111,11 @@ export default function AppLayout() {
   // Domain mode: vysledky.local → show public results (no login needed)
   if (domainMode === 'results') {
     return <PublicResultsView />;
+  }
+
+  // Domain mode: squads.local → show public squads (no login needed)
+  if (domainMode === 'squads') {
+    return <PublicSquadsView />;
   }
 
   // Not authenticated → show login page

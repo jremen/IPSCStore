@@ -7,7 +7,7 @@ import { generateSingleQrPdf } from '../../utils/qrPdf';
 import { useEscClose } from '../../hooks/useEscClose';
 import { BsPrinter, BsFilePdf, BsCopy, BsCheckCircle } from 'react-icons/bs';
 
-export type QRCodeModalMode = 'results' | 'scoring';
+export type QRCodeModalMode = 'results' | 'scoring' | 'squads';
 
 interface QRCodeModalProps {
   show: boolean;
@@ -21,11 +21,12 @@ export default function QRCodeModal({ show, onClose, mode }: QRCodeModalProps) {
   useEscClose(show ? onClose : undefined);
 
   const isResults = mode === 'results';
-  const url = isResults ? (domainUrls?.vysledky ?? '') : (domainUrls?.hodnotenie ?? '');
+  const isSquads = mode === 'squads';
+  const url = isResults ? (domainUrls?.vysledky ?? '') : isSquads ? (domainUrls?.squads ?? '') : (domainUrls?.hodnotenie ?? '');
   // On-screen label keeps the descriptive text; print/PDF uses the short name.
-  const label = isResults ? t('header.qrResultsLabel') : t('header.qrScoringLabel');
-  const printLabel = isResults ? t('header.qrResultsLink') : t('header.qrScoringLink');
-  const emoji = isResults ? '🏆' : '🎯';
+  const label = isResults ? t('header.qrResultsLabel') : isSquads ? t('header.qrSquadsLabel') : t('header.qrScoringLabel');
+  const printLabel = isResults ? t('header.qrResultsLink') : isSquads ? t('header.qrSquadsLink') : t('header.qrScoringLink');
+  const emoji = isResults ? '🏆' : isSquads ? '📋' : '🎯';
 
   const qr = useQRCode(url, { width: 512, margin: 2 });
   const [copied, setCopied] = useState(false);

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type TabId = 'matches' | 'stages' | 'shooters' | 'registration' | 'scoring' | 'results';
+export type TabId = 'matches' | 'stages' | 'shooters' | 'registration' | 'scoring' | 'results' | 'squads';
 export type Language = 'en' | 'sk';
 
 interface UIState {

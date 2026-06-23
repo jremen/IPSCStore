@@ -60,6 +60,13 @@ export default function LanUrlBadge() {
             >
               🎯 {t('header.qrScoringLink')}
             </button>
+            <button
+              onClick={() => setQrModalMode('squads')}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono bg-purple-700 hover:bg-purple-600 text-white rounded-full transition-colors cursor-pointer whitespace-nowrap"
+              title={t('header.qrSquadsHint')}
+            >
+              📋 {t('header.qrSquadsLink')}
+            </button>
           </>
         )}
       </div>
@@ -72,6 +79,11 @@ export default function LanUrlBadge() {
         show={qrModalMode === 'scoring'}
         onClose={() => setQrModalMode(null)}
         mode="scoring"
+      />
+      <QRCodeModal
+        show={qrModalMode === 'squads'}
+        onClose={() => setQrModalMode(null)}
+        mode="squads"
       />
     </>
   );

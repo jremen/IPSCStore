@@ -110,6 +110,9 @@
     "qrScoringLink": "Scoring",
     "qrResultsHint": "Show QR code for public results",
     "qrScoringHint": "Show QR code for range master scoring",
+    "qrSquadsLabel": "Squads",
+    "qrSquadsLink": "Squads",
+    "qrSquadsHint": "Show QR code for squad assignments",
     "printQrCode": "Print QR Code",
     "downloadQrPdf": "Download PDF"
   },
@@ -627,5 +630,18 @@
     "ungroupFromCard": "Remove from group",
     "addSquad": "+ Add Squad",
     "generatePdf": "Generate PDF"
+  },
+  "squads": {
+    "publicTitle": "Squads",
+    "noCurrentMatch": "No active match. Squads will appear when a match is set as current.",
+    "autoRefresh": "Auto-refreshed at {{time}}",
+    "loading": "Loading squads...",
+    "loadError": "Failed to load squads. Please try again.",
+    "retry": "Retry",
+    "squadN": "Squad {{number}}",
+    "shooterCount": "{{count}} shooters",
+    "unassigned": "Unassigned",
+    "noShooters": "No shooters assigned.",
+    "offline": "Offline — showing cached data"
   }
 }

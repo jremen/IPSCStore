@@ -110,6 +110,9 @@
     "qrScoringLink": "Bodovanie",
     "qrResultsHint": "Zobraziť QR kód pre verejné výsledky",
     "qrScoringHint": "Zobraziť QR kód pre bodovanie rozhodcov",
+    "qrSquadsLabel": "Squady",
+    "qrSquadsLink": "Squady",
+    "qrSquadsHint": "Zobraziť QR kód pre zaradenie do squad-ov",
     "printQrCode": "Vytlačiť QR kód",
     "downloadQrPdf": "Stiahnuť PDF"
   },
@@ -627,5 +630,18 @@
     "ungroupFromCard": "Odstrániť zo skupiny",
     "addSquad": "+ Pridať squad",
     "generatePdf": "Vygenerovať PDF"
+  },
+  "squads": {
+    "publicTitle": "Squady",
+    "noCurrentMatch": "Žiadna aktívna súťaž. Squady sa zobrazia po nastavení aktívnej súťaže.",
+    "autoRefresh": "Automaticky obnovené o {{time}}",
+    "loading": "Načítavajú sa squady...",
+    "loadError": "Nepodarilo sa načítať squady. Skúste to znova.",
+    "retry": "Skúsiť znova",
+    "squadN": "Squad {{number}}",
+    "shooterCount": "{{count}} strelcov",
+    "unassigned": "Nepriradení",
+    "noShooters": "Žiadni priradení strelci.",
+    "offline": "Offline — zobrazujú sa uložené dáta"
   }
 }

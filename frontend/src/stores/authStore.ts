@@ -21,7 +21,7 @@ interface AuthState {
   /** Whether the client is on the local network (for UI routing) */
   isLocalNetwork: boolean;
   /** Domain mode based on hostname: 'results' (vysledky.local), 'scoring' (hodnotenie.local), or 'admin' (default) */
-  domainMode: 'results' | 'scoring' | 'admin';
+  domainMode: 'results' | 'scoring' | 'squads' | 'admin';
   /** Loading state */
   loading: boolean;
   /** Error message */
@@ -284,13 +284,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Determine domain mode from server-injected global, hostname, or URL path.
     // Path-based detection is needed for Docker dev (Vite serves index.html without
     // backend injection) and for IP-based LAN access like http://192.168.x.x:5173/hodnotenie.
-    let domainMode: 'results' | 'scoring' | 'admin' = 'admin';
+    let domainMode: 'results' | 'scoring' | 'squads' | 'admin' = 'admin';
     if (typeof window !== 'undefined' && window.__DOMAIN_MODE__) {
       domainMode = window.__DOMAIN_MODE__;
     } else if (hostname === 'vysledky.local' || hostname.endsWith('.vysledky.local') || pathname.startsWith('/vysledky')) {
       domainMode = 'results';
     } else if (hostname === 'hodnotenie.local' || hostname.endsWith('.hodnotenie.local') || pathname.startsWith('/hodnotenie')) {
       domainMode = 'scoring';
+    } else if (hostname === 'squads.local' || hostname.endsWith('.squads.local') || pathname.startsWith('/squads')) {
+      domainMode = 'squads';
     }
 
     // Domain mode overrides local network detection:

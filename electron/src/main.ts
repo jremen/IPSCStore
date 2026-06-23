@@ -133,6 +133,17 @@ function startMDns(port: number): void {
     });
     mDnsStopFunctions.push(stop2);
     log('[mDNS] Advertised: hodnotenie.local');
+
+    // Advertise squads service (squads.local)
+    const stop3 = advertise({
+      name: 'IPSC Score - Squads',
+      type: 'http',
+      protocol: 'tcp',
+      port,
+      hostname: 'squads',
+    });
+    mDnsStopFunctions.push(stop3);
+    log('[mDNS] Advertised: squads.local');
   } catch (err) {
     logError('[mDNS] Failed to start mDNS advertising', err);
   }
@@ -345,6 +356,7 @@ function createWindow(port: number, lanIp: string, port80Active: boolean): void 
   // platform and device, including Android, which cannot resolve .local domains.
   process.env.ELECTRON_VYSLEDKY_URL = `${baseUrl}/vysledky`;
   process.env.ELECTRON_HODNOTENIE_URL = `${baseUrl}/hodnotenie`;
+  process.env.ELECTRON_SQUADS_URL = `${baseUrl}/squads`;
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
@@ -561,6 +573,7 @@ async function main(): Promise<void> {
   log('  Mobile devices can connect to:');
   log(`  ${process.env.ELECTRON_VYSLEDKY_URL}   (public results)`);
   log(`  ${process.env.ELECTRON_HODNOTENIE_URL}  (range master scoring)`);
+  log(`  ${process.env.ELECTRON_SQUADS_URL}      (squads)`);
   log('========================================');
   log('');
 }

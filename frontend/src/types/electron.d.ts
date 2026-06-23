@@ -7,13 +7,13 @@ export {};
 
 declare global {
   interface Window {
-    __DOMAIN_MODE__?: 'results' | 'scoring' | 'admin';
+    __DOMAIN_MODE__?: 'results' | 'scoring' | 'squads' | 'admin';
     electronAPI?: {
       getApiBaseUrl: () => string;
       isElectron: () => boolean;
       getLanIp: () => string;
       /** Direct IP+path URLs such as http://192.168.1.5:3001/vysledky */
-      getDomainUrls: () => { vysledky: string; hodnotenie: string };
+      getDomainUrls: () => { vysledky: string; hodnotenie: string; squads: string };
       isPort80Active: () => boolean;
       /** Subscribe to native menu actions. Returns an unsubscribe function. */
       onMenuAction: (callback: (action: string, payload?: any) => void) => () => void;

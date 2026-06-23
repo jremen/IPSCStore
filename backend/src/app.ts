@@ -41,12 +41,13 @@ app.onError(errorHandler);
 /**
  * Determine the domain mode based on the Host header or the request path.
  */
-function getDomainMode(host: string | undefined, urlPath: string): 'results' | 'scoring' | 'admin' {
+function getDomainMode(host: string | undefined, urlPath: string): 'results' | 'scoring' | 'squads' | 'admin' {
   if (!host) return 'admin';
   const hostname = host.split(':')[0].toLowerCase().trim();
   const normalizedPath = urlPath.toLowerCase();
   if (hostname === 'vysledky.local' || normalizedPath.startsWith('/vysledky')) return 'results';
   if (hostname === 'hodnotenie.local' || normalizedPath.startsWith('/hodnotenie')) return 'scoring';
+  if (hostname === 'squads.local' || normalizedPath.startsWith('/squads')) return 'squads';
   return 'admin';
 }
 
@@ -167,7 +168,7 @@ app.route('/api', matchExportRoutes);
 // ─── Manifest & Static Serving ───
 
 app.get('/manifest.json', async (c) => {
-  let mode = c.req.query('mode') as 'results' | 'scoring' | 'admin' | undefined;
+  let mode = c.req.query('mode') as 'results' | 'scoring' | 'squads' | 'admin' | undefined;
 
   if (!mode) {
     const referer = c.req.header('referer') || '';
@@ -179,6 +180,8 @@ app.get('/manifest.json', async (c) => {
         mode = 'results';
       } else if (refererPath.startsWith('/hodnotenie') || refererHost === 'hodnotenie.local') {
         mode = 'scoring';
+      } else if (refererPath.startsWith('/squads') || refererHost === 'squads.local') {
+        mode = 'squads';
       }
     } catch {
       // ignore malformed referer
@@ -222,6 +225,9 @@ app.get('/manifest.json', async (c) => {
   } else if (mode === 'scoring') {
     manifest.start_url = '/hodnotenie';
     manifest.id = 'ipscscore-scoring';
+  } else if (mode === 'squads') {
+    manifest.start_url = '/squads';
+    manifest.id = 'ipscscore-squads';
   }
 
   return c.json(manifest);
@@ -258,7 +264,9 @@ export function enableStaticServing(frontendDistPath: string) {
         );
         const manifestHref = domainMode === 'results'
           ? '/manifest.json?mode=results'
-          : '/manifest.json?mode=scoring';
+          : domainMode === 'squads'
+            ? '/manifest.json?mode=squads'
+            : '/manifest.json?mode=scoring';
         html = html.replace(
           /<link[^>]*rel=["']manifest["'][^>]*>/i,
           `<link rel="manifest" href="${manifestHref}" />`

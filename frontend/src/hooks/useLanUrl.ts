@@ -4,7 +4,7 @@ export interface LanUrlInfo {
   /** IP-based LAN URL for the admin interface (e.g. http://192.168.1.5:3001) */
   url: string | null;
   /** Direct IP+path URLs for results and scoring (e.g. http://192.168.1.5:3001/vysledky) */
-  domainUrls: { vysledky: string; hodnotenie: string } | null;
+  domainUrls: { vysledky: string; hodnotenie: string; squads: string } | null;
   loading: boolean;
 }
 
@@ -26,7 +26,7 @@ function buildPathUrl(hostname: string, port: number | string | undefined, port8
  */
 export function useLanUrl(): LanUrlInfo {
   const [url, setUrl] = useState<string | null>(null);
-  const [domainUrls, setDomainUrls] = useState<{ vysledky: string; hodnotenie: string } | null>(null);
+  const [domainUrls, setDomainUrls] = useState<{ vysledky: string; hodnotenie: string; squads: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -63,6 +63,7 @@ export function useLanUrl(): LanUrlInfo {
       setDomainUrls({
         vysledky: buildPathUrl(hostname, currentPort, port80Active, '/vysledky'),
         hodnotenie: buildPathUrl(hostname, currentPort, port80Active, '/hodnotenie'),
+        squads: buildPathUrl(hostname, currentPort, port80Active, '/squads'),
       });
       setLoading(false);
       return;
@@ -78,6 +79,7 @@ export function useLanUrl(): LanUrlInfo {
           setDomainUrls({
             vysledky: buildPathUrl(data.ip, data.port || 3001, false, '/vysledky'),
             hodnotenie: buildPathUrl(data.ip, data.port || 3001, false, '/hodnotenie'),
+            squads: buildPathUrl(data.ip, data.port || 3001, false, '/squads'),
           });
         }
       })

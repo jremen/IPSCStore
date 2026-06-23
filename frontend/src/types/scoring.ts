@@ -95,6 +95,7 @@ export interface RegistrationWithShooter {
   region: string;
   email: string | null;
   squad: number | null;
+  group_id: string | null;
   reg_division: Division | null;
   reg_category: Category | null;
   reg_power_factor: PowerFactor | null;

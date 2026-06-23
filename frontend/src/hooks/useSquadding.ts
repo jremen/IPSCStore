@@ -74,20 +74,27 @@ export function useSquadding(matchId: string | null): UseSquaddingResult {
   }, [matchId, addToast]);
 
   const moveShooter = useCallback((shooterId: string, toSquad: number) => {
-    // Optimistic update: move shooter from current squad to new squad
-    setRegistrations((prev) => {
-      const updated = prev.map((r) =>
-        r.shooter_id === shooterId ? { ...r, squad: toSquad } : r
-      );
-      return updated;
-    });
-
-    // Find registration id for this shooter
+    // Find registration for this shooter
     const reg = registrations.find((r) => r.shooter_id === shooterId);
     if (!reg) return;
 
-    // Track the pending update
-    pendingRef.current.set(reg.id, toSquad);
+    // Expand to all group members if this shooter is in a group
+    const idsToMove = reg.group_id
+      ? registrations.filter((r) => r.group_id === reg.group_id).map((r) => r.id)
+      : [reg.id];
+
+    // Optimistic update: move all group members to new squad
+    setRegistrations((prev) => {
+      const idSet = new Set(idsToMove);
+      return prev.map((r) =>
+        idSet.has(r.id) ? { ...r, squad: toSquad } : r
+      );
+    });
+
+    // Track the pending update for all group members
+    for (const id of idsToMove) {
+      pendingRef.current.set(id, toSquad);
+    }
 
     // Debounce the actual API call
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -95,18 +102,23 @@ export function useSquadding(matchId: string | null): UseSquaddingResult {
   }, [registrations, flushSave]);
 
   const assignShooterToSquad = useCallback((registrationId: string, toSquad: number) => {
-    setRegistrations((prev) => {
-      const updated = prev.map((r) =>
-        r.id === registrationId ? { ...r, squad: toSquad } : r
-      );
-      return updated;
-    });
+    const reg = registrations.find((r) => r.id === registrationId);
+    const idsToMove = reg?.group_id
+      ? registrations.filter((r) => r.group_id === reg.group_id).map((r) => r.id)
+      : [registrationId];
 
-    pendingRef.current.set(registrationId, toSquad);
+    const idSet = new Set(idsToMove);
+    setRegistrations((prev) =>
+      prev.map((r) => (idSet.has(r.id) ? { ...r, squad: toSquad } : r))
+    );
+
+    for (const id of idsToMove) {
+      pendingRef.current.set(id, toSquad);
+    }
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(flushSave, 250);
-  }, [flushSave]);
+  }, [registrations, flushSave]);
 
   // Cleanup debounce on unmount
   useEffect(() => {

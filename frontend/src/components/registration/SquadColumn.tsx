@@ -9,10 +9,11 @@ interface SquadColumnProps {
   squadNumber: number;
   shooters: RegistrationWithShooter[];
   onAddShooter: () => void;
+  onRemoveFromGroup?: (registrationId: string) => void;
   query: string;
 }
 
-export default function SquadColumn({ squadNumber, shooters, onAddShooter, query }: SquadColumnProps) {
+export default function SquadColumn({ squadNumber, shooters, onAddShooter, onRemoveFromGroup, query }: SquadColumnProps) {
   const { t } = useTranslation();
   const { setNodeRef, isOver } = useDroppable({
     id: `squad-${squadNumber}`,
@@ -47,7 +48,11 @@ export default function SquadColumn({ squadNumber, shooters, onAddShooter, query
       <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[80px] max-h-[400px]">
         {filtered.length > 0 ? (
           filtered.map((r) => (
-            <ShooterCard key={r.shooter_id} registration={r} />
+            <ShooterCard
+              key={r.shooter_id}
+              registration={r}
+              onRemoveFromGroup={onRemoveFromGroup}
+            />
           ))
         ) : (
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-4">

@@ -278,7 +278,15 @@
     "allDivisions": "All divisions",
     "allCategories": "All categories",
     "clearFilters": "Clear filters",
-    "showingOf": "Showing {{shown}} of {{total}}"
+    "showingOf": "Showing {{shown}} of {{total}}",
+    "ungroup": "Remove from group",
+    "bulkGroup": "Group selected",
+    "bulkUngroup": "Ungroup selected",
+    "groupSuccess": "Shooters grouped",
+    "groupError": "Failed to create group",
+    "ungroupSuccess": "Group removed",
+    "ungroupError": "Failed to remove group",
+    "groupMergeNotSupported": "Cannot merge two existing groups — remove one first"
   },
   "scoring": {
     "noMatch": "Select a match first to start scoring.",
@@ -614,6 +622,7 @@
     "saveError": "Failed to update squad. Please try again.",
     "addShooterSuccess": "{{name}} added to Squad {{number}}",
     "noStages": "This match has no stages yet. Add stages to enable squadding.",
-    "outOfRangeSquads": "{{count}} shooter(s) are in squads outside 1–{{max}} and were moved to Unassigned."
+    "outOfRangeSquads": "{{count}} shooter(s) are in squads outside 1–{{max}} and were moved to Unassigned.",
+    "ungroupFromCard": "Remove from group"
   }
 }

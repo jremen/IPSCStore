@@ -278,7 +278,15 @@
     "allDivisions": "Všetky divízie",
     "allCategories": "Všetky kategórie",
     "clearFilters": "Vymazať filtre",
-    "showingOf": "Zobrazených {{shown}} z {{total}}"
+    "showingOf": "Zobrazených {{shown}} z {{total}}",
+    "ungroup": "Odstrániť zo skupiny",
+    "bulkGroup": "Zoskupiť vybraných",
+    "bulkUngroup": "Zrušiť skupiny vybraných",
+    "groupSuccess": "Strelci zoskupení",
+    "groupError": "Nepodarilo sa vytvoriť skupinu",
+    "ungroupSuccess": "Skupina zrušená",
+    "ungroupError": "Nepodarilo sa zrušiť skupinu",
+    "groupMergeNotSupported": "Nedá sa spojiť dve existujúce skupiny — najprv zrušte jednu"
   },
   "scoring": {
     "noMatch": "Najskôr vyberte súťaž.",
@@ -614,6 +622,7 @@
     "saveError": "Nepodarilo sa aktualizovať squad. Skúste to znova.",
     "addShooterSuccess": "{{name}} pridaný(á) do squad-u {{number}}",
     "noStages": "Táto súťaž zatiaľ nemá žiadne situácie. Pridajte situácie pre rozdelenie do squad-ov.",
-    "outOfRangeSquads": "{{count}} strelcov je v squad-och mimo 1–{{max}} a boli presunutí medzi nepriradených."
+    "outOfRangeSquads": "{{count}} strelcov je v squad-och mimo 1–{{max}} a boli presunutí medzi nepriradených.",
+    "ungroupFromCard": "Odstrániť zo skupiny"
   }
 }

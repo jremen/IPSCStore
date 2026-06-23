@@ -1,9 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
 import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { Modal, ModalHeader, ModalBody, TextInput, Badge, ModalFooter, Button, theme } from 'flowbite-react';
+import { Modal, ModalHeader, ModalBody, TextInput, ModalFooter, Button, theme } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useEscClose } from '../../hooks/useEscClose';
 import { useSquadding } from '../../hooks/useSquadding';
+import { api } from '../../services/api';
 import SquadColumn from './SquadColumn';
 import ShooterCard from './ShooterCard';
 import AddShooterToSquadModal from './AddShooterToSquadModal';
@@ -27,6 +28,7 @@ export default function SquaddingModal({ show, onClose, matchId, onUpdated }: Sq
     moveShooter,
     assignShooterToSquad,
     flushPending,
+    refresh,
     query,
     setQuery,
     totalShooterCount,
@@ -62,7 +64,6 @@ export default function SquaddingModal({ show, onClose, matchId, onUpdated }: Sq
     if (!shooterId) return;
 
     const overId = over.id as string;
-    // Target is a squad column: "squad-N"
     if (overId.startsWith('squad-')) {
       const squad = parseInt(overId.replace('squad-', ''), 10);
       if (!isNaN(squad)) moveShooter(shooterId, squad);
@@ -74,7 +75,12 @@ export default function SquaddingModal({ show, onClose, matchId, onUpdated }: Sq
     assignShooterToSquad(registrationId, addShooterSquad);
   }, [addShooterSquad, assignShooterToSquad]);
 
-  // Unassigned column is a separate droppable if non-empty
+  const handleRemoveFromGroup = useCallback(async (registrationId: string) => {
+    if (!matchId) return;
+    await api.ungroupRegistration(matchId, registrationId);
+    refresh();
+  }, [matchId, refresh]);
+
   const showUnassigned = unassigned.length > 0;
 
   const filteredUnassigned = useMemo(() => {
@@ -112,7 +118,6 @@ export default function SquaddingModal({ show, onClose, matchId, onUpdated }: Sq
                 onDragEnd={handleDragEnd}
               >
                 <div className="flex flex-wrap gap-4">
-                  {/* Unassigned column (if any shooters are unassigned) */}
                   {showUnassigned && (
                     <div className="flex flex-col min-w-[260px] max-w-[300px] bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                       <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
@@ -133,13 +138,13 @@ export default function SquaddingModal({ show, onClose, matchId, onUpdated }: Sq
                     </div>
                   )}
 
-                  {/* Squad columns */}
                   {Array.from({ length: squadCount }, (_, i) => i + 1).map((n) => (
                     <SquadColumn
                       key={n}
                       squadNumber={n}
                       shooters={columns[n] || []}
                       onAddShooter={() => setAddShooterSquad(n)}
+                      onRemoveFromGroup={handleRemoveFromGroup}
                       query={query}
                     />
                   ))}
@@ -159,7 +164,6 @@ export default function SquaddingModal({ show, onClose, matchId, onUpdated }: Sq
         </ModalFooter>
       </Modal>
 
-      {/* Add Shooter sub-modal */}
       {addShooterSquad !== null && (
         <AddShooterToSquadModal
           show={true}

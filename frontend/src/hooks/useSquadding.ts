@@ -11,6 +11,7 @@ export interface UseSquaddingResult {
   loading: boolean;
   moveShooter: (shooterId: string, toSquad: number) => void;
   assignShooterToSquad: (registrationId: string, toSquad: number) => void;
+  flushPending: () => Promise<void>;
   refresh: () => void;
   query: string;
   setQuery: (q: string) => void;
@@ -46,7 +47,7 @@ export function useSquadding(matchId: string | null): UseSquaddingResult {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const flushSave = useCallback(() => {
+  const flushSave = useCallback(async (): Promise<void> => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
@@ -61,13 +62,15 @@ export function useSquadding(matchId: string | null): UseSquaddingResult {
 
     pending.clear();
 
-    // Resolve final squad from the last move per registration
     const registrationIds = Object.keys(lastUpdate);
     const finalSquad = lastUpdate[registrationIds[registrationIds.length - 1]];
 
-    api.bulkUpdateRegistrations(matchId, registrationIds, { squad: finalSquad })
-      .then(() => { addToast('squadding.saveSuccess', 'success'); })
-      .catch(() => { addToast('squadding.saveError', 'error'); });
+    try {
+      await api.bulkUpdateRegistrations(matchId, registrationIds, { squad: finalSquad });
+      addToast('squadding.saveSuccess', 'success');
+    } catch {
+      addToast('squadding.saveError', 'error');
+    }
   }, [matchId, addToast]);
 
   const moveShooter = useCallback((shooterId: string, toSquad: number) => {
@@ -143,6 +146,7 @@ export function useSquadding(matchId: string | null): UseSquaddingResult {
     loading,
     moveShooter,
     assignShooterToSquad,
+    flushPending: flushSave,
     refresh: fetchData,
     query,
     setQuery,

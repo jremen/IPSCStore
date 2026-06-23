@@ -60,7 +60,7 @@ export default function AddShooterModal({ show, onClose, matchId, registeredShoo
         </div>
         <div className="max-h-80 overflow-y-auto space-y-1">
           {loading && <div className="text-center py-4"><Spinner size="sm" /> {t('common.loading')}</div>}
-          {!loading && shooters.slice(0, 50).map((s) => (
+          {!loading && shooters.map((s) => (
             <div key={s.id} className="w-full text-left p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between">
               <span className="dark:text-white">{s.first_name} {s.last_name}</span>
               <div className="flex items-center gap-1">

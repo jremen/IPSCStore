@@ -189,6 +189,7 @@ export default function MatchRegistration() {
         show={showSquadding}
         onClose={() => setShowSquadding(false)}
         matchId={activeMatchId}
+        onUpdated={loadRegistrations}
       />
     </div>
   );

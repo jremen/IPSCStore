@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { Modal, ModalHeader, ModalBody, TextInput, Badge } from 'flowbite-react';
+import { Modal, ModalHeader, ModalBody, TextInput, Badge, ModalFooter, Button } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useEscClose } from '../../hooks/useEscClose';
 import { useSquadding } from '../../hooks/useSquadding';
@@ -13,9 +13,10 @@ interface SquaddingModalProps {
   show: boolean;
   onClose: () => void;
   matchId: string;
+  onUpdated?: () => void;
 }
 
-export default function SquaddingModal({ show, onClose, matchId }: SquaddingModalProps) {
+export default function SquaddingModal({ show, onClose, matchId, onUpdated }: SquaddingModalProps) {
   const { t } = useTranslation();
   const {
     registrations,
@@ -25,6 +26,7 @@ export default function SquaddingModal({ show, onClose, matchId }: SquaddingModa
     loading,
     moveShooter,
     assignShooterToSquad,
+    flushPending,
     refresh,
     query,
     setQuery,
@@ -38,11 +40,12 @@ export default function SquaddingModal({ show, onClose, matchId }: SquaddingModa
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
-  const handleClose = useCallback(() => {
+  const handleClose = useCallback(async () => {
     setQuery('');
-    refresh();
+    await flushPending();
+    onUpdated?.();
     onClose();
-  }, [setQuery, refresh, onClose]);
+  }, [setQuery, flushPending, onUpdated, onClose]);
   useEscClose(handleClose);
 
   const handleDragStart = useCallback((event: any) => {
@@ -88,8 +91,8 @@ export default function SquaddingModal({ show, onClose, matchId }: SquaddingModa
     <>
       <Modal show={show} onClose={handleClose} size="full">
         <ModalHeader>
-          <span className="mr-3">{t('squadding.title')}</span>
-          <Badge color="gray">{t('squadding.totalCount', { count: totalShooterCount })}</Badge>
+          <h3 className="mr-3">{t('squadding.title')}</h3>
+          <span className="text-sm dark:text-gray-300">{t('squadding.totalCount', { count: totalShooterCount })}</span>
         </ModalHeader>
         <ModalBody>
           {squadCount === 0 ? (
@@ -152,6 +155,9 @@ export default function SquaddingModal({ show, onClose, matchId }: SquaddingModa
             </>
           )}
         </ModalBody>
+        <ModalFooter>
+          <Button onClick={handleClose} color="gray">{t('common.close')}</Button>
+        </ModalFooter>
       </Modal>
 
       {/* Add Shooter sub-modal */}

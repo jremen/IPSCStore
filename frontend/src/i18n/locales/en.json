@@ -598,5 +598,22 @@
     "droppedGun": "Dropped firearm",
     "disruptiveBehavior": "Disruptive behavior",
     "unsportsmanlikeConduct": "Unsportsmanlike conduct"
+  },
+  "squadding": {
+    "title": "Squadding",
+    "subtitle": "Drag shooters between squads to assign them.",
+    "totalCount": "{{count}} shooters total",
+    "squadN": "Squad {{number}}",
+    "unassigned": "Unassigned",
+    "addShooter": "+ Add Shooter",
+    "addShooterTitle": "Add Shooter to Squad {{number}}",
+    "searchPlaceholder": "Search shooters...",
+    "searchEmpty": "No shooters match the search.",
+    "noShooters": "No shooters in this squad.",
+    "saveSuccess": "Squad updated",
+    "saveError": "Failed to update squad. Please try again.",
+    "addShooterSuccess": "{{name}} added to Squad {{number}}",
+    "noStages": "This match has no stages yet. Add stages to enable squadding.",
+    "outOfRangeSquads": "{{count}} shooter(s) are in squads outside 1–{{max}} and were moved to Unassigned."
   }
 }

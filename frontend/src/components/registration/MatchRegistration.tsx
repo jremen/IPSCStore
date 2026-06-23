@@ -15,6 +15,7 @@ import CreateShooterModal from './CreateShooterModal';
 import EditRegistrationModal from './EditRegistrationModal';
 import BulkEditRegistrationsModal from './BulkEditRegistrationsModal';
 import BulkRemoveRegistrationsModal from './BulkRemoveRegistrationsModal';
+import SquaddingModal from './SquaddingModal';
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function MatchRegistration() {
@@ -27,6 +28,7 @@ export default function MatchRegistration() {
   const [editReg, setEditReg] = useState<any>(null);
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [showBulkRemove, setShowBulkRemove] = useState(false);
+  const [showSquadding, setShowSquadding] = useState(false);
 
   const match = matches.find((m: any) => m.id === activeMatchId);
   const divisions = getDivisionsForMatch(match);
@@ -89,6 +91,7 @@ export default function MatchRegistration() {
           </h2>
           <div className="flex gap-2">
             <CSVImportExport type="registrations" matchId={activeMatchId} onImportComplete={loadRegistrations} />
+            <Button size="sm" color="purple" onClick={() => setShowSquadding(true)}>{t('squadding.title')}</Button>
             <Button size="sm" color="green" onClick={() => setShowInlineCreate(true)}>{t('shooters.newShooter')}</Button>
             <Button size="sm" color="blue" onClick={() => setShowAdd(true)}>{t('registration.addShooter')}</Button>
           </div>
@@ -181,6 +184,11 @@ export default function MatchRegistration() {
         registrationNames={selectedNames}
         matchId={activeMatchId}
         onRemoved={handleBulkAction}
+      />
+      <SquaddingModal
+        show={showSquadding}
+        onClose={() => setShowSquadding(false)}
+        matchId={activeMatchId}
       />
     </div>
   );

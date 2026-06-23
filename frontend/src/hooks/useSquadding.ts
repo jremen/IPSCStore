@@ -8,9 +8,11 @@ export interface UseSquaddingResult {
   columns: Record<number, RegistrationWithShooter[]>;
   unassigned: RegistrationWithShooter[];
   squadCount: number;
+  effectiveSquadCount: number;
   loading: boolean;
   moveShooter: (shooterId: string, toSquad: number) => void;
   assignShooterToSquad: (registrationId: string, toSquad: number) => void;
+  addSquad: () => void;
   flushPending: () => Promise<void>;
   refresh: () => void;
   query: string;
@@ -128,25 +130,42 @@ export function useSquadding(matchId: string | null): UseSquaddingResult {
     };
   }, [flushSave]);
 
-  const columns = useMemo(() => {
-    const cols: Record<number, RegistrationWithShooter[]> = {};
-    if (squadCount === 0) return cols;
-    for (let i = 1; i <= squadCount; i++) cols[i] = [];
+  const addSquad = useCallback(() => {
+    setSquadCount((prev) => prev + 1);
+  }, []);
+
+  const maxSquadInUse = useMemo(() => {
+    let max = 0;
     for (const r of registrations) {
       const sq = r.squad;
-      if (sq !== null && sq !== undefined && sq >= 1 && sq <= squadCount) {
+      if (sq !== null && sq !== undefined && sq > max) max = sq;
+    }
+    return max;
+  }, [registrations]);
+
+  const effectiveSquadCount = useMemo(() => {
+    return Math.max(squadCount, maxSquadInUse);
+  }, [squadCount, maxSquadInUse]);
+
+  const columns = useMemo(() => {
+    const cols: Record<number, RegistrationWithShooter[]> = {};
+    if (effectiveSquadCount === 0) return cols;
+    for (let i = 1; i <= effectiveSquadCount; i++) cols[i] = [];
+    for (const r of registrations) {
+      const sq = r.squad;
+      if (sq !== null && sq !== undefined && sq >= 1 && sq <= effectiveSquadCount) {
         cols[sq].push(r);
       }
     }
     return cols;
-  }, [registrations, squadCount]);
+  }, [registrations, effectiveSquadCount]);
 
   const unassigned = useMemo(() => {
     return registrations.filter((r) => {
       const sq = r.squad;
-      return sq === null || sq === undefined || sq < 1 || sq > squadCount;
+      return sq === null || sq === undefined || sq < 1;
     });
-  }, [registrations, squadCount]);
+  }, [registrations]);
 
   const totalShooterCount = registrations.length;
 
@@ -155,9 +174,11 @@ export function useSquadding(matchId: string | null): UseSquaddingResult {
     columns,
     unassigned,
     squadCount,
+    effectiveSquadCount,
     loading,
     moveShooter,
     assignShooterToSquad,
+    addSquad,
     flushPending: flushSave,
     refresh: fetchData,
     query,

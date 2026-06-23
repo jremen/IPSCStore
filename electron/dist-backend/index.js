@@ -8158,7 +8158,7 @@ registrationRoutes.get("/matches/:matchId/registrations", async (c) => {
   const role = c.get("authRole") || "anonymous";
   const isPublic = role === "anonymous";
   const registrations = await sql`
-    SELECT mr.id, mr.squad, mr.division as reg_division, mr.category as reg_category,
+    SELECT mr.id, mr.squad, mr.group_id, mr.division as reg_division, mr.category as reg_category,
            mr.power_factor as reg_power_factor, mr.is_dq, mr.dq_reason,
            s.id as shooter_id, s.first_name, s.last_name, s.category, s.tag,
            s.division, s.power_factor, s.region, s.email
@@ -8174,6 +8174,61 @@ registrationRoutes.get("/matches/:matchId/registrations", async (c) => {
     effective_power_factor: r.reg_power_factor || r.power_factor
   }));
   return c.json(resolved);
+});
+registrationRoutes.post("/matches/:matchId/registrations/group", async (c) => {
+  const matchId = c.req.param("matchId");
+  const body = await c.req.json();
+  const { registrationIds } = body;
+  if (!Array.isArray(registrationIds) || registrationIds.length < 2) {
+    return c.json({ error: "registrationIds must be a non-empty array with at least 2 entries" }, 400);
+  }
+  const groupId = crypto.randomUUID();
+  for (const regId of registrationIds) {
+    await sql`
+      UPDATE match_registrations
+      SET group_id = ${groupId}
+      WHERE id = ${regId} AND match_id = ${matchId}
+    `;
+  }
+  await audit(c, "registration.group.create", `registrations:${matchId}`, { groupId, registrationIds });
+  return c.json({ group_id: groupId }, 201);
+});
+registrationRoutes.put("/matches/:matchId/registrations/group/:groupId/add", async (c) => {
+  const { matchId, groupId } = c.req.param();
+  const body = await c.req.json();
+  const { registrationIds } = body;
+  if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+    return c.json({ error: "registrationIds must be a non-empty array" }, 400);
+  }
+  for (const regId of registrationIds) {
+    await sql`
+      UPDATE match_registrations
+      SET group_id = ${groupId}
+      WHERE id = ${regId} AND match_id = ${matchId}
+    `;
+  }
+  await audit(c, "registration.group.add", `registrations:${matchId}`, { groupId, registrationIds });
+  return c.body(null, 204);
+});
+registrationRoutes.delete("/matches/:matchId/registrations/group/:groupId", async (c) => {
+  const { matchId, groupId } = c.req.param();
+  await sql`
+    UPDATE match_registrations
+    SET group_id = NULL
+    WHERE match_id = ${matchId} AND group_id = ${groupId}
+  `;
+  await audit(c, "registration.group.delete", `registrations:${matchId}`, { groupId });
+  return c.body(null, 204);
+});
+registrationRoutes.delete("/matches/:matchId/registrations/:id/group", async (c) => {
+  const { matchId, id } = c.req.param();
+  await sql`
+    UPDATE match_registrations
+    SET group_id = NULL
+    WHERE id = ${id} AND match_id = ${matchId}
+  `;
+  await audit(c, "registration.group.remove", `registrations:${id}`);
+  return c.body(null, 204);
 });
 registrationRoutes.post("/matches/:matchId/registrations", async (c) => {
   const matchId = c.req.param("matchId");
@@ -8257,14 +8312,24 @@ registrationRoutes.put("/matches/:matchId/registrations/bulk", async (c) => {
         failed.push({ id: regId, name: regId, reason: "Not found in this match" });
         continue;
       }
-      await sql`
-        UPDATE match_registrations
-        SET division = ${updateFields.division !== void 0 ? updateFields.division : sql`division`},
-            category = ${updateFields.category !== void 0 ? updateFields.category : sql`category`},
-            power_factor = ${updateFields.power_factor !== void 0 ? updateFields.power_factor : sql`power_factor`},
-            squad = ${updateFields.squad !== void 0 ? updateFields.squad : sql`squad`}
-        WHERE id = ${regId}
-      `;
+      let squadTargetIds = [regId];
+      if (updateFields.squad !== void 0 && reg.group_id) {
+        const siblings = await sql`
+          SELECT id FROM match_registrations
+          WHERE match_id = ${matchId} AND group_id = ${reg.group_id} AND id != ${regId}
+        `;
+        squadTargetIds = [regId, ...siblings.map((s) => s.id)];
+      }
+      for (const targetId of squadTargetIds) {
+        await sql`
+          UPDATE match_registrations
+          SET division = ${updateFields.division !== void 0 ? updateFields.division : sql`division`},
+              category = ${updateFields.category !== void 0 ? updateFields.category : sql`category`},
+              power_factor = ${updateFields.power_factor !== void 0 ? updateFields.power_factor : sql`power_factor`},
+              squad = ${updateFields.squad !== void 0 ? updateFields.squad : sql`squad`}
+          WHERE id = ${targetId}
+        `;
+      }
       const shooterUpdates = [];
       const shooterValues = [];
       if (updateFields.division !== void 0 && reg.division === null && updateFields.division !== null && updateFields.division !== "") {
@@ -8344,7 +8409,7 @@ registrationRoutes.put("/matches/:matchId/registrations/:id", async (c) => {
   const body = await c.req.json();
   const { division, category, power_factor, squad, tag } = body;
   const [prior] = await sql`
-    SELECT division, category, power_factor, shooter_id
+    SELECT division, category, power_factor, shooter_id, group_id
     FROM match_registrations WHERE id = ${id}
   `;
   if (!prior) return c.json({ error: "Registration not found" }, 404);
@@ -8357,6 +8422,16 @@ registrationRoutes.put("/matches/:matchId/registrations/:id", async (c) => {
     WHERE id = ${id}
     RETURNING *
   `;
+  if (squad !== void 0 && prior.group_id) {
+    const [reg] = await sql`SELECT match_id FROM match_registrations WHERE id = ${id}`;
+    if (reg) {
+      await sql`
+        UPDATE match_registrations
+        SET squad = ${squad}
+        WHERE match_id = ${reg.match_id} AND group_id = ${prior.group_id} AND id != ${id}
+      `;
+    }
+  }
   const shooterUpdates = [];
   const shooterValues = [];
   if (division !== void 0 && prior.division === null && division !== null && division !== "") {
@@ -9110,6 +9185,7 @@ function matchCte(isDq) {
       SELECT
         ss.registration_id,
         SUM(ss.stage_points) as match_points,
+        SUM(ss.procedural_count) as procedurals,
         SUM(CASE WHEN st.scoring_type IN ('idpa','action_steel','multi_gun') THEN ss.total_time ELSE ss.time END) as total_time
       FROM stage_scores ss
       JOIN stages st ON st.id = ss.stage_id
@@ -9144,7 +9220,8 @@ function matchCte(isDq) {
       COALESCE(tt.charlie, 0) as charlie,
       COALESCE(tt.delta, 0) as delta,
       COALESCE(tt.miss, 0) as miss,
-      COALESCE(tt.no_shoot, 0) as no_shoot
+      COALESCE(tt.no_shoot, 0) as no_shoot,
+      COALESCE(st.procedurals, 0) as procedurals
     FROM match_registrations mr
     JOIN shooters s ON s.id = mr.shooter_id
     LEFT JOIN stage_totals st ON st.registration_id = mr.id
@@ -9208,7 +9285,7 @@ resultsRoutes.get("/matches/:matchId/results/stages", async (c) => {
   const stageResults = [];
   for (const stage of stages) {
     const scores = await sql`
-      SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points, ss.time,
+      SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points, ss.time, ss.procedural_count,
              s.first_name, s.last_name,
              COALESCE(mr.division, s.division) as division,
              mr.is_dq,
@@ -9222,7 +9299,7 @@ resultsRoutes.get("/matches/:matchId/results/stages", async (c) => {
       JOIN shooters s ON s.id = mr.shooter_id
       LEFT JOIN target_scores ts ON ts.stage_score_id = ss.id
       WHERE ss.stage_id = ${stage.id} AND mr.is_dq = FALSE
-      GROUP BY ss.id, ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points, ss.time,
+      GROUP BY ss.id, ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points, ss.time, ss.procedural_count,
                s.first_name, s.last_name, s.division, mr.division, mr.is_dq
       ORDER BY division, ss.stage_points DESC
     `;
@@ -9255,7 +9332,7 @@ resultsRoutes.get("/matches/:matchId/results/stages", async (c) => {
       s.position = i + 1;
     });
     const dqScores = await sql`
-      SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.time,
+      SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.time, ss.procedural_count,
              s.first_name, s.last_name,
              COALESCE(mr.division, s.division) as division,
              mr.is_dq, mr.dq_reason,
@@ -9269,7 +9346,7 @@ resultsRoutes.get("/matches/:matchId/results/stages", async (c) => {
       JOIN shooters s ON s.id = mr.shooter_id
       LEFT JOIN target_scores ts ON ts.stage_score_id = ss.id
       WHERE ss.stage_id = ${stage.id} AND mr.is_dq = TRUE
-      GROUP BY ss.id, ss.registration_id, ss.hit_factor, ss.net_points, ss.time,
+      GROUP BY ss.id, ss.registration_id, ss.hit_factor, ss.net_points, ss.time, ss.procedural_count,
                s.first_name, s.last_name, s.division, mr.division, mr.is_dq, mr.dq_reason
       ORDER BY s.last_name, s.first_name
     `;
@@ -9282,7 +9359,8 @@ resultsRoutes.get("/matches/:matchId/results/stages", async (c) => {
         ...s,
         hit_factor: Number(s.hit_factor),
         net_points: Number(s.net_points),
-        time: Number(s.time)
+        time: Number(s.time),
+        procedural_count: Number(s.procedural_count)
       })),
       divisions: Object.fromEntries(
         Object.entries(divisionGroups).map(([div, divScores]) => [
@@ -9351,6 +9429,7 @@ resultsRoutes.get("/matches/:matchId/results/categories", async (c) => {
         SELECT
           ss.registration_id,
           SUM(ss.stage_points) as match_points,
+          SUM(ss.procedural_count) as procedurals,
           SUM(CASE WHEN st.scoring_type IN ('idpa','action_steel','multi_gun') THEN ss.total_time ELSE ss.time END) as total_time
         FROM stage_scores ss
         JOIN stages st ON st.id = ss.stage_id
@@ -9381,7 +9460,8 @@ resultsRoutes.get("/matches/:matchId/results/categories", async (c) => {
         COALESCE(tt.charlie, 0) as charlie,
         COALESCE(tt.delta, 0) as delta,
         COALESCE(tt.miss, 0) as miss,
-        COALESCE(tt.no_shoot, 0) as no_shoot
+        COALESCE(tt.no_shoot, 0) as no_shoot,
+        COALESCE(st.procedurals, 0) as procedurals
       FROM match_registrations mr
       JOIN shooters s ON s.id = mr.shooter_id
       LEFT JOIN stage_totals st ON st.registration_id = mr.id
@@ -9432,6 +9512,7 @@ resultsRoutes.get("/matches/:matchId/results/tags", async (c) => {
         SELECT
           ss.registration_id,
           SUM(ss.stage_points) as match_points,
+          SUM(ss.procedural_count) as procedurals,
           SUM(CASE WHEN st.scoring_type IN ('idpa','action_steel','multi_gun') THEN ss.total_time ELSE ss.time END) as total_time
         FROM stage_scores ss
         JOIN stages st ON st.id = ss.stage_id
@@ -9462,7 +9543,8 @@ resultsRoutes.get("/matches/:matchId/results/tags", async (c) => {
         COALESCE(tt.charlie, 0) as charlie,
         COALESCE(tt.delta, 0) as delta,
         COALESCE(tt.miss, 0) as miss,
-        COALESCE(tt.no_shoot, 0) as no_shoot
+        COALESCE(tt.no_shoot, 0) as no_shoot,
+        COALESCE(st.procedurals, 0) as procedurals
       FROM match_registrations mr
       JOIN shooters s ON s.id = mr.shooter_id
       LEFT JOIN stage_totals st ON st.registration_id = mr.id

@@ -7,6 +7,7 @@ import { useSelection } from '../../hooks/useSelection';
 import { useRegistrationFilter } from '../../hooks/useRegistrationFilter';
 import { api } from '../../services/api';
 import { CATEGORIES, getDivisionsForMatch } from '../../utils/constants';
+import { seedGroupColors } from '../../utils/groupColors';
 import CSVImportExport from '../shared/CSVImportExport';
 import BulkActionToolbar from '../shared/BulkActionToolbar';
 import RegistrationTable from './RegistrationTable';
@@ -41,6 +42,10 @@ export default function MatchRegistration() {
   useEffect(() => {
     if (activeMatchId) loadRegistrations();
   }, [activeMatchId]);
+
+  useEffect(() => {
+    seedGroupColors(registrations.map((r) => r.group_id));
+  }, [registrations]);
 
   useTabMenuAction('add-registration', () => {
     if (activeMatchId) setShowAdd(true);

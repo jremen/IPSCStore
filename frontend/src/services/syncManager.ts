@@ -6,27 +6,11 @@
  */
 import * as offlineDB from './offlineDB';
 import { api, getAuthToken } from './api';
+import { isNetworkError } from './connectivity';
 import { useScoringStore } from '../stores/scoringStore';
 import type { PendingSave } from './offlineDB';
 
 const MAX_RETRIES = 5;
-
-/**
- * Determine whether a thrown error represents a network-level failure.
- */
-function isNetworkError(err: any): boolean {
-  if (!navigator.onLine) return true;
-  if (err instanceof TypeError) return true;
-  const msg = String(err?.message || '').toLowerCase();
-  return (
-    msg.includes('failed to fetch') ||
-    msg.includes('networkerror') ||
-    msg.includes('network request failed') ||
-    msg.includes('load failed') ||
-    msg.includes('internet connection appears to be offline') ||
-    msg.includes('offline')
-  );
-}
 
 /**
  * Flush all pending saves to the server, processing them sequentially

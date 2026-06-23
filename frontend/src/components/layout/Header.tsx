@@ -57,7 +57,7 @@ export default function Header() {
             {currentMatch && activeMatchId && (
               <>
                 <span className="text-gray-400">|</span>
-                <span className="text-sm font-medium truncate max-w-48">{currentMatch.name}</span>
+                <Badge size="lg" color="green">{currentMatch.name}</Badge>
                 <Badge color={currentMatch.organization === 'IPSC' ? 'info' : 'purple'} size="sm">
                   {currentMatch.organization}
                 </Badge>

@@ -333,6 +333,8 @@
     "dq": "DQ",
     "dqShooter": "DQ Shooter",
     "removeDq": "Remove DQ",
+    "dqQueued": "DQ saved offline — will sync when online",
+    "undqQueued": "DQ removal queued — will sync when online",
     "dqTitle": "Disqualify Shooter",
     "dqDescription": "This will set all stage scores for {{name}} to zero.",
     "dqReason": "DQ Reason",
@@ -435,7 +437,6 @@
     "time": "Time",
     "tag": "Tag: {{tag}}",
     "noTags": "No tagged shooters in this match.",
-    "print": "Print",
     "pdf": "PDF",
     "csv": "CSV",
     "html": "HTML",
@@ -623,6 +624,8 @@
     "addShooterSuccess": "{{name}} added to Squad {{number}}",
     "noStages": "This match has no stages yet. Add stages to enable squadding.",
     "outOfRangeSquads": "{{count}} shooter(s) are in squads outside 1–{{max}} and were moved to Unassigned.",
-    "ungroupFromCard": "Remove from group"
+    "ungroupFromCard": "Remove from group",
+    "addSquad": "+ Add Squad",
+    "generatePdf": "Generate PDF"
   }
 }

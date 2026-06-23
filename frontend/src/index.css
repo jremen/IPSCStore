@@ -55,6 +55,9 @@
 
   /* Show tab panels without borders */
   [role="tabpanel"] { border: none !important; padding-top: 0.25rem !important; }
+
+  /* Squad print overlay */
+  .squad-print-block { page-break-inside: avoid; break-inside: avoid; }
 }
 
 /* Scoring sheet — mobile-first touch targets (44px minimum) */

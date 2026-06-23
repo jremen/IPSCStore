@@ -88,3 +88,33 @@ export function onReachabilityChange(cb: (reachable: boolean) => void): () => vo
 export function isOnlineSync(): boolean {
   return lastProbeResult ?? navigator.onLine;
 }
+
+// ── Network error detection ────────────────────────────────────────────────
+
+/**
+ * Timeout for API fetch calls. If a request takes longer than this,
+ * it is treated as a network failure (host down, hung server, firewall
+ * blackhole) and the caller should queue the mutation offline.
+ */
+export const FETCH_TIMEOUT_MS = 30_000;
+
+/**
+ * Determine whether a thrown error represents a network-level failure
+ * (offline, timeout, DNS failure, etc.). Different browsers produce
+ * different messages, so we also accept TypeError, AbortError, and
+ * the current navigator.onLine state.
+ */
+export function isNetworkError(err: any): boolean {
+  if (!navigator.onLine) return true;
+  if (err instanceof TypeError) return true;
+  if (err?.name === 'AbortError') return true;
+  const msg = String(err?.message || '').toLowerCase();
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('load failed') ||
+    msg.includes('internet connection appears to be offline') ||
+    msg.includes('offline')
+  );
+}

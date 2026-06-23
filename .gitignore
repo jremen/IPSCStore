@@ -9,3 +9,5 @@ uploads/*
 *.log
 .DS_Store
 .vscode/
+yarn.lock
+*.tsbuildinfo

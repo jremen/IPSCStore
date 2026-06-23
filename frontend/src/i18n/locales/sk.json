@@ -598,5 +598,22 @@
     "droppedGun": "Padnutá zbraň",
     "disruptiveBehavior": "Rušivé správanie",
     "unsportsmanlikeConduct": "Nesportové správanie"
+  },
+  "squadding": {
+    "title": "Rozdelenie do squad-ov",
+    "subtitle": "Presúvaním strelcov medzi squad-mi ich priradíte.",
+    "totalCount": "{{count}} strelcov celkovo",
+    "squadN": "Squad {{number}}",
+    "unassigned": "Nepriradení",
+    "addShooter": "+ Pridať strelca",
+    "addShooterTitle": "Pridať strelca do squad-u {{number}}",
+    "searchPlaceholder": "Hľadať strelcov...",
+    "searchEmpty": "Žiadni strelci nevyhovujú hľadaniu.",
+    "noShooters": "Žiadni strelci v tomto squad-e.",
+    "saveSuccess": "Squad aktualizovaný",
+    "saveError": "Nepodarilo sa aktualizovať squad. Skúste to znova.",
+    "addShooterSuccess": "{{name}} pridaný(á) do squad-u {{number}}",
+    "noStages": "Táto súťaž zatiaľ nemá žiadne situácie. Pridajte situácie pre rozdelenie do squad-ov.",
+    "outOfRangeSquads": "{{count}} strelcov je v squad-och mimo 1–{{max}} a boli presunutí medzi nepriradených."
   }
 }

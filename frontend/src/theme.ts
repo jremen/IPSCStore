@@ -76,6 +76,7 @@ export const customTheme: DeepPartial<FlowbiteTheme> = createTheme({
       sizes: {
         "1600": "max-w-1600",
         "8xl": "max-w-8xl",
+        "full": "max-w-[90vw]"
       },
     },
     content: {

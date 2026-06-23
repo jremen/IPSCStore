@@ -100,7 +100,7 @@ export default function SquaddingModal({ show, onClose, matchId }: SquaddingModa
                 placeholder={t('squadding.searchPlaceholder')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="mb-4"
+                className="mb-4 dark:[&_input]:bg-gray-800"
               />
 
               <DndContext

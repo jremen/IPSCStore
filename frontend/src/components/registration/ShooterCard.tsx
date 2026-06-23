@@ -33,9 +33,9 @@ export default function ShooterCard({ registration, isDragging }: ShooterCardPro
         {registration.first_name} {registration.last_name}
       </div>
       <div className="flex gap-1 mt-1">
-        <Badge color="blue" size="sm">{divisionLabel(registration.effective_division)}</Badge>
-        <Badge color="gray" size="sm">{categoryLabel(registration.effective_category)}</Badge>
-        {registration.is_dq && <Badge color="failure" size="sm">DQ</Badge>}
+        <Badge color="blue" size="xs">{divisionLabel(registration.effective_division)}</Badge>
+        <Badge color="gray" size="xs">{categoryLabel(registration.effective_category)}</Badge>
+        {registration.is_dq && <Badge color="failure" size="xs">DQ</Badge>}
       </div>
     </div>
   );

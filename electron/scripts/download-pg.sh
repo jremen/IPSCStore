@@ -379,9 +379,8 @@ if [ "$EDB_SUCCESS" = false ]; then
 
   if [ -d "$EXTRACTED_DIR/share" ]; then
     mkdir -p "$PG_DIR/share"
-    cp -r "$EXTRACTED_DIR/share/timezone" "$PG_DIR/share/" 2>/dev/null || true
-    cp -r "$EXTRACTED_DIR/share/postgresql" "$PG_DIR/share/" 2>/dev/null || true
-    echo "  Copied: share/"
+    cp -r "$EXTRACTED_DIR/share"/* "$PG_DIR/share/" 2>/dev/null || true
+    echo "  Copied: share/*"
   fi
 
   EDB_SUCCESS=true
@@ -480,58 +479,93 @@ if [[ "$PLATFORM" == linux-* ]] && [ -d "$PG_BIN_DIR" ]; then
       -v "$PG_DIR:/pg" \
       debian:bookworm-slim \
       bash -c '
-        set -e
+        set -o pipefail
 
-        # Install tools and common PostgreSQL runtime dependencies
-        apt-get update -qq > /dev/null 2>&1
-        apt-get install -y -qq \
-          libxml2 libssl3 libicu72 liblz4-1 libzstd1 \
-          libreadline8 libxslt1.1 libkrb5-3 libgssapi-krb5-2 \
-          libldap-2.5-0 libsystemd0 libsodium23 libpam0g \
-          file patchelf > /dev/null 2>&1
+        # Install tools and common PostgreSQL runtime dependencies.
+        echo "  Installing dependencies..."
+        apt-get update -qq > /dev/null
+        if ! apt-get install -y --no-install-recommends \
+            libxml2 libssl3 libicu72 liblz4-1 libzstd1 zlib1g \
+            libreadline8 libxslt1.1 libkrb5-3 libgssapi-krb5-2 \
+            libldap-2.5-0 libsystemd0 libsodium23 libpam0g \
+            file patchelf 2>&1 | grep -vE "^(Selecting|Unpacking|Setting up|Processing|dpkg:)" | tail -20; then
+          echo "ERROR: apt-get install failed — cannot resolve shared libraries"
+          echo "Check your network connection and Docker platform."
+          exit 1
+        fi
+        set +o pipefail
+        echo "  Dependencies installed."
+
+        # Helper: copy a resolved .so into /pg/lib/ if it is not a kernel/glibc library
+        copy_if_bundlable() {
+          local SO_PATH="$1"
+          [ -f "$SO_PATH" ] || return 0
+          SO_BASENAME=$(basename "$SO_PATH")
+          case "$SO_BASENAME" in
+            libc.so.*|libm.so.*|libpthread.so.*|libdl.so.*|librt.so.*|libresolv.so.*|libnss_*|libnsl*|libutil*) return 0 ;;
+            ld-linux-*.so*|ld-linux-aarch64.so*|ld-linux-x86-64.so*) return 0 ;;
+            linux-vdso.so*|linux-gate.so*) return 0 ;;
+          esac
+          # Skip if already present
+          [ -f "/pg/lib/$SO_BASENAME" ] && return 0
+          mkdir -p /pg/lib
+          if cp -L "$SO_PATH" "/pg/lib/$SO_BASENAME" 2>/dev/null; then
+            echo "    + $SO_BASENAME"
+            return 0
+          fi
+          return 1
+        }
 
         SO_COUNT=0
 
+        # ── Pass 1: resolve direct deps of PG binaries ──
+        echo "  [pass 1] Scanning PG binaries..."
         for bin_file in /pg/bin/*; do
           [ -f "$bin_file" ] || continue
           file "$bin_file" 2>/dev/null | grep -q "ELF" || continue
-
-          ldd "$bin_file" 2>/dev/null | while read -r line; do
-            SO_PATH=$(echo "$line" | grep -oE "/\S+\.so(\.[0-9]+)*")
-            [ -z "$SO_PATH" ] && continue
-            [ -f "$SO_PATH" ] || continue
-
-            SO_BASENAME=$(basename "$SO_PATH")
-            case "$SO_BASENAME" in
-              libc.so.*|libm.so.*|libpthread.so.*|libdl.so.*|librt.so.*|libresolv.so.*)
-                ;;
-              ld-linux-aarch64.so.*|ld-linux.so.*|ld-linux-x86-64.so.*)
-                ;;
-              linux-vdso.so.*|linux-gate.so.*)
-                ;;
-              *)
-                mkdir -p /pg/lib
-                if cp -L "$SO_PATH" /pg/lib/ 2>/dev/null; then
-                  SO_COUNT=$((SO_COUNT + 1))
-                  SO_REAL=$(readlink -f "$SO_PATH" 2>/dev/null || true)
-                  if [ -n "$SO_REAL" ] && [ "$SO_REAL" != "$SO_PATH" ]; then
-                    SO_REAL_NAME=$(basename "$SO_REAL")
-                    cp "$SO_REAL" "/pg/lib/$SO_REAL_NAME" 2>/dev/null || true
-                  fi
-                fi
-                ;;
-            esac
+          ldd "$bin_file" 2>/dev/null | grep -oE "/\S+\.so(\.[0-9]+)*" | while read -r SO_PATH; do
+            copy_if_bundlable "$SO_PATH" && SO_COUNT=$((SO_COUNT + 1))
           done
         done
 
-        # Set RPATH as safety net
-        for bin_file in /pg/bin/*; do
-          [ -f "$bin_file" ] || continue
-          file "$bin_file" 2>/dev/null | grep -q "ELF" || continue
-          patchelf --set-rpath '"'"'$ORIGIN/../lib'"'"' "$bin_file" 2>/dev/null || true
+        # ── Pass 2+: resolve transitive deps of bundled .so files ──
+        PASS=2
+        while true; do
+          NEW_COUNT=0
+          for so_file in /pg/lib/*.so*; do
+            [ -f "$so_file" ] || continue
+            file "$so_file" 2>/dev/null | grep -q "ELF" || continue
+            ldd "$so_file" 2>/dev/null | grep -oE "/\S+\.so(\.[0-9]+)*" | while read -r SO_PATH; do
+              copy_if_bundlable "$SO_PATH" && NEW_COUNT=$((NEW_COUNT + 1))
+            done
+          done
+          # Check if any new files were added by counting .so files
+          CURRENT_COUNT=$(ls /pg/lib/*.so* 2>/dev/null | wc -l)
+          if [ "$CURRENT_COUNT" -le "$SO_COUNT" ]; then
+            break
+          fi
+          DIFF=$((CURRENT_COUNT - SO_COUNT))
+          SO_COUNT=$CURRENT_COUNT
+          echo "  [pass $PASS] Found $DIFF new transitive dependencies"
+          PASS=$((PASS + 1))
+          # Safety limit to avoid infinite loops
+          [ "$PASS" -gt 10 ] && break
         done
 
-        echo "  Copied shared libraries and set RPATH"
+        # ── Set RPATH on all ELF binaries and .so files ──
+        echo "  Setting RPATH..."
+        for elf_file in /pg/bin/* /pg/lib/*.so*; do
+          [ -f "$elf_file" ] || continue
+          file "$elf_file" 2>/dev/null | grep -q "ELF" || continue
+          if echo "$elf_file" | grep -q "/pg/bin/"; then
+            patchelf --set-rpath '"'"'$ORIGIN/../lib'"'"' "$elf_file" 2>/dev/null || true
+          else
+            patchelf --set-rpath '"'"'$ORIGIN'"'"' "$elf_file" 2>/dev/null || true
+          fi
+        done
+
+        TOTAL=$(ls /pg/lib/*.so* 2>/dev/null | wc -l)
+        echo "  Done: $TOTAL shared libraries bundled."
       '
 
     echo "  Docker-based library bundling complete"

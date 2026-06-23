@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Button, TextInput, Select, Label } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
@@ -67,6 +67,87 @@ export default function MatchRegistration() {
     loadRegistrations();
   };
 
+  // Group handlers
+  const handleGroupRows = useCallback(async (registrationIds: string[]) => {
+    if (!activeMatchId || registrationIds.length < 2) return;
+    try {
+      await api.createGroup(activeMatchId, registrationIds);
+      addToast(t('registration.groupSuccess'), 'success');
+      loadRegistrations();
+    } catch {
+      addToast(t('registration.groupError'), 'error');
+    }
+  }, [activeMatchId, addToast, t]);
+
+  const handleUngroupSelected = useCallback(async () => {
+    if (!activeMatchId) return;
+    const selectedRegs = filtered.filter((r) => selection.isSelected(r.id) && r.group_id);
+    if (selectedRegs.length === 0) return;
+    try {
+      for (const reg of selectedRegs) {
+        await api.ungroupRegistration(activeMatchId, reg.id);
+      }
+      addToast(t('registration.ungroupSuccess'), 'success');
+      loadRegistrations();
+    } catch {
+      addToast(t('registration.ungroupError'), 'error');
+    }
+  }, [activeMatchId, filtered, selection, addToast, t]);
+
+  const handleUngroupSingle = useCallback(async (regId: string) => {
+    if (!activeMatchId) return;
+    try {
+      await api.ungroupRegistration(activeMatchId, regId);
+      addToast(t('registration.ungroupSuccess'), 'success');
+      loadRegistrations();
+    } catch {
+      addToast(t('registration.ungroupError'), 'error');
+    }
+  }, [activeMatchId, addToast, t]);
+
+  const handleDragToGroup = useCallback(async (sourceId: string, targetId: string) => {
+    if (!activeMatchId) return;
+    const sourceReg = filtered.find((r) => r.id === sourceId);
+    const targetReg = filtered.find((r) => r.id === targetId);
+    if (!sourceReg || !targetReg) return;
+
+    try {
+      if (sourceReg.group_id && sourceReg.group_id === targetReg.group_id) {
+        return; // already in same group
+      }
+      if (sourceReg.group_id && targetReg.group_id) {
+        // both in groups — refuse for now (could merge groups in future)
+        addToast(t('registration.groupMergeNotSupported'), 'info');
+        return;
+      }
+      if (sourceReg.group_id && !targetReg.group_id) {
+        // source is in a group, target is not → add target to source's group
+        await api.addToGroup(activeMatchId, sourceReg.group_id, [targetId]);
+      } else if (!sourceReg.group_id && targetReg.group_id) {
+        // target is in a group, source is not → add source to target's group
+        await api.addToGroup(activeMatchId, targetReg.group_id, [sourceId]);
+      } else {
+        // neither in a group → create new group
+        await api.createGroup(activeMatchId, [sourceId, targetId]);
+      }
+      addToast(t('registration.groupSuccess'), 'success');
+      loadRegistrations();
+    } catch {
+      addToast(t('registration.groupError'), 'error');
+    }
+  }, [activeMatchId, filtered, addToast, t]);
+
+  // Bulk group action
+  const handleBulkGroup = useCallback(() => {
+    const selectedIds = selection.selectedArray;
+    if (selectedIds.length < 2) return;
+    handleGroupRows(selectedIds);
+  }, [selection, handleGroupRows]);
+
+  // Determine toolbar visibility
+  const selectedHasGroup = filtered.some((r) => selection.isSelected(r.id) && r.group_id);
+  const selectedCount = selection.selectedCount;
+
   if (!activeMatchId) {
     return <p className="p-4 text-gray-500 text-center">{t('offline.noCachedData')}</p>;
   }
@@ -98,12 +179,16 @@ export default function MatchRegistration() {
         </div>
 
         <BulkActionToolbar
-          selectedCount={selection.selectedCount}
+          selectedCount={selectedCount}
           onEdit={() => setShowBulkEdit(true)}
           onDelete={() => setShowBulkRemove(true)}
           onClearSelection={selection.clearSelection}
           editLabel={t('bulkActions.editSelected')}
           deleteLabel={t('bulkActions.removeSelected')}
+          onGroup={handleBulkGroup}
+          onUngroup={handleUngroupSelected}
+          showGroup={selectedCount >= 2}
+          showUngroup={selectedHasGroup}
         />
       </div>
 
@@ -158,6 +243,9 @@ export default function MatchRegistration() {
             selection={selection}
             onEdit={setEditReg}
             onRemove={handleRemove}
+            onUngroup={handleUngroupSingle}
+            onGroupRows={handleGroupRows}
+            onDragToGroup={handleDragToGroup}
           />
         ) : (
           <p className="text-center text-gray-500 mt-8">{t('registration.searchEmpty')}</p>

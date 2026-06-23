@@ -1,6 +1,6 @@
 import { Button } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
-import { TbTrash } from "react-icons/tb";
+import { TbTrash, TbLink, TbUnlink } from "react-icons/tb";
 
 interface BulkActionToolbarProps {
   selectedCount: number;
@@ -9,6 +9,10 @@ interface BulkActionToolbarProps {
   onClearSelection: () => void;
   editLabel?: string;
   deleteLabel?: string;
+  onGroup?: () => void;
+  onUngroup?: () => void;
+  showGroup?: boolean;
+  showUngroup?: boolean;
 }
 
 /** Floating toolbar shown when items are selected. Displays count and action buttons. */
@@ -19,6 +23,10 @@ export default function BulkActionToolbar({
   onClearSelection,
   editLabel,
   deleteLabel,
+  onGroup,
+  onUngroup,
+  showGroup,
+  showUngroup,
 }: BulkActionToolbarProps) {
   const { t } = useTranslation();
 
@@ -30,6 +38,18 @@ export default function BulkActionToolbar({
         {t('bulkActions.selectedCount', { count: selectedCount })}
       </span>
       <div className="flex gap-2 ml-auto">
+        {showGroup && onGroup && (
+          <Button size="xs" color="purple" onClick={onGroup}>
+            <TbLink className="size-4 mr-2" />
+            {t('registration.bulkGroup')}
+          </Button>
+        )}
+        {showUngroup && onUngroup && (
+          <Button size="xs" color="yellow" onClick={onUngroup}>
+            <TbUnlink className="size-4 mr-2" />
+            {t('registration.bulkUngroup')}
+          </Button>
+        )}
         <Button size="xs" color="blue" onClick={onEdit}>
           {editLabel || t('bulkActions.editSelected')}
         </Button>

@@ -22,7 +22,7 @@ registrationRoutes.get('/matches/:matchId/registrations', async (c) => {
   const isPublic = role === 'anonymous';
 
   const registrations = await sql`
-    SELECT mr.id, mr.squad, mr.division as reg_division, mr.category as reg_category,
+    SELECT mr.id, mr.squad, mr.group_id, mr.division as reg_division, mr.category as reg_category,
            mr.power_factor as reg_power_factor, mr.is_dq, mr.dq_reason,
            s.id as shooter_id, s.first_name, s.last_name, s.category, s.tag,
            s.division, s.power_factor, s.region, s.email
@@ -40,6 +40,80 @@ registrationRoutes.get('/matches/:matchId/registrations', async (c) => {
   }));
 
   return c.json(resolved);
+});
+
+// Create a new group from selected registrations — admin only
+registrationRoutes.post('/matches/:matchId/registrations/group', async (c) => {
+  const matchId = c.req.param('matchId');
+  const body = await c.req.json();
+  const { registrationIds } = body;
+
+  if (!Array.isArray(registrationIds) || registrationIds.length < 2) {
+    return c.json({ error: 'registrationIds must be a non-empty array with at least 2 entries' }, 400);
+  }
+
+  const groupId = crypto.randomUUID();
+
+  for (const regId of registrationIds) {
+    await sql`
+      UPDATE match_registrations
+      SET group_id = ${groupId}
+      WHERE id = ${regId} AND match_id = ${matchId}
+    `;
+  }
+
+  await audit(c, 'registration.group.create', `registrations:${matchId}`, { groupId, registrationIds });
+  return c.json({ group_id: groupId }, 201);
+});
+
+// Add registrations to an existing group — admin only
+registrationRoutes.put('/matches/:matchId/registrations/group/:groupId/add', async (c) => {
+  const { matchId, groupId } = c.req.param();
+  const body = await c.req.json();
+  const { registrationIds } = body;
+
+  if (!Array.isArray(registrationIds) || registrationIds.length === 0) {
+    return c.json({ error: 'registrationIds must be a non-empty array' }, 400);
+  }
+
+  for (const regId of registrationIds) {
+    await sql`
+      UPDATE match_registrations
+      SET group_id = ${groupId}
+      WHERE id = ${regId} AND match_id = ${matchId}
+    `;
+  }
+
+  await audit(c, 'registration.group.add', `registrations:${matchId}`, { groupId, registrationIds });
+  return c.body(null, 204);
+});
+
+// Dissolve a group (set group_id to NULL for all members) — admin only
+registrationRoutes.delete('/matches/:matchId/registrations/group/:groupId', async (c) => {
+  const { matchId, groupId } = c.req.param();
+
+  await sql`
+    UPDATE match_registrations
+    SET group_id = NULL
+    WHERE match_id = ${matchId} AND group_id = ${groupId}
+  `;
+
+  await audit(c, 'registration.group.delete', `registrations:${matchId}`, { groupId });
+  return c.body(null, 204);
+});
+
+// Remove a single registration from its group — admin only
+registrationRoutes.delete('/matches/:matchId/registrations/:id/group', async (c) => {
+  const { matchId, id } = c.req.param();
+
+  await sql`
+    UPDATE match_registrations
+    SET group_id = NULL
+    WHERE id = ${id} AND match_id = ${matchId}
+  `;
+
+  await audit(c, 'registration.group.remove', `registrations:${id}`);
+  return c.body(null, 204);
 });
 
 // Register shooter(s) to a match — admin only
@@ -141,14 +215,26 @@ registrationRoutes.put('/matches/:matchId/registrations/bulk', async (c) => {
         continue;
       }
 
-      await sql`
-        UPDATE match_registrations
-        SET division = ${updateFields.division !== undefined ? updateFields.division : sql`division`},
-            category = ${updateFields.category !== undefined ? updateFields.category : sql`category`},
-            power_factor = ${updateFields.power_factor !== undefined ? updateFields.power_factor : sql`power_factor`},
-            squad = ${updateFields.squad !== undefined ? updateFields.squad : sql`squad`}
-        WHERE id = ${regId}
-      `;
+      // When squad is being updated on a grouped registration, widen to all group members
+      let squadTargetIds: string[] = [regId];
+      if (updateFields.squad !== undefined && reg.group_id) {
+        const siblings = await sql`
+          SELECT id FROM match_registrations
+          WHERE match_id = ${matchId} AND group_id = ${reg.group_id} AND id != ${regId}
+        `;
+        squadTargetIds = [regId, ...siblings.map((s: any) => s.id)];
+      }
+
+      for (const targetId of squadTargetIds) {
+        await sql`
+          UPDATE match_registrations
+          SET division = ${updateFields.division !== undefined ? updateFields.division : sql`division`},
+              category = ${updateFields.category !== undefined ? updateFields.category : sql`category`},
+              power_factor = ${updateFields.power_factor !== undefined ? updateFields.power_factor : sql`power_factor`},
+              squad = ${updateFields.squad !== undefined ? updateFields.squad : sql`squad`}
+          WHERE id = ${targetId}
+        `;
+      }
 
       const shooterUpdates: string[] = [];
       const shooterValues: any[] = [];
@@ -246,7 +332,7 @@ registrationRoutes.put('/matches/:matchId/registrations/:id', async (c) => {
   const { division, category, power_factor, squad, tag } = body;
 
   const [prior] = await sql`
-    SELECT division, category, power_factor, shooter_id
+    SELECT division, category, power_factor, shooter_id, group_id
     FROM match_registrations WHERE id = ${id}
   `;
   if (!prior) return c.json({ error: 'Registration not found' }, 404);
@@ -260,6 +346,18 @@ registrationRoutes.put('/matches/:matchId/registrations/:id', async (c) => {
     WHERE id = ${id}
     RETURNING *
   `;
+
+  // When squad is updated on a grouped registration, widen to all group members
+  if (squad !== undefined && prior.group_id) {
+    const [reg] = await sql`SELECT match_id FROM match_registrations WHERE id = ${id}`;
+    if (reg) {
+      await sql`
+        UPDATE match_registrations
+        SET squad = ${squad}
+        WHERE match_id = ${reg.match_id} AND group_id = ${prior.group_id} AND id != ${id}
+      `;
+    }
+  }
 
   const shooterUpdates: string[] = [];
   const shooterValues: any[] = [];

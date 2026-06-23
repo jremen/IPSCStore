@@ -682,6 +682,7 @@ export class PgManager {
    * On Windows, postgres.exe and pg_ctl.exe need their DLLs (libpq.dll, etc.)
    * to be found via PATH or in the same directory. Adding the bin dir to PATH
    * ensures the DLLs are found even when the working directory differs.
+   * On Linux, LD_LIBRARY_PATH is set to pg/lib/ as a safety net alongside RPATH.
    */
   private getEnvWithBinPath(): Record<string, string> {
     const env = { ...process.env as Record<string, string> };
@@ -693,6 +694,15 @@ export class PgManager {
     // On Windows, also set Path for compatibility
     if (isWin32) {
       env.Path = env[pathKey];
+    }
+    // On Linux, set LD_LIBRARY_PATH so the dynamic linker finds bundled .so files
+    // in pg/lib/ even if RPATH isn't set on a particular binary (belt-and-suspenders).
+    if (process.platform === 'linux') {
+      const pgLibDir = path.join(this.pgBinDir, '..', 'lib');
+      const existingLdLibPath = env.LD_LIBRARY_PATH || '';
+      env.LD_LIBRARY_PATH = existingLdLibPath
+        ? `${pgLibDir}:${existingLdLibPath}`
+        : pgLibDir;
     }
     return env;
   }

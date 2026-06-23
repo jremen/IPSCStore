@@ -398,41 +398,34 @@ if [[ "$PLATFORM" == linux-* ]] && [ -d "$PG_BIN_DIR" ]; then
   echo ""
   echo "Bundling system shared libraries for Linux..."
 
-  # Check if ldd is available
-  if command -v ldd &>/dev/null; then
-    SO_COUNT=0
+  # Helper: resolve and copy shared library dependencies from ELF binaries.
+  # Called either natively (if ldd exists) or inside a Docker container.
+  bundle_shared_libs_from_ldd() {
+    local PG_DIR="$1"
+    local PG_BIN_DIR="$2"
+    local SO_COUNT=0
 
-    # Find all PG binaries and resolve their shared library dependencies
     for bin_file in "$PG_BIN_DIR"/*; do
       [ -f "$bin_file" ] || continue
-      # Skip non-ELF files
       file "$bin_file" 2>/dev/null | grep -q "ELF" || continue
 
-      # Get resolved library paths from ldd (follows symlinks)
       ldd "$bin_file" 2>/dev/null | while read -r line; do
-        # Parse "libxml2.so.2 => /usr/lib/aarch64-linux-gnu/libxml2.so.2 (0x...)"
         SO_PATH=$(echo "$line" | grep -oE '/\S+\.so(\.[0-9]+)*')
         [ -z "$SO_PATH" ] && continue
         [ -f "$SO_PATH" ] || continue
 
-        # Skip system libraries that cannot be bundled
         SO_BASENAME=$(basename "$SO_PATH")
         case "$SO_BASENAME" in
           libc.so.*|libm.so.*|libpthread.so.*|libdl.so.*|librt.so.*|libresolv.so.*)
-            # Part of glibc — cannot bundle, user's system must provide
             ;;
           ld-linux-aarch64.so.*|ld-linux.so.*|ld-linux-x86-64.so.*)
-            # Dynamic linker — cannot bundle, loaded by kernel
             ;;
           linux-vdso.so.*|linux-gate.so.*)
-            # Virtual shared objects — provided by kernel, cannot bundle
             ;;
           *)
-            # Bundlable library — copy to pg/lib/
             DEST_DIR="$PG_DIR/lib"
             mkdir -p "$DEST_DIR"
             cp -L "$SO_PATH" "$DEST_DIR/" 2>/dev/null && {
-              # Preserve symlinks if the source has them
               SO_REAL=$(readlink -f "$SO_PATH" 2>/dev/null)
               if [ -n "$SO_REAL" ] && [ "$SO_REAL" != "$SO_PATH" ]; then
                 SO_REAL_NAME=$(basename "$SO_REAL")
@@ -444,12 +437,6 @@ if [[ "$PLATFORM" == linux-* ]] && [ -d "$PG_BIN_DIR" ]; then
         esac
       done
     done
-
-    if [ "$SO_COUNT" -gt 0 ]; then
-      echo "  Copied: $SO_COUNT shared libraries to pg/lib/"
-    else
-      echo "  No additional shared libraries found (all deps may already be static or in pg/lib/)"
-    fi
 
     # Ensure RPATH is set on all ELF binaries (safety net — theseus-rs already does this)
     if command -v patchelf &>/dev/null; then
@@ -463,19 +450,105 @@ if [[ "$PLATFORM" == linux-* ]] && [ -d "$PG_BIN_DIR" ]; then
       echo "  WARNING: patchelf not found — RPATH may not be set correctly"
     fi
 
-    # List final bundled .so files
-    if [ -d "$PG_DIR/lib" ]; then
-      echo ""
-      echo "Bundled libraries in pg/lib/:"
-      ls -1 "$PG_DIR/lib"/*.so* 2>/dev/null | head -20
-      TOTAL=$(ls -1 "$PG_DIR/lib"/*.so* 2>/dev/null | wc -l)
-      if [ "$TOTAL" -gt 20 ]; then
-        echo "  ... and $((TOTAL - 20)) more"
-      fi
+    if [ "$SO_COUNT" -gt 0 ]; then
+      echo "  Copied: $SO_COUNT shared libraries to pg/lib/"
+    else
+      echo "  No additional shared libraries found (all deps may already be static or in pg/lib/)"
     fi
+  }
+
+  if command -v ldd &>/dev/null; then
+    # ── Native Linux host: run ldd directly ──
+    bundle_shared_libs_from_ldd "$PG_DIR" "$PG_BIN_DIR"
+
+  elif command -v docker &>/dev/null; then
+    # ── macOS / non-Linux host: use Docker to resolve shared libraries ──
+    # Map our PLATFORM to Docker --platform
+    case "$PLATFORM" in
+      linux-arm64) DOCKER_PLATFORM="linux/arm64" ;;
+      linux-x64)   DOCKER_PLATFORM="linux/amd64" ;;
+      *)           DOCKER_PLATFORM="linux/amd64" ;;
+    esac
+
+    echo "  Host has no ldd — using Docker ($DOCKER_PLATFORM) to resolve shared libraries..."
+    echo "  (First run may take a minute to pull debian:bookworm-slim)"
+
+    # Run the library bundling inside a Debian container matching the target arch.
+    # The container has ldd, patchelf, and common system libraries (libxml2, libssl, etc.)
+    # installed, so all PG dependencies can be resolved.
+    docker run --rm --platform "$DOCKER_PLATFORM" \
+      -v "$PG_DIR:/pg" \
+      debian:bookworm-slim \
+      bash -c '
+        set -e
+
+        # Install tools and common PostgreSQL runtime dependencies
+        apt-get update -qq > /dev/null 2>&1
+        apt-get install -y -qq \
+          libxml2 libssl3 libicu72 liblz4-1 libzstd1 \
+          libreadline8 libxslt1.1 libkrb5-3 libgssapi-krb5-2 \
+          libldap-2.5-0 libsystemd0 libsodium23 libpam0g \
+          file patchelf > /dev/null 2>&1
+
+        SO_COUNT=0
+
+        for bin_file in /pg/bin/*; do
+          [ -f "$bin_file" ] || continue
+          file "$bin_file" 2>/dev/null | grep -q "ELF" || continue
+
+          ldd "$bin_file" 2>/dev/null | while read -r line; do
+            SO_PATH=$(echo "$line" | grep -oE "/\S+\.so(\.[0-9]+)*")
+            [ -z "$SO_PATH" ] && continue
+            [ -f "$SO_PATH" ] || continue
+
+            SO_BASENAME=$(basename "$SO_PATH")
+            case "$SO_BASENAME" in
+              libc.so.*|libm.so.*|libpthread.so.*|libdl.so.*|librt.so.*|libresolv.so.*)
+                ;;
+              ld-linux-aarch64.so.*|ld-linux.so.*|ld-linux-x86-64.so.*)
+                ;;
+              linux-vdso.so.*|linux-gate.so.*)
+                ;;
+              *)
+                mkdir -p /pg/lib
+                if cp -L "$SO_PATH" /pg/lib/ 2>/dev/null; then
+                  SO_COUNT=$((SO_COUNT + 1))
+                  SO_REAL=$(readlink -f "$SO_PATH" 2>/dev/null || true)
+                  if [ -n "$SO_REAL" ] && [ "$SO_REAL" != "$SO_PATH" ]; then
+                    SO_REAL_NAME=$(basename "$SO_REAL")
+                    cp "$SO_REAL" "/pg/lib/$SO_REAL_NAME" 2>/dev/null || true
+                  fi
+                fi
+                ;;
+            esac
+          done
+        done
+
+        # Set RPATH as safety net
+        for bin_file in /pg/bin/*; do
+          [ -f "$bin_file" ] || continue
+          file "$bin_file" 2>/dev/null | grep -q "ELF" || continue
+          patchelf --set-rpath '"'"'$ORIGIN/../lib'"'"' "$bin_file" 2>/dev/null || true
+        done
+
+        echo "  Copied shared libraries and set RPATH"
+      '
+
+    echo "  Docker-based library bundling complete"
   else
-    echo "  WARNING: ldd not found — cannot bundle shared libraries"
+    echo "  WARNING: ldd not found and Docker not available — cannot bundle shared libraries"
     echo "  User must install required system libraries (libxml2, libssl, etc.)"
+  fi
+
+  # List final bundled .so files
+  if [ -d "$PG_DIR/lib" ]; then
+    echo ""
+    echo "Bundled libraries in pg/lib/:"
+    ls -1 "$PG_DIR/lib"/*.so* 2>/dev/null | head -20
+    TOTAL=$(ls -1 "$PG_DIR/lib"/*.so* 2>/dev/null | wc -l)
+    if [ "$TOTAL" -gt 20 ]; then
+      echo "  ... and $((TOTAL - 20)) more"
+    fi
   fi
 fi
 

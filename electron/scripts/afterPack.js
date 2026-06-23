@@ -47,6 +47,7 @@ exports.default = async function afterPack(context) {
   // Linux: validate PG binary ELF architecture matches target
   if (context.electronPlatformName === 'linux') {
     validateLinuxPgArch(context);
+    validateLinuxSharedLibs(context);
   }
 };
 
@@ -239,5 +240,41 @@ function validateLinuxPgArch(context) {
     }
   } finally {
     fs.closeSync(fd);
+  }
+}
+
+/**
+ * Check that key shared libraries are present in pg/lib/.
+ * If they're missing, the Linux AppImage will fail with "cannot open shared object file".
+ * This catches the case where download-pg.sh ran on macOS without Docker or ldd.
+ */
+function validateLinuxSharedLibs(context) {
+  const pgDir = path.join(context.appOutDir, 'resources', 'pg');
+  if (!fs.existsSync(pgDir)) return;
+
+  const pgLibDir = path.join(pgDir, 'lib');
+  if (!fs.existsSync(pgLibDir)) {
+    console.log('[afterPack] WARNING: pg/lib/ directory not found — shared libraries may be missing');
+    return;
+  }
+
+  // libxml2 is the most common missing dep (PG is built with --with-libxml)
+  const required = ['libxml2.so.2'];
+  const missing = required.filter((name) => {
+    // Check for exact match or glob (libxml2.so.2 or libxml2.so.2.*)
+    const matches = fs.readdirSync(pgLibDir).filter((f) =>
+      f === name || f.startsWith(name + '.')
+    );
+    return matches.length === 0;
+  });
+
+  if (missing.length > 0) {
+    console.warn(
+      `[afterPack] WARNING: Missing shared libraries in pg/lib/: ${missing.join(', ')}\n` +
+      `  The Linux AppImage will fail at runtime with "cannot open shared object file".\n` +
+      `  Ensure download-pg.sh ran with Docker or ldd available.`
+    );
+  } else {
+    console.log('[afterPack] Shared library check passed');
   }
 }

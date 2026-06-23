@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { Modal, ModalHeader, ModalBody, TextInput, Badge, ModalFooter, Button } from 'flowbite-react';
+import { Modal, ModalHeader, ModalBody, TextInput, Badge, ModalFooter, Button, theme } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useEscClose } from '../../hooks/useEscClose';
 import { useSquadding } from '../../hooks/useSquadding';
@@ -8,6 +8,7 @@ import SquadColumn from './SquadColumn';
 import ShooterCard from './ShooterCard';
 import AddShooterToSquadModal from './AddShooterToSquadModal';
 import type { RegistrationWithShooter } from '../../types/scoring';
+import { twMerge } from "tailwind-merge";
 
 interface SquaddingModalProps {
   show: boolean;
@@ -23,11 +24,9 @@ export default function SquaddingModal({ show, onClose, matchId, onUpdated }: Sq
     columns,
     unassigned,
     squadCount,
-    loading,
     moveShooter,
     assignShooterToSquad,
     flushPending,
-    refresh,
     query,
     setQuery,
     totalShooterCount,
@@ -89,7 +88,7 @@ export default function SquaddingModal({ show, onClose, matchId, onUpdated }: Sq
 
   return (
     <>
-      <Modal show={show} onClose={handleClose} size="full">
+      <Modal show={show} onClose={handleClose} size="full" theme={{content: {inner: twMerge(theme.modal.content.inner, "min-h-[70vh]")}}}>
         <ModalHeader>
           <h3 className="mr-3">{t('squadding.title')}</h3>
           <span className="text-sm dark:text-gray-300">{t('squadding.totalCount', { count: totalShooterCount })}</span>

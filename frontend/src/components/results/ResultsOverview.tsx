@@ -108,7 +108,7 @@ function DivisionContent({ divisionResults, dqDivisions, loading, onShooterClick
         .map(([division, results]) => (
           <div key={division} className="division-results-section mb-6">
             <h3 className="font-semibold text-lg mb-2 dark:text-white">{divisionLabel(division)}</h3>
-            <ResultsTable scored={{scored, stagesLength}} results={results as any[]} columns={['position', 'shooter', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'matchPercent', 'matchPoints']} onShooterClick={onShooterClick} />
+            <ResultsTable scored={{scored, stagesLength}} results={results as any[]} columns={['position', 'shooter', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'matchPercent', 'matchPoints']} onShooterClick={onShooterClick} />
           </div>
         ))}
       <DqTable dqShooters={dqDivisions} />
@@ -126,7 +126,7 @@ function OverallContent({ overallResults, dqOverall, onShooterClick }: {
   return (
     <>
       <h2 className="print-only hidden text-lg font-bold mb-2">{t('results.overall')}</h2>
-      <ResultsTable results={overallResults as any[]} columns={['position', 'shooter', 'division', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'matchPercent', 'matchPoints']} onShooterClick={onShooterClick} />
+      <ResultsTable results={overallResults as any[]} columns={['position', 'shooter', 'division', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'matchPercent', 'matchPoints']} onShooterClick={onShooterClick} />
       <DqTable dqShooters={dqOverall} />
     </>
   );
@@ -135,7 +135,7 @@ function OverallContent({ overallResults, dqOverall, onShooterClick }: {
 function StageContent({ stageResults, onShooterClick }: { stageResults: any[]; onShooterClick?: (registrationId: string) => void; }) {
   const { t } = useTranslation();
 
-  const stageColumns: ColumnKey[] = ['position', 'shooter', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'stagePercent', 'stagePoints', 'hitFactor', 'netPoints'];
+  const stageColumns: ColumnKey[] = ['position', 'shooter', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'stagePercent', 'stagePoints', 'hitFactor', 'netPoints'];
 
   return (
     <>
@@ -237,7 +237,7 @@ function CategoryContent({ categoryResults, dqCategories }: {
             .map(([division, results]) => (
               <div key={division} className="mb-4 ml-2">
                 <h4 className="font-medium text-sm text-gray-600 dark:text-gray-400 mb-1">{divisionLabel(division)}</h4>
-                <ResultsTable results={results as any[]} columns={['position', 'shooter', 'matchPercent', 'matchPoints']} />
+                <ResultsTable results={results as any[]} columns={['position', 'shooter', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'matchPercent', 'matchPoints']} />
               </div>
             ))}
         </div>
@@ -264,7 +264,7 @@ function TagContent({ tagResults, dqTags }: {
             .map(([division, results]) => (
               <div key={division} className="mb-4 ml-2">
                 <h4 className="font-medium text-sm text-gray-600 dark:bg-gray-400 mb-1">{divisionLabel(division)}</h4>
-                <ResultsTable results={results as any[]} columns={['position', 'shooter', 'matchPercent', 'matchPoints']} />
+                <ResultsTable results={results as any[]} columns={['position', 'shooter', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'matchPercent', 'matchPoints']} />
               </div>
             ))}
         </div>

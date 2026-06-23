@@ -1,6 +1,8 @@
 node_modules/
 dist/
 dist-electron/
+electron/resources/pg
+electron/resources/seed-data.dump
 .env
 uploads/*
 !uploads/.gitkeep

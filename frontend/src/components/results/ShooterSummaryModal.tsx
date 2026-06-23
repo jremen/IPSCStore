@@ -53,7 +53,7 @@ function mapScore(sc: ShooterStageSummariesResponse['stages'][0]['score']): Scor
       steel_hit: t.steel_hit,
       target_data: t.target_data,
     })),
-    procedural_count: 0,
+    procedural_count: sc.procedural_count,
     ftsa_count: 0,
     extra_shot_count: 0,
     extra_hit_count: 0,
@@ -133,6 +133,8 @@ function StageSummaryCard({
         <span className="font-mono text-right dark:text-white">{totalMiss}</span>
         <span className="dark:text-gray-300">{t('scoring.noShootHits')}</span>
         <span className="font-mono text-right dark:text-white">{totalNS}</span>
+        <span className="dark:text-gray-300">{t('scoring.procedurals')}</span>
+        <span className="font-mono text-right dark:text-white">{stageData.score.procedural_count ?? 0}</span>
       </div>
 
       <hr className="border-gray-200 dark:border-gray-700 mb-2" />

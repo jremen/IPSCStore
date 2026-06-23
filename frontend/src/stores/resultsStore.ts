@@ -20,7 +20,8 @@ function normalizeNumericFields<T extends Record<string, any>>(row: T): T {
       key === 'time' || key === 'raw_points' || key === 'penalty_points' ||
       key === 'position' || key === 'division_position' ||
       key === 'alpha' || key === 'charlie' || key === 'delta' ||
-      key === 'miss' || key === 'no_shoot' || key === 'total_time'
+      key === 'miss' || key === 'no_shoot' || key === 'total_time' ||
+      key === 'procedurals' || key === 'procedural_count'
     ) {
       out[key] = num(out[key]);
     }
@@ -51,6 +52,7 @@ interface DqStageShooter {
   net_points: number;
   time?: number;
   dq_reason?: string | null;
+  procedurals?: number;
 }
 
 interface OverallResult {
@@ -70,6 +72,7 @@ interface OverallResult {
   delta: number;
   miss: number;
   no_shoot: number;
+  procedurals: number;
 }
 
 interface StageResult {
@@ -89,6 +92,7 @@ interface StageResult {
   delta: number;
   miss: number;
   no_shoot: number;
+  procedurals: number;
 }
 
 interface StageResultGroup {

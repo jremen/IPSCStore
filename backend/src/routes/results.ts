@@ -14,6 +14,7 @@ function matchCte(isDq: boolean) {
       SELECT
         ss.registration_id,
         SUM(ss.stage_points) as match_points,
+        SUM(ss.procedural_count) as procedurals,
         SUM(CASE WHEN st.scoring_type IN ('idpa','action_steel','multi_gun') THEN ss.total_time ELSE ss.time END) as total_time
       FROM stage_scores ss
       JOIN stages st ON st.id = ss.stage_id
@@ -48,7 +49,8 @@ function matchCte(isDq: boolean) {
       COALESCE(tt.charlie, 0) as charlie,
       COALESCE(tt.delta, 0) as delta,
       COALESCE(tt.miss, 0) as miss,
-      COALESCE(tt.no_shoot, 0) as no_shoot
+      COALESCE(tt.no_shoot, 0) as no_shoot,
+      COALESCE(st.procedurals, 0) as procedurals
     FROM match_registrations mr
     JOIN shooters s ON s.id = mr.shooter_id
     LEFT JOIN stage_totals st ON st.registration_id = mr.id
@@ -133,7 +135,7 @@ resultsRoutes.get('/matches/:matchId/results/stages', async (c) => {
 
   for (const stage of stages) {
     const scores = await sql`
-      SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points, ss.time,
+      SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points, ss.time, ss.procedural_count,
              s.first_name, s.last_name,
              COALESCE(mr.division, s.division) as division,
              mr.is_dq,
@@ -147,7 +149,7 @@ resultsRoutes.get('/matches/:matchId/results/stages', async (c) => {
       JOIN shooters s ON s.id = mr.shooter_id
       LEFT JOIN target_scores ts ON ts.stage_score_id = ss.id
       WHERE ss.stage_id = ${stage.id} AND mr.is_dq = FALSE
-      GROUP BY ss.id, ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points, ss.time,
+      GROUP BY ss.id, ss.registration_id, ss.hit_factor, ss.net_points, ss.stage_percent, ss.stage_points, ss.time, ss.procedural_count,
                s.first_name, s.last_name, s.division, mr.division, mr.is_dq
       ORDER BY division, ss.stage_points DESC
     `;
@@ -183,7 +185,7 @@ resultsRoutes.get('/matches/:matchId/results/stages', async (c) => {
     groupedScores.forEach((s, i) => { s.position = i + 1; });
 
     const dqScores = await sql`
-      SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.time,
+      SELECT ss.registration_id, ss.hit_factor, ss.net_points, ss.time, ss.procedural_count,
              s.first_name, s.last_name,
              COALESCE(mr.division, s.division) as division,
              mr.is_dq, mr.dq_reason,
@@ -197,7 +199,7 @@ resultsRoutes.get('/matches/:matchId/results/stages', async (c) => {
       JOIN shooters s ON s.id = mr.shooter_id
       LEFT JOIN target_scores ts ON ts.stage_score_id = ss.id
       WHERE ss.stage_id = ${stage.id} AND mr.is_dq = TRUE
-      GROUP BY ss.id, ss.registration_id, ss.hit_factor, ss.net_points, ss.time,
+      GROUP BY ss.id, ss.registration_id, ss.hit_factor, ss.net_points, ss.time, ss.procedural_count,
                s.first_name, s.last_name, s.division, mr.division, mr.is_dq, mr.dq_reason
       ORDER BY s.last_name, s.first_name
     `;
@@ -212,6 +214,7 @@ resultsRoutes.get('/matches/:matchId/results/stages', async (c) => {
         hit_factor: Number(s.hit_factor),
         net_points: Number(s.net_points),
         time: Number(s.time),
+        procedural_count: Number(s.procedural_count),
       })),
       divisions: Object.fromEntries(
         Object.entries(divisionGroups).map(([div, divScores]) => [
@@ -290,6 +293,7 @@ resultsRoutes.get('/matches/:matchId/results/categories', async (c) => {
         SELECT
           ss.registration_id,
           SUM(ss.stage_points) as match_points,
+          SUM(ss.procedural_count) as procedurals,
           SUM(CASE WHEN st.scoring_type IN ('idpa','action_steel','multi_gun') THEN ss.total_time ELSE ss.time END) as total_time
         FROM stage_scores ss
         JOIN stages st ON st.id = ss.stage_id
@@ -320,7 +324,8 @@ resultsRoutes.get('/matches/:matchId/results/categories', async (c) => {
         COALESCE(tt.charlie, 0) as charlie,
         COALESCE(tt.delta, 0) as delta,
         COALESCE(tt.miss, 0) as miss,
-        COALESCE(tt.no_shoot, 0) as no_shoot
+        COALESCE(tt.no_shoot, 0) as no_shoot,
+        COALESCE(st.procedurals, 0) as procedurals
       FROM match_registrations mr
       JOIN shooters s ON s.id = mr.shooter_id
       LEFT JOIN stage_totals st ON st.registration_id = mr.id
@@ -380,6 +385,7 @@ resultsRoutes.get('/matches/:matchId/results/tags', async (c) => {
         SELECT
           ss.registration_id,
           SUM(ss.stage_points) as match_points,
+          SUM(ss.procedural_count) as procedurals,
           SUM(CASE WHEN st.scoring_type IN ('idpa','action_steel','multi_gun') THEN ss.total_time ELSE ss.time END) as total_time
         FROM stage_scores ss
         JOIN stages st ON st.id = ss.stage_id
@@ -410,7 +416,8 @@ resultsRoutes.get('/matches/:matchId/results/tags', async (c) => {
         COALESCE(tt.charlie, 0) as charlie,
         COALESCE(tt.delta, 0) as delta,
         COALESCE(tt.miss, 0) as miss,
-        COALESCE(tt.no_shoot, 0) as no_shoot
+        COALESCE(tt.no_shoot, 0) as no_shoot,
+        COALESCE(st.procedurals, 0) as procedurals
       FROM match_registrations mr
       JOIN shooters s ON s.id = mr.shooter_id
       LEFT JOIN stage_totals st ON st.registration_id = mr.id

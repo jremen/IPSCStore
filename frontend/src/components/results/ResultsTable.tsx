@@ -7,7 +7,7 @@ import { useEffect } from "react";
 import { ScoringProgressEntry } from "../../types/scoring";
 import { twMerge } from "tailwind-merge";
 
-export type ColumnKey = 'position' | 'shooter' | 'division' | 'time' | 'alpha' | 'charlie' | 'delta' | 'miss' | 'noShootHits' | 'matchPercent' | 'matchPoints' | 'stagePercent' | 'stagePoints' | 'hitFactor' | 'netPoints';
+export type ColumnKey = 'position' | 'shooter' | 'division' | 'time' | 'alpha' | 'charlie' | 'delta' | 'miss' | 'noShootHits' | 'procedurals' | 'matchPercent' | 'matchPoints' | 'stagePercent' | 'stagePoints' | 'hitFactor' | 'netPoints';
 
 interface ResultsTableProps {
   results: any[];
@@ -17,7 +17,7 @@ interface ResultsTableProps {
   onShooterClick?: (registrationId: string) => void;
 }
 
-const DETAIL_COLUMNS: ColumnKey[] = ['division', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'matchPercent', 'matchPoints', 'stagePercent', 'stagePoints', 'hitFactor', 'netPoints'];
+const DETAIL_COLUMNS: ColumnKey[] = ['division', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'matchPercent', 'matchPoints', 'stagePercent', 'stagePoints', 'hitFactor', 'netPoints'];
 
 function columnHeader(col: ColumnKey, t: (key: string, opts?: any) => string): string {
   const map: Record<ColumnKey, string> = {
@@ -30,6 +30,7 @@ function columnHeader(col: ColumnKey, t: (key: string, opts?: any) => string): s
     delta: t('results.delta'),
     miss: t('results.miss'),
     noShootHits: t('results.noShootHits'),
+    procedurals: 'P',
     matchPercent: t('results.matchPercent'),
     matchPoints: t('results.points'),
     stagePercent: t('results.stagePercent'),
@@ -51,6 +52,7 @@ function cellValue(col: ColumnKey, r: any): string {
     case 'delta': return String(r.delta ?? 0);
     case 'miss': return String(r.miss ?? 0);
     case 'noShootHits': return String(r.no_shoot ?? 0);
+    case 'procedurals': return String(r.procedurals ?? 0);
     case 'matchPercent': return `${r.match_percent?.toFixed(2)}%`;
     case 'matchPoints': return r.match_points?.toFixed(2);
     case 'stagePercent': return `${r.stage_percent?.toFixed(2)}%`;

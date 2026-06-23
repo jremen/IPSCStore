@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS auth_attempts (
   attempted_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_auth_attempts_kind_key_time ON auth_attempts (kind, key, attempted_at);
+CREATE INDEX IF NOT EXISTS idx_auth_attempts_kind_key_time ON auth_attempts (kind, key, attempted_at);
 
 -- Audit log table
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
   meta JSONB
 );
 
-CREATE INDEX idx_audit_log_action_time ON audit_log (action, at);
-CREATE INDEX idx_audit_log_target ON audit_log (target_table, target_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_action_time ON audit_log (action, at);
+CREATE INDEX IF NOT EXISTS idx_audit_log_target ON audit_log (target_table, target_id);
 
 -- Session epoch for invalidating all sessions on password change
 INSERT INTO app_settings (key, value, updated_at)

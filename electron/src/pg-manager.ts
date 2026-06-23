@@ -305,7 +305,7 @@ export class PgManager {
     // Run initdb
     const initdb = this.getBin('initdb');
     const env = this.getEnvWithBinPath();
-    log(`[PgManager] Running initdb: ${initdb} -D "${this.config.dataDir}" -U ${this.config.user} --auth=trust --encoding=UTF8`);
+    log(`[PgManager] Running initdb: ${initdb} -D "${this.config.dataDir}" -U ${this.config.user} --auth=trust --encoding=UTF8 --locale=C`);
 
     try {
       const { stdout, stderr } = await execFileAsync(initdb, [
@@ -313,6 +313,7 @@ export class PgManager {
         '-U', this.config.user,
         '--auth=trust',
         '--encoding=UTF8',
+        '--locale=C',
       ], { env, timeout: 60000 });
       if (stdout) log(`[PgManager] initdb stdout: ${stdout.substring(0, 500)}`);
       if (stderr) log(`[PgManager] initdb stderr: ${stderr.substring(0, 500)}`);

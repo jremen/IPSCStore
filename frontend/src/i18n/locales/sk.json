@@ -23,7 +23,9 @@
     "remove": "Odstrániť",
     "name": "Meno",
     "yes": "Áno",
-    "no": "Nie"
+    "no": "Nie",
+    "import": "Importovať",
+    "export": "Exportovať"
   },
   "bulkActions": {
     "selectedCount": "{{count}} vybraných",
@@ -453,9 +455,12 @@
     "penaltiesDeducted": "Odpočítané penále"
   },
   "import": {
-    "importShooters": "Importovať strelcov",
-    "importRegistrations": "Importovať registrácie",
-    "importScores": "Importovať skóre",
+    "modalTitle": "Importovať {{entity}} z CSV",
+    "entity": {
+      "shooters": "strelcov",
+      "registrations": "registrácie",
+      "scores": "skóre"
+    },
     "fromCsv": "z CSV",
     "dragDrop": "Potiahnite a vložte CSV súbor sem",
     "selectFile": "Vybrať súbor",
@@ -474,7 +479,6 @@
     "skipped": "Preskočené:",
     "moreErrors": "...a ďalších {{count}} chýb",
     "importedCount": "Importovaných {{count}} záznamov",
-    "exportRegistrations": "Exportovať registrácie",
     "exporting": "Exportujem...",
     "csvExported": "CSV exportované",
     "winMss": {

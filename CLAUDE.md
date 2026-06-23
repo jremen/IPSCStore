@@ -137,3 +137,16 @@ Some constants in `frontend/src/utils/constants.ts` hold canonical English domai
 **Pattern for translated items:** Use the `useConstLabels()` hook in `frontend/src/hooks/useConstLabels.ts` to get translation-aware `categoryLabel` / `powerFactorLabel` functions for badges. For `FIREARM_TYPES` and `ORGANIZATIONS`, render directly with `t(item.i18nKey)` in select options. The non-React `categoryLabel`/`powerFactorLabel` helpers in `constants.ts` are kept for non-React contexts (e.g. PDF export) where i18n is not available.
 
 Translation is reserved for full UI strings (button labels, form labels, error messages, section titles).
+
+<!-- graymatter:instructions:begin — managed by `graymatter init`; edits inside this block are overwritten -->
+## Memory (GrayMatter)
+
+This project has persistent agent memory via the `graymatter` MCP tools:
+
+- `memory_search` (`agent_id`, `query`) — call at the **start of a task** when prior context might matter.
+- `memory_add` (`agent_id`, `text`) — call whenever you learn something **durable**: user preferences, decisions, conventions, gotchas.
+- `memory_reflect` (`action`, `agent`, `text`/`target`) — update or forget stale facts. ⚠ takes `agent`, not `agent_id`.
+- `checkpoint_save` / `checkpoint_resume` (`agent_id`) — snapshot/restore session state before major refactors or across restarts.
+
+Use a stable `agent_id` of the form `<project>-<role>` (e.g. `myapp-backend`). Store conclusions, not conversation logs. Err on the side of remembering.
+<!-- graymatter:instructions:end -->

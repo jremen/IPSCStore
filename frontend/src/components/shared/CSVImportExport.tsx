@@ -19,7 +19,7 @@ export default function CSVImportExport({ type, matchId, onImportComplete }: Pro
   const [show, setShow] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  const label = type === 'shooters' ? t('import.importShooters') : type === 'registrations' ? t('import.importRegistrations') : t('import.importScores');
+  const label = t('common.import');
 
   useEffect(() => {
     const action = type === 'shooters' ? 'import-shooters-csv' : type === 'registrations' ? 'import-registrations-csv' : null;
@@ -56,7 +56,7 @@ export default function CSVImportExport({ type, matchId, onImportComplete }: Pro
       {type === 'registrations' && matchId && (
         <Button size="sm" color="light" onClick={handleExportRegistrations} disabled={exporting}>
           <TbFileExport className="mr-2 size-4" />
-          {exporting ? t('import.exporting') : t('import.exportRegistrations')}
+          {exporting ? t('import.exporting') : t('common.export')}
         </Button>
       )}
       <CSVImportModal show={show} onClose={() => setShow(false)} type={type} matchId={matchId} onImportComplete={onImportComplete} />

@@ -23,7 +23,9 @@
     "remove": "Remove",
     "name": "Name",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "import": "Import",
+    "export": "Export"
   },
   "bulkActions": {
     "selectedCount": "{{count}} selected",
@@ -453,9 +455,12 @@
     "penaltiesDeducted": "Penalties Deducted"
   },
   "import": {
-    "importShooters": "Import Shooters",
-    "importRegistrations": "Import Registrations",
-    "importScores": "Import Scores",
+    "modalTitle": "Import {{entity}} from CSV",
+    "entity": {
+      "shooters": "Shooters",
+      "registrations": "Registrations",
+      "scores": "Scores"
+    },
     "fromCsv": "from CSV",
     "dragDrop": "Drag & drop CSV file here",
     "selectFile": "Select File",
@@ -474,7 +479,6 @@
     "skipped": "Skipped:",
     "moreErrors": "...and {{count}} more errors",
     "importedCount": "Imported {{count}} records",
-    "exportRegistrations": "Export Registrations",
     "exporting": "Exporting...",
     "csvExported": "CSV exported",
     "winMss": {

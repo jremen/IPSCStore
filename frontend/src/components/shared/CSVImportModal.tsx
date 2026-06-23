@@ -170,8 +170,6 @@ export default function CSVImportModal({ show, onClose, type, matchId, onImportC
   };
   useEscClose(handleReset);
 
-  const label = type === 'shooters' ? t('import.importShooters') : type === 'registrations' ? t('import.importRegistrations') : t('import.importScores');
-
   const sampleCSVs: Record<string, string> = {
     shooters: 'first_name;last_name;category;tag;division;power_factor;region;email\nJohn;Doe;regular;;standard;minor;USA;john@example.com',
     registrations: 'shooter_first_name;shooter_last_name;squad;division;category;power_factor\nJohn;Doe;1;standard;regular;minor',
@@ -195,7 +193,7 @@ export default function CSVImportModal({ show, onClose, type, matchId, onImportC
 
   return (
     <Modal show={show} onClose={handleReset} size="xl">
-      <ModalHeader>{label} {t('import.fromCsv')}</ModalHeader>
+      <ModalHeader>{t('import.modalTitle', { entity: t(`import.entity.${type}`) })}</ModalHeader>
       <ModalBody>
         {step === 'upload' && (
           <>

@@ -110,6 +110,22 @@ These principles MUST be followed for all frontend code. Violations in existing 
 5. **Call hooks and functions directly** — Variables, functions, hooks etc. should be called right inside the component that uses them, not passed down through props.
 6. **Only pass callbacks for parent reactions** — Only pass a callback function from a child component if the parent needs to react to it (e.g., child calls onClick → parent changes state). Never pass data or handlers that the child could access itself.
 
+## Tailwind CSS
+
+This project uses **Tailwind CSS v4**. In Tailwind 4, the `!important` modifier is a **suffix**, not a prefix:
+
+```css
+/* Tailwind 4 (correct) */
+.pr-0!
+.w-4!
+.p-0!
+
+/* Tailwind 3 (WRONG — do not use) */
+!pr-0
+!w-4
+!p-0
+```
+
 ## Key Patterns
 
 - Per-target score storage in `target_scores` table — essential for "best N hits per target" and Virginia Count extra-hit detection

@@ -1,21 +1,7 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
 import * as offlineDB from '../services/offlineDB';
-import { isBackendReachable } from '../services/connectivity';
-
-function isNetworkError(err: any): boolean {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
-  if (err instanceof TypeError) return true;
-  const msg = String(err?.message || '').toLowerCase();
-  return (
-    msg.includes('failed to fetch') ||
-    msg.includes('networkerror') ||
-    msg.includes('network request failed') ||
-    msg.includes('load failed') ||
-    msg.includes('internet connection appears to be offline') ||
-    msg.includes('offline')
-  );
-}
+import { isBackendReachable, isNetworkError } from '../services/connectivity';
 
 interface AuthState {
   /** Whether the user is authenticated (has a valid token) */

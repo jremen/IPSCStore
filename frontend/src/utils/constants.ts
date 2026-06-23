@@ -17,8 +17,8 @@ export const DIVISIONS = [
   { value: 'revolver', label: 'Revolver', group: 'IPSC' },
   { value: 'pcc_optics', label: 'PCC Optics', group: 'IPSC' },
   { value: 'pcc_iron', label: 'PCC Iron', group: 'IPSC' },
-  { value: 'standard', label: 'Pistol Tréning', group: 'IPSC' },
-  { value: 'pcc_iron', label: 'PCC Tréning', group: 'IPSC' },
+  { value: 'pistol_trening', label: 'Pistol Tréning', group: 'IPSC' },
+  { value: 'pcc_trening', label: 'PCC Tréning', group: 'IPSC' },
   // USPSA
   { value: 'limited', label: 'Limited', group: 'USPSA' },
   { value: 'limited_optics', label: 'Limited Optics', group: 'USPSA' },
@@ -59,7 +59,7 @@ export const DIVISIONS = [
 
 /** Map organization to its applicable division values */
 export const ORGANIZATION_DIVISIONS: Record<string, string[]> = {
-  IPSC: ['standard', 'open', 'production', 'production_optics', 'optics', 'classic', 'revolver', 'pcc_optics', 'pcc_iron'],
+  IPSC: ['standard', 'open', 'production', 'production_optics', 'optics', 'classic', 'revolver', 'pcc_optics', 'pcc_iron', 'pistol_trening', 'pcc_trening'],
   USPSA: ['open', 'limited', 'limited_optics', 'carry_optics', 'production', 'single_stack', 'revolver', 'pcc_optics', 'pcc_iron'],
   IDPA: ['ssp', 'esp', 'cdp', 'ccp', 'bug', 'revolver_idpa'],
   '3GUN': ['tactical', 'open_3gun', 'heavy'],

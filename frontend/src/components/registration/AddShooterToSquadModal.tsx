@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Button, Modal, ModalHeader, ModalBody, TextInput, Badge } from 'flowbite-react';
+import { Button, Modal, ModalHeader, ModalBody, TextInput, Badge, ModalFooter } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useConstLabels } from '../../hooks/useConstLabels';
 import { divisionLabel } from '../../utils/constants';
@@ -49,7 +49,7 @@ export default function AddShooterToSquadModal({ show, onClose, targetSquad, reg
           onChange={(e) => setQuery(e.target.value)}
           className="mb-4"
         />
-        <div className="max-h-[400px] overflow-y-auto space-y-1">
+        <div className="max-h-100 overflow-y-auto space-y-1">
           {filtered.length > 0 ? (
             filtered.map((r) => (
               <Button
@@ -62,14 +62,10 @@ export default function AddShooterToSquadModal({ show, onClose, targetSquad, reg
                 <div className="font-medium text-sm dark:text-white">
                   {r.first_name} {r.last_name}
                 </div>
-                <div className="flex gap-1 mt-0.5">
-                  <Badge color="blue" size="sm">{divisionLabel(r.effective_division)}</Badge>
-                  <Badge color="gray" size="sm">{categoryLabel(r.effective_category)}</Badge>
-                  <Badge color={r.effective_power_factor === 'major' ? 'warning' : 'success'} size="sm">
-                    {powerFactorLabel(r.effective_power_factor)}
-                  </Badge>
+                <div className="flex ml-auto gap-1 mt-0.5">
+                  
                   {r.squad !== null && r.squad !== undefined && (
-                    <Badge color="purple" size="sm">{t('squadding.squadN', { number: r.squad })}</Badge>
+                    <Badge color="purple" size="xs">{t('squadding.squadN', { number: r.squad })}</Badge>
                   )}
                 </div>
               </Button>
@@ -79,6 +75,9 @@ export default function AddShooterToSquadModal({ show, onClose, targetSquad, reg
           )}
         </div>
       </ModalBody>
+      <ModalFooter>
+        <Button color="gray" onClick={handleClose}>{t('common.close')}</Button>
+      </ModalFooter>
     </Modal>
   );
 }

@@ -280,7 +280,7 @@
     "clearFilters": "Vymazať filtre",
     "showingOf": "Zobrazených {{shown}} z {{total}}",
     "ungroup": "Odstrániť zo skupiny",
-    "bulkGroup": "Zoskupiť vybraných",
+    "bulkGroup": "Zoskupiť vybrané",
     "bulkUngroup": "Zrušiť skupiny vybraných",
     "groupSuccess": "Strelci zoskupení",
     "groupError": "Nepodarilo sa vytvoriť skupinu",
@@ -333,6 +333,8 @@
     "dq": "DQ",
     "dqShooter": "Diskvalifikovať",
     "removeDq": "Zrušiť DQ",
+    "dqQueued": "DQ uložené offline — synchronizuje sa po obnovení pripojenia",
+    "undqQueued": "Zrušenie DQ zaradené do fronty — synchronizuje sa po obnovení pripojenia",
     "dqTitle": "Diskvalifikovať strelca",
     "dqDescription": "Toto nastaví všetky skóre strelca {{name}} na nulu.",
     "dqReason": "Dôvod DQ",
@@ -435,7 +437,6 @@
     "time": "Čas",
     "tag": "Štítok: {{tag}}",
     "noTags": "Žiadni označení strelci v tejto súťaži.",
-    "print": "Tlačiť",
     "pdf": "PDF",
     "csv": "CSV",
     "html": "HTML",
@@ -623,6 +624,8 @@
     "addShooterSuccess": "{{name}} pridaný(á) do squad-u {{number}}",
     "noStages": "Táto súťaž zatiaľ nemá žiadne situácie. Pridajte situácie pre rozdelenie do squad-ov.",
     "outOfRangeSquads": "{{count}} strelcov je v squad-och mimo 1–{{max}} a boli presunutí medzi nepriradených.",
-    "ungroupFromCard": "Odstrániť zo skupiny"
+    "ungroupFromCard": "Odstrániť zo skupiny",
+    "addSquad": "+ Pridať squad",
+    "generatePdf": "Vygenerovať PDF"
   }
 }

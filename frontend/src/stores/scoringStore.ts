@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { api, getAuthToken } from '../services/api';
 import * as offlineDB from '../services/offlineDB';
-import { isBackendReachable } from '../services/connectivity';
+import { isBackendReachable, isNetworkError } from '../services/connectivity';
 import type { ScoringAlert, TargetScore, ScoreInput, RegistrationWithShooter, ScoringProgress } from '../types/scoring';
 import type { Stage } from '../types/stage';
 import { buildEmptyScore } from '../utils/buildEmptyScore';
@@ -9,31 +9,11 @@ import { buildScorePayload } from '../utils/buildScorePayload';
 import { shuffleWithSeed } from '../utils/shuffleWithSeed';
 
 /**
- * Determine whether a thrown error represents a network-level failure
- * (offline, timeout, DNS failure, etc.). Different browsers produce
- * different messages, so we also accept TypeError and the current
- * navigator.onLine state.
- */
-function isNetworkError(err: any): boolean {
-  if (!navigator.onLine) return true;
-  if (err instanceof TypeError) return true;
-  const msg = String(err?.message || '').toLowerCase();
-  return (
-    msg.includes('failed to fetch') ||
-    msg.includes('networkerror') ||
-    msg.includes('network request failed') ||
-    msg.includes('load failed') ||
-    msg.includes('internet connection appears to be offline') ||
-    msg.includes('offline')
-  );
-}
-
-/**
  * Register a Background Sync and attempt an immediate flush whenever a
  * pending save is created. Using a dynamic import avoids a circular module
  * dependency (syncManager imports the scoring store via getState()).
  */
-async function triggerSync() {
+export async function triggerSync() {
   try {
     const { requestSync } = await import('../services/syncManager');
     await requestSync();
@@ -93,6 +73,7 @@ interface ScoringActions {
   scoredIds: () => Set<string>;
   setOfflineMode: (offline: boolean) => void;
   refreshPendingCount: () => Promise<void>;
+  updateRegistrationLocal: (registrationId: string, patch: Partial<RegistrationWithShooter>) => void;
 }
 
 /** Add a scored entry to the current scoringProgress in the store (used after offline saves) */
@@ -531,4 +512,10 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
     const count = await offlineDB.getPendingCount();
     set({ pendingSaveCount: count });
   },
+
+  updateRegistrationLocal: (registrationId, patch) => set((state) => ({
+    registrations: state.registrations.map((r) =>
+      r.id === registrationId ? { ...r, ...patch } : r,
+    ),
+  })),
 }));

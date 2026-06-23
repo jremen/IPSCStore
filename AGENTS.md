@@ -87,3 +87,12 @@ Good post-build memories are generalised learnings, not commit logs:
 - **`ipscscore-frontend`** — React patterns, component decisions, hook refactorings, Flowbite usage, frontend-specific gotchas.
 - **`ipscscore-backend`** — database schema decisions, API patterns, backend-specific gotchas.
 - **Never duplicate** — if the same fact would apply to all roles, write once to `__shared__`.
+
+### Tailwind CSS v4
+
+In Tailwind 4, the `!important` modifier is a **suffix**, not a prefix:
+
+- **Correct**: `pr-0!`, `w-4!`, `p-0!`
+- **Wrong (Tailwind 3 syntax)**: `!pr-0`, `!w-4`, `!p-0`
+
+This applies to all utility classes that need the `!important` override.

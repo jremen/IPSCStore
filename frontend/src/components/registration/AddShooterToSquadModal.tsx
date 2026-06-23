@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Modal, ModalHeader, ModalBody, TextInput, Badge } from 'flowbite-react';
+import { Button, Modal, ModalHeader, ModalBody, TextInput, Badge } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useConstLabels } from '../../hooks/useConstLabels';
 import { divisionLabel } from '../../utils/constants';
@@ -52,10 +52,12 @@ export default function AddShooterToSquadModal({ show, onClose, targetSquad, reg
         <div className="max-h-[400px] overflow-y-auto space-y-1">
           {filtered.length > 0 ? (
             filtered.map((r) => (
-              <button
+              <Button
                 key={r.id}
+                size="xs"
+                color="light"
                 onClick={() => { onAdd(r.id); handleClose(); }}
-                className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="w-full text-left justify-start"
               >
                 <div className="font-medium text-sm dark:text-white">
                   {r.first_name} {r.last_name}
@@ -70,7 +72,7 @@ export default function AddShooterToSquadModal({ show, onClose, targetSquad, reg
                     <Badge color="purple" size="sm">{t('squadding.squadN', { number: r.squad })}</Badge>
                   )}
                 </div>
-              </button>
+              </Button>
             ))
           ) : (
             <p className="text-sm text-gray-500 text-center py-4">{t('squadding.searchEmpty')}</p>

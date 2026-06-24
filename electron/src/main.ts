@@ -190,6 +190,19 @@ function startBackend(port: number): Promise<void> {
       MIGRATIONS_DIR: path.join(backendDistPath, 'db', 'migrations'),
     };
 
+    // Generate and configure TLS cert for HTTPS
+    try {
+      const { ensureTlsCert } = require('../utils/tlsCert');
+      const lanIp = getLanIp();
+      const { certPath, keyPath } = ensureTlsCert(app.getPath('userData'), lanIp);
+      env.TLS_CERT_PATH = certPath;
+      env.TLS_KEY_PATH = keyPath;
+      log(`[TLS] HTTPS enabled — cert: ${certPath}`);
+    } catch (err: any) {
+      log(`[TLS] Failed to generate TLS cert: ${err.message}`);
+      log('[TLS] Falling back to HTTP');
+    }
+
     log(`[Main] Starting backend server from ${entryPoint}`);
     log(`[Main] Frontend dist path: ${frontendDistPath}`);
     log(`[Main] DATABASE_URL set: ${!!env.DATABASE_URL}`);

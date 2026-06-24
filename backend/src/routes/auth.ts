@@ -1,9 +1,17 @@
 import { Hono } from 'hono';
 import { sql } from '../db/client.js';
 import crypto from 'crypto';
+import fs from 'fs';
 import bcrypt from 'bcryptjs';
 import { env } from '../env.js';
 import { STAGE_PASSWORD_MIN_LENGTH } from '../utils/passwords.js';
+import {
+  createStageLinkToken,
+  redeemStageLinkToken as redeemToken,
+  revokeStageLinkTokens,
+  getActiveStageLinkTokens,
+  TokenError,
+} from '../services/stageLinkTokens.js';
 
 export const authRoutes = new Hono<{
   Variables: {
@@ -43,6 +51,22 @@ async function bumpSessionEpoch(): Promise<void> {
     VALUES ('session_epoch', ${next}, now())
     ON CONFLICT (key) DO UPDATE SET value = ${next}, updated_at = now()
   `;
+}
+
+/**
+ * Derive the public origin (scheme + host + port) for stage link QR code URLs.
+ * Uses X-Public-Origin header from the frontend if provided,
+ * otherwise falls back to the request URL.
+ * Applies the correct scheme (https vs http) based on whether TLS is active.
+ */
+function getPublicOrigin(c: any): string {
+  const headerOrigin = c.req.header('X-Public-Origin');
+  const fallback = `${c.req.url.split('/api')[0]}`;
+  const origin = headerOrigin || fallback;
+  const isHttps = !!(env.TLS_CERT_PATH && env.TLS_KEY_PATH
+    && fs.existsSync(env.TLS_CERT_PATH) && fs.existsSync(env.TLS_KEY_PATH));
+  const scheme = isHttps ? 'https' : 'http';
+  return origin.replace(/^https?:\/\//, `${scheme}://`);
 }
 
 /**
@@ -395,4 +419,176 @@ authRoutes.post('/logout', async (c) => {
     await sql`DELETE FROM admin_sessions WHERE token = ${token}`;
   }
   return c.json({ success: true });
+});
+
+// ─── Stage Link Tokens ───────────────────────────────────────────────────────
+
+/**
+ * POST /api/auth/stage-link-token
+ * Mint a single-use, short-lived token for a stage (admin only).
+ * Body: { stageId: string, ttlSeconds?: number }
+ */
+authRoutes.post('/stage-link-token', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required.' }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: 'Invalid or expired admin session.' }, 401);
+  }
+
+  const { stageId, ttlSeconds } = await c.req.json();
+  if (!stageId) {
+    return c.json({ error: 'stageId is required.' }, 400);
+  }
+
+  try {
+    const result = await createStageLinkToken(stageId, ttlSeconds, adminToken);
+    return c.json({
+      token: result.token,
+      url: `${getPublicOrigin(c)}/hodnotenie?stageToken=${result.token}`,
+      stageId: result.stageId,
+      stageName: result.stageName,
+      matchId: result.matchId,
+      expiresAt: result.expiresAt.toISOString(),
+    });
+  } catch (err: any) {
+    if (err.message === 'Stage not found') {
+      return c.json({ error: 'Stage not found.' }, 404);
+    }
+    throw err;
+  }
+});
+
+/**
+ * POST /api/auth/stage-link-redeem
+ * Redeem a stage link token (public — no auth required).
+ * Body: { token: string }
+ * Returns a session token identical to stage-login.
+ */
+authRoutes.post('/stage-link-redeem', async (c) => {
+  const { token } = await c.req.json();
+  if (!token) {
+    return c.json({ error: 'token is required.' }, 400);
+  }
+
+  const clientIp = c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || null;
+
+  try {
+    const result = await redeemToken(token, clientIp || undefined);
+
+    // Issue a session token identical to stage-login
+    await sql`
+      DELETE FROM stage_sessions
+      WHERE stage_id = ${result.stageId} AND expires_at < now()
+    `;
+    const sessionToken = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await sql`
+      INSERT INTO stage_sessions (stage_id, token, expires_at, last_used_at)
+      VALUES (${result.stageId}, ${sessionToken}, ${expiresAt.toISOString()}, now())
+    `;
+
+    return c.json({
+      sessionToken,
+      stageId: result.stageId,
+      stageName: result.stageName,
+      matchId: result.matchId,
+      expiresAt: expiresAt.toISOString(),
+    });
+  } catch (err: any) {
+    if (err instanceof TokenError) {
+      return c.json({ error: err.message }, err.status as 404 | 410);
+    }
+    throw err;
+  }
+});
+
+/**
+ * DELETE /api/auth/stage-link-token
+ * Revoke all unredeemed tokens for a match (admin only).
+ * Body: { matchId?: string } — if omitted, uses the current match.
+ */
+authRoutes.delete('/stage-link-token', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required.' }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: 'Invalid or expired admin session.' }, 401);
+  }
+
+  let matchId: string | undefined;
+  try {
+    const body = await c.req.json();
+    matchId = body.matchId;
+  } catch {
+    // Empty or invalid body — will fall back to current match
+  }
+
+  if (!matchId) {
+    const [currentMatch] = await sql`
+      SELECT id FROM matches WHERE is_current = true LIMIT 1
+    `;
+    if (currentMatch) matchId = currentMatch.id;
+  }
+
+  if (!matchId) {
+    return c.json({ error: 'No current match set.' }, 400);
+  }
+
+  const count = await revokeStageLinkTokens(matchId);
+  return c.json({ revoked: count });
+});
+
+/**
+ * GET /api/auth/stage-link-token
+ * Get all active (unredeemed, non-expired, non-revoked) tokens for a match (admin only).
+ */
+authRoutes.get('/stage-link-token', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required.' }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: 'Invalid or expired admin session.' }, 401);
+  }
+
+  let matchId = c.req.query('matchId');
+  if (!matchId) {
+    const [currentMatch] = await sql`
+      SELECT id FROM matches WHERE is_current = true LIMIT 1
+    `;
+    if (currentMatch) {
+      matchId = currentMatch.id;
+    }
+  }
+
+  if (!matchId) {
+    return c.json([]);
+  }
+
+  const tokens = await getActiveStageLinkTokens(matchId);
+  const publicOrigin = getPublicOrigin(c);
+  return c.json(tokens.map(t => ({
+    id: t.id,
+    stageId: t.stage_id,
+    stageName: t.stage_name,
+    stageNumber: t.stage_number,
+    url: `${publicOrigin}/hodnotenie?stageToken=${t.id}`,
+    createdAt: t.created_at,
+    expiresAt: t.expires_at,
+  })));
 });

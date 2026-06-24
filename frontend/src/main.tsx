@@ -4,6 +4,7 @@ import App from './App';
 import './i18n';
 import './index.css';
 import { registerServiceWorker } from './utils/swRegistration';
+import { ScoringBaseUrlProvider } from './components/ScoringBaseUrlProvider';
 
 // Reference build timestamp so every build produces unique content hashes
 // This forces browsers to fetch the new version instead of using cached JS
@@ -14,6 +15,7 @@ declare const __APP_BUILD_TIME__: string;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
+    <ScoringBaseUrlProvider />
     <App />
   </React.StrictMode>,
 );

@@ -33,6 +33,8 @@ interface AuthState {
   adminLogout: () => void;
   /** Log in as a remote scorer for a specific stage */
   login: (stageId: string, password: string) => Promise<boolean>;
+  /** Log in as a remote scorer using a pre-authenticated session token */
+  loginWithToken: (stageId: string, stageName: string, matchId: string, sessionToken: string) => Promise<boolean>;
   /** Log out the remote scorer */
   logout: () => void;
   /** Check if the user can edit scores for a specific stage */
@@ -140,6 +142,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return false;
       }
 
+      set({ loading: false, error: err.message || 'Login failed' });
+      return false;
+    }
+  },
+
+  loginWithToken: async (stageId: string, stageName: string, matchId: string, sessionToken: string) => {
+    set({ loading: true, error: null });
+    try {
+      set({
+        isAuthenticated: true,
+        stageToken: sessionToken,
+        authenticatedStageId: stageId,
+        authenticatedStageName: stageName,
+        authenticatedMatchId: matchId,
+        loading: false,
+        error: null,
+      });
+
+      // Persist to localStorage
+      localStorage.setItem('auth_token', sessionToken);
+      localStorage.setItem('auth_stage_id', stageId);
+      localStorage.setItem('auth_stage_name', stageName);
+      localStorage.setItem('auth_match_id', matchId);
+      localStorage.setItem('auth_role', 'scorer');
+
+      return true;
+    } catch (err: any) {
       set({ loading: false, error: err.message || 'Login failed' });
       return false;
     }

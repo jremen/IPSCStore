@@ -952,8 +952,8 @@ var createAdaptorServer = (options) => {
     overrideGlobalObjects: options.overrideGlobalObjects,
     autoCleanupIncoming: options.autoCleanupIncoming
   });
-  const createServer = options.createServer || createServerHTTP;
-  const server = createServer(options.serverOptions || {}, requestListener);
+  const createServer2 = options.createServer || createServerHTTP;
+  const server = createServer2(options.serverOptions || {}, requestListener);
   return server;
 };
 var serve = (options, listeningListener) => {
@@ -964,6 +964,10 @@ var serve = (options, listeningListener) => {
   });
   return server;
 };
+
+// ../backend/src/index.ts
+import { createServer } from "https";
+import fs5 from "fs";
 
 // ../backend/src/app.ts
 import os3 from "os";
@@ -18169,7 +18173,100 @@ winmssImportRoutes.post("/winmss", async (c) => {
 });
 
 // ../backend/src/routes/auth.ts
+import crypto5 from "crypto";
+
+// ../backend/src/services/stageLinkTokens.ts
 import crypto4 from "crypto";
+var DEFAULT_TTL_SECONDS = 5 * 60 * 60;
+var MAX_TTL_SECONDS = 24 * 60 * 60;
+var TokenError = class extends Error {
+  status;
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
+};
+async function createStageLinkToken(stageId, ttlSeconds = DEFAULT_TTL_SECONDS, createdBy) {
+  const clampedTtl = Math.min(Math.max(ttlSeconds, 60), MAX_TTL_SECONDS);
+  const [stage] = await sql`
+    SELECT s.id, s.name, s.match_id
+    FROM stages s
+    WHERE s.id = ${stageId}
+  `;
+  if (!stage) {
+    throw new Error("Stage not found");
+  }
+  const token = crypto4.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + clampedTtl * 1e3);
+  await sql`
+    INSERT INTO stage_link_tokens (id, match_id, stage_id, created_by, expires_at)
+    VALUES (${token}, ${stage.match_id}, ${stageId}, ${createdBy || null}, ${expiresAt.toISOString()})
+  `;
+  return {
+    token,
+    stageId: stage.id,
+    stageName: stage.name,
+    matchId: stage.match_id,
+    expiresAt
+  };
+}
+async function redeemStageLinkToken(token, clientIp) {
+  const [row] = await sql`
+    SELECT t.id, t.stage_id, t.match_id, t.expires_at, t.redeemed_at, t.revoked_at,
+           s.name as stage_name
+    FROM stage_link_tokens t
+    JOIN stages s ON s.id = t.stage_id
+    WHERE t.id = ${token}
+  `;
+  if (!row) {
+    throw new TokenError("Token not found", 404);
+  }
+  if (row.revoked_at) {
+    throw new TokenError("Token has been revoked", 410);
+  }
+  if (row.redeemed_at) {
+    throw new TokenError("Token already used", 410);
+  }
+  if (new Date(row.expires_at) < /* @__PURE__ */ new Date()) {
+    throw new TokenError("Token has expired", 410);
+  }
+  await sql`
+    UPDATE stage_link_tokens
+    SET redeemed_at = now(), redeemed_ip = ${clientIp || null}
+    WHERE id = ${token}
+  `;
+  return {
+    stageId: row.stage_id,
+    stageName: row.stage_name,
+    matchId: row.match_id,
+    expiresAt: new Date(row.expires_at)
+  };
+}
+async function revokeStageLinkTokens(matchId) {
+  const result = await sql`
+    UPDATE stage_link_tokens
+    SET revoked_at = now()
+    WHERE match_id = ${matchId}
+      AND revoked_at IS NULL
+      AND redeemed_at IS NULL
+  `;
+  return result.count;
+}
+async function getActiveStageLinkTokens(matchId) {
+  return sql`
+    SELECT t.id, t.stage_id, t.match_id, t.created_at, t.expires_at,
+           s.name as stage_name, s.stage_number
+    FROM stage_link_tokens t
+    JOIN stages s ON s.id = t.stage_id
+    WHERE t.match_id = ${matchId}
+      AND t.redeemed_at IS NULL
+      AND t.revoked_at IS NULL
+      AND t.expires_at > now()
+    ORDER BY t.created_at DESC
+  `;
+}
+
+// ../backend/src/routes/auth.ts
 var authRoutes = new Hono2();
 var DEFAULT_ADMIN_PASSWORD = "admin";
 var BCRYPT_COST = 12;
@@ -18226,7 +18323,7 @@ authRoutes.post("/admin-login", async (c) => {
     return c.json({ error: "Incorrect password." }, 401);
   }
   await sql`DELETE FROM admin_sessions WHERE expires_at < now()`;
-  const token = crypto4.randomUUID();
+  const token = crypto5.randomUUID();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1e3);
   await sql`
     INSERT INTO admin_sessions (token, expires_at)
@@ -18345,7 +18442,7 @@ authRoutes.post("/stage-login", async (c) => {
     DELETE FROM stage_sessions
     WHERE stage_id = ${stageId} AND expires_at < now()
   `;
-  const token = crypto4.randomUUID();
+  const token = crypto5.randomUUID();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1e3);
   await sql`
     INSERT INTO stage_sessions (stage_id, token, expires_at, last_used_at)
@@ -18443,6 +18540,125 @@ authRoutes.post("/logout", async (c) => {
     await sql`DELETE FROM admin_sessions WHERE token = ${token}`;
   }
   return c.json({ success: true });
+});
+authRoutes.post("/stage-link-token", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Authentication required." }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: "Invalid or expired admin session." }, 401);
+  }
+  const { stageId, ttlSeconds } = await c.req.json();
+  if (!stageId) {
+    return c.json({ error: "stageId is required." }, 400);
+  }
+  try {
+    const result = await createStageLinkToken(stageId, ttlSeconds, adminToken);
+    const baseUrl = `${c.req.url.split("/api")[0]}`;
+    return c.json({
+      token: result.token,
+      url: `${baseUrl}/hodnotenie?stageToken=${result.token}`,
+      stageId: result.stageId,
+      stageName: result.stageName,
+      matchId: result.matchId,
+      expiresAt: result.expiresAt.toISOString()
+    });
+  } catch (err) {
+    if (err.message === "Stage not found") {
+      return c.json({ error: "Stage not found." }, 404);
+    }
+    throw err;
+  }
+});
+authRoutes.post("/stage-link-redeem", async (c) => {
+  const { token } = await c.req.json();
+  if (!token) {
+    return c.json({ error: "token is required." }, 400);
+  }
+  const clientIp = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || null;
+  try {
+    const result = await redeemStageLinkToken(token, clientIp || void 0);
+    await sql`
+      DELETE FROM stage_sessions
+      WHERE stage_id = ${result.stageId} AND expires_at < now()
+    `;
+    const sessionToken = crypto5.randomUUID();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1e3);
+    await sql`
+      INSERT INTO stage_sessions (stage_id, token, expires_at, last_used_at)
+      VALUES (${result.stageId}, ${sessionToken}, ${expiresAt.toISOString()}, now())
+    `;
+    return c.json({
+      sessionToken,
+      stageId: result.stageId,
+      stageName: result.stageName,
+      matchId: result.matchId,
+      expiresAt: expiresAt.toISOString()
+    });
+  } catch (err) {
+    if (err instanceof TokenError) {
+      return c.json({ error: err.message }, err.status);
+    }
+    throw err;
+  }
+});
+authRoutes.delete("/stage-link-token", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Authentication required." }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: "Invalid or expired admin session." }, 401);
+  }
+  const { matchId } = await c.req.json();
+  if (!matchId) {
+    return c.json({ error: "matchId is required." }, 400);
+  }
+  const count = await revokeStageLinkTokens(matchId);
+  return c.json({ revoked: count });
+});
+authRoutes.get("/stage-link-token", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Authentication required." }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: "Invalid or expired admin session." }, 401);
+  }
+  let matchId = c.req.query("matchId");
+  if (!matchId) {
+    const [currentMatch] = await sql`
+      SELECT id FROM matches WHERE is_current = true LIMIT 1
+    `;
+    if (currentMatch) {
+      matchId = currentMatch.id;
+    }
+  }
+  if (!matchId) {
+    return c.json([]);
+  }
+  const tokens = await getActiveStageLinkTokens(matchId);
+  return c.json(tokens.map((t) => ({
+    id: t.id,
+    stageId: t.stage_id,
+    stageName: t.stage_name,
+    stageNumber: t.stage_number,
+    createdAt: t.created_at,
+    expiresAt: t.expires_at
+  })));
 });
 
 // ../backend/src/routes/backup.ts
@@ -18811,6 +19027,7 @@ function getDomainMode(host, urlPath) {
   const normalizedPath = urlPath.toLowerCase();
   if (hostname === "vysledky.local" || normalizedPath.startsWith("/vysledky")) return "results";
   if (hostname === "hodnotenie.local" || normalizedPath.startsWith("/hodnotenie")) return "scoring";
+  if (hostname === "squads.local" || normalizedPath.startsWith("/squads")) return "squads";
   return "admin";
 }
 app.use("*", async (c, next) => {
@@ -18907,6 +19124,8 @@ app.get("/manifest.json", async (c) => {
         mode = "results";
       } else if (refererPath.startsWith("/hodnotenie") || refererHost === "hodnotenie.local") {
         mode = "scoring";
+      } else if (refererPath.startsWith("/squads") || refererHost === "squads.local") {
+        mode = "squads";
       }
     } catch {
     }
@@ -18945,6 +19164,9 @@ app.get("/manifest.json", async (c) => {
   } else if (mode === "scoring") {
     manifest.start_url = "/hodnotenie";
     manifest.id = "ipscscore-scoring";
+  } else if (mode === "squads") {
+    manifest.start_url = "/squads";
+    manifest.id = "ipscscore-squads";
   }
   return c.json(manifest);
 });
@@ -18972,7 +19194,7 @@ function enableStaticServing(frontendDistPath) {
           "<head>",
           `<head><script>window.__DOMAIN_MODE__ = "${domainMode}";</script>`
         );
-        const manifestHref = domainMode === "results" ? "/manifest.json?mode=results" : "/manifest.json?mode=scoring";
+        const manifestHref = domainMode === "results" ? "/manifest.json?mode=results" : domainMode === "squads" ? "/manifest.json?mode=squads" : "/manifest.json?mode=scoring";
         html = html.replace(
           /<link[^>]*rel=["']manifest["'][^>]*>/i,
           `<link rel="manifest" href="${manifestHref}" />`
@@ -19055,6 +19277,29 @@ async function main() {
   if (frontendDistPath) {
     await enableStaticServing(frontendDistPath);
     console.log(`Serving frontend from ${frontendDistPath}`);
+  }
+  if (env.TLS_CERT_PATH && env.TLS_KEY_PATH) {
+    const certExists = fs5.existsSync(env.TLS_CERT_PATH);
+    const keyExists = fs5.existsSync(env.TLS_KEY_PATH);
+    if (certExists && keyExists) {
+      const cert = fs5.readFileSync(env.TLS_CERT_PATH);
+      const key = fs5.readFileSync(env.TLS_KEY_PATH);
+      serve(
+        {
+          fetch: app.fetch,
+          port: env.PORT,
+          hostname: env.BIND_ADDRESS,
+          createServer: () => createServer({ cert, key })
+        },
+        (info) => {
+          console.log(`Server running at https://${env.BIND_ADDRESS}:${info.port}`);
+        }
+      );
+      return;
+    } else {
+      console.warn(`[TLS] Certificate files not found: ${env.TLS_CERT_PATH}, ${env.TLS_KEY_PATH}`);
+      console.warn("[TLS] Falling back to HTTP");
+    }
   }
   serve({ fetch: app.fetch, port: env.PORT, hostname: env.BIND_ADDRESS }, (info) => {
     console.log(`Server running at http://${env.BIND_ADDRESS}:${info.port}`);

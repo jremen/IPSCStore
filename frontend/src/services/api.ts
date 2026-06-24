@@ -12,6 +12,14 @@ function getApiBase(): string {
 
 const API_BASE = getApiBase();
 
+// Public origin for stage link QR codes (e.g. "http://192.168.1.5:3001").
+// Set by ScoringBaseUrlProvider on app mount. Falls back to window.location.origin.
+let scoringBaseUrl: string | null = null;
+
+export function setScoringBaseUrl(url: string | null) {
+  scoringBaseUrl = url;
+}
+
 /** Get the auth token from localStorage — prefer admin token over scorer token */
 export function getAuthToken(): string | null {
   const role = localStorage.getItem('auth_role');
@@ -24,6 +32,7 @@ export function getAuthToken(): string | null {
 /** Build headers with optional auth token */
 function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  headers['X-Public-Origin'] = scoringBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
   const token = getAuthToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -183,6 +192,30 @@ export const api = {
       } catch {
         return { success: true };
       }
+    },
+
+    // Stage Link Tokens
+    createStageLinkToken: async (stageId: string, ttlSeconds?: number): Promise<{ token: string; url: string; stageId: string; stageName: string; matchId: string; expiresAt: string }> => {
+      return request('/api/auth/stage-link-token', {
+        method: 'POST',
+        body: JSON.stringify({ stageId, ttlSeconds }),
+      });
+    },
+    redeemStageLinkToken: async (token: string): Promise<{ sessionToken: string; stageId: string; stageName: string; matchId: string; expiresAt: string }> => {
+      return request('/api/auth/stage-link-redeem', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      });
+    },
+    getActiveStageLinkTokens: async (matchId?: string): Promise<Array<{ id: string; stageId: string; stageName: string; stageNumber: number; url: string; createdAt: string; expiresAt: string }>> => {
+      const qs = matchId ? `?matchId=${matchId}` : '';
+      return request(`/api/auth/stage-link-token${qs}`);
+    },
+    revokeStageLinkTokens: async (matchId?: string): Promise<{ revoked: number }> => {
+      return request('/api/auth/stage-link-token', {
+        method: 'DELETE',
+        body: JSON.stringify({ matchId }),
+      });
     },
   },
 

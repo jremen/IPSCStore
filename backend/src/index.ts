@@ -1,4 +1,6 @@
 import { serve } from '@hono/node-server';
+import { createServer } from 'https';
+import fs from 'fs';
 import { app, enableStaticServing } from './app.js';
 import { env } from './env.js';
 import { closeDb } from './db/client.js';
@@ -8,6 +10,17 @@ async function main() {
   console.log('Running migrations...');
   await runMigrations();
 
+  // Cleanup expired stage link tokens older than 7 days
+  try {
+    const { cleanupExpiredTokens } = await import('./services/stageLinkTokens.js');
+    const deleted = await cleanupExpiredTokens();
+    if (deleted > 0) {
+      console.log(`Cleaned up ${deleted} expired stage link token(s).`);
+    }
+  } catch (err: any) {
+    console.warn('[Startup] Token cleanup failed:', err.message);
+  }
+
   // In production (Electron), enable static file serving for the frontend
   const frontendDistPath = process.env.FRONTEND_DIST_PATH;
   if (frontendDistPath) {
@@ -15,9 +28,34 @@ async function main() {
     console.log(`Serving frontend from ${frontendDistPath}`);
   }
 
-  // TLS is recommended to be handled by a reverse proxy (Caddy, nginx) in production.
-  // For direct TLS, set TLS_CERT_PATH and TLS_KEY_PATH env vars.
-  // The server binds to BIND_ADDRESS (default 0.0.0.0).
+  // If TLS cert and key are provided, serve over HTTPS
+  if (env.TLS_CERT_PATH && env.TLS_KEY_PATH) {
+    const certExists = fs.existsSync(env.TLS_CERT_PATH);
+    const keyExists = fs.existsSync(env.TLS_KEY_PATH);
+
+    if (certExists && keyExists) {
+      const cert = fs.readFileSync(env.TLS_CERT_PATH);
+      const key = fs.readFileSync(env.TLS_KEY_PATH);
+
+      serve(
+        {
+          fetch: app.fetch,
+          port: env.PORT,
+          hostname: env.BIND_ADDRESS,
+          createServer: () => createServer({ cert, key }),
+        },
+        (info) => {
+          console.log(`Server running at https://${env.BIND_ADDRESS}:${info.port}`);
+        }
+      );
+      return;
+    } else {
+      console.warn(`[TLS] Certificate files not found: ${env.TLS_CERT_PATH}, ${env.TLS_KEY_PATH}`);
+      console.warn('[TLS] Falling back to HTTP');
+    }
+  }
+
+  // Default: HTTP
   serve({ fetch: app.fetch, port: env.PORT, hostname: env.BIND_ADDRESS }, (info) => {
     console.log(`Server running at http://${env.BIND_ADDRESS}:${info.port}`);
   });

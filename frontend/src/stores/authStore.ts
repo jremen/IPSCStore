@@ -1,60 +1,50 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
-import * as offlineDB from '../services/offlineDB';
-import { isBackendReachable, isNetworkError } from '../services/connectivity';
+import { isBackendReachable } from '../services/connectivity';
 
 interface AuthState {
-  /** Whether the user is authenticated (has a valid token) */
   isAuthenticated: boolean;
-  /** Whether the user is an admin (authenticated with admin password) */
   isAdmin: boolean;
-  /** Admin session token */
   adminToken: string | null;
-  /** The stage session token for remote scorers */
-  stageToken: string | null;
-  /** The stage ID the remote scorer is authenticated for */
-  authenticatedStageId: string | null;
-  /** The stage name the remote scorer is authenticated for */
-  authenticatedStageName: string | null;
-  /** The match ID the remote scorer is authenticated for */
+  scorerSessionToken: string | null;
   authenticatedMatchId: string | null;
-  /** Whether the client is on the local network (for UI routing) */
+  trustToken: string | null;
   isLocalNetwork: boolean;
-  /** Domain mode based on hostname: 'results' (vysledky.local), 'scoring' (hodnotenie.local), or 'admin' (default) */
   domainMode: 'results' | 'scoring' | 'squads' | 'admin';
-  /** Loading state */
   loading: boolean;
-  /** Error message */
   error: string | null;
 
-  /** Log in as admin with password */
   adminLogin: (password: string) => Promise<boolean>;
-  /** Log out the admin */
   adminLogout: () => void;
-  /** Log in as a remote scorer for a specific stage */
-  login: (stageId: string, password: string) => Promise<boolean>;
-  /** Log in as a remote scorer using a pre-authenticated session token */
-  loginWithToken: (stageId: string, stageName: string, matchId: string, sessionToken: string) => Promise<boolean>;
-  /** Log out the remote scorer */
+  loginWithTrustToken: (trustToken: string) => Promise<boolean>;
+  revalidateTrust: () => Promise<boolean>;
+  autoLogin: () => Promise<boolean>;
   logout: () => void;
-  /** Check if the user can edit scores for a specific stage */
-  canEditStage: (stageId: string) => boolean;
-  /** Restore session from localStorage */
+  canEditStage: (_stageId: string) => boolean;
   restoreSession: () => Promise<void>;
-  /** Re-authenticate offline sessions with the server when back online */
-  syncOfflineAuth: () => Promise<void>;
-  /** Check if client is on local network (for UI routing) */
   checkLocalNetwork: () => void;
+}
+
+const TRUST_KEY = 'auth_trust_token';
+const SESSION_KEY = 'auth_scorer_token';
+const MATCH_KEY = 'auth_match_id';
+const ADMIN_KEY = 'admin_token';
+const ROLE_KEY = 'auth_role';
+
+function clearScorerLocalStorage() {
+  localStorage.removeItem(TRUST_KEY);
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(MATCH_KEY);
+  localStorage.removeItem(ROLE_KEY);
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   isAdmin: false,
   adminToken: null,
-  stageToken: null,
-  authenticatedStageId: null,
-  authenticatedStageName: null,
+  scorerSessionToken: null,
   authenticatedMatchId: null,
+  trustToken: null,
   isLocalNetwork: false,
   domainMode: 'admin',
   loading: false,
@@ -78,9 +68,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: null,
       });
 
-      // Persist to localStorage
-      localStorage.setItem('admin_token', token);
-      localStorage.setItem('auth_role', 'admin');
+      localStorage.setItem(ADMIN_KEY, token);
+      localStorage.setItem(ROLE_KEY, 'admin');
 
       return true;
     } catch (err: any) {
@@ -102,207 +91,185 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       error: null,
     });
 
-    localStorage.removeItem('admin_token');
-    localStorage.removeItem('auth_role');
+    localStorage.removeItem(ADMIN_KEY);
+    localStorage.removeItem(ROLE_KEY);
   },
 
-  login: async (stageId: string, password: string) => {
+  loginWithTrustToken: async (trustToken: string) => {
     set({ loading: true, error: null });
     try {
-      const response = await api.auth.stageLogin(stageId, password);
+      const deviceLabel = navigator.userAgent;
+      const response = await api.auth.redeemScorerTrust(trustToken, deviceLabel);
+
       if (response.error) {
         set({ loading: false, error: response.error });
         return false;
       }
 
-      const { token, stageId: authStageId, stageName, matchId } = response;
+      const { sessionToken, matchId } = response;
       set({
         isAuthenticated: true,
-        stageToken: token,
-        authenticatedStageId: authStageId,
-        authenticatedStageName: stageName,
+        scorerSessionToken: sessionToken,
         authenticatedMatchId: matchId,
+        trustToken,
         loading: false,
         error: null,
       });
 
-      // Persist to localStorage
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('auth_stage_id', authStageId);
-      localStorage.setItem('auth_stage_name', stageName);
-      localStorage.setItem('auth_match_id', matchId);
-      localStorage.setItem('auth_role', 'scorer');
+      localStorage.setItem(TRUST_KEY, trustToken);
+      localStorage.setItem(SESSION_KEY, sessionToken);
+      localStorage.setItem(MATCH_KEY, matchId);
+      localStorage.setItem(ROLE_KEY, 'scorer');
 
       return true;
     } catch (err: any) {
-      // Network error — cannot authenticate offline without server
-      // The password_hash is no longer exposed to the client for security
-      if (isNetworkError(err)) {
-        set({ loading: false, error: 'Cannot authenticate offline. Please connect to the network and try again.' });
-        return false;
-      }
-
-      set({ loading: false, error: err.message || 'Login failed' });
+      set({ loading: false, error: err.message || 'Trust token redemption failed' });
       return false;
     }
   },
 
-  loginWithToken: async (stageId: string, stageName: string, matchId: string, sessionToken: string) => {
+  revalidateTrust: async () => {
+    const trustToken = localStorage.getItem(TRUST_KEY);
+    const sessionToken = localStorage.getItem(SESSION_KEY);
+
+    if (!sessionToken || !trustToken) return false;
+
     set({ loading: true, error: null });
-    try {
+
+    // If offline, trust localStorage
+    if (!navigator.onLine || !(await isBackendReachable())) {
+      const matchId = localStorage.getItem(MATCH_KEY);
       set({
         isAuthenticated: true,
-        stageToken: sessionToken,
-        authenticatedStageId: stageId,
-        authenticatedStageName: stageName,
+        scorerSessionToken: sessionToken,
         authenticatedMatchId: matchId,
+        trustToken,
+        loading: false,
+        error: null,
+      });
+      return true;
+    }
+
+    // Revalidate session with server (requires BOTH tokens)
+    try {
+      const result = await api.auth.revalidateScorerSession(trustToken, sessionToken);
+      if (result.error) {
+        clearScorerLocalStorage();
+        set({ loading: false, error: 'Trust revoked. Please rescan the QR code.', trustToken: null, scorerSessionToken: null, authenticatedMatchId: null, isAuthenticated: false });
+        return false;
+      }
+
+      set({
+        isAuthenticated: true,
+        scorerSessionToken: result.sessionToken || sessionToken,
+        authenticatedMatchId: result.matchId,
+        trustToken,
         loading: false,
         error: null,
       });
 
-      // Persist to localStorage
-      localStorage.setItem('auth_token', sessionToken);
-      localStorage.setItem('auth_stage_id', stageId);
-      localStorage.setItem('auth_stage_name', stageName);
-      localStorage.setItem('auth_match_id', matchId);
-      localStorage.setItem('auth_role', 'scorer');
+      if (result.sessionToken && result.sessionToken !== sessionToken) {
+        localStorage.setItem(SESSION_KEY, result.sessionToken);
+      }
 
       return true;
-    } catch (err: any) {
-      set({ loading: false, error: err.message || 'Login failed' });
+    } catch {
+      clearScorerLocalStorage();
+      set({ loading: false, error: 'Trust revoked. Please rescan the QR code.', trustToken: null, scorerSessionToken: null, authenticatedMatchId: null, isAuthenticated: false });
+      return false;
+    }
+  },
+
+  autoLogin: async () => {
+    const sessionToken = localStorage.getItem(SESSION_KEY);
+    if (sessionToken) return false;
+
+    set({ loading: true, error: null });
+    try {
+      const result = await api.auth.scorerAutoLogin();
+      if (result.error) {
+        set({ loading: false, error: 'No active session found. Please scan the QR code in your camera app and return to this app.' });
+        return false;
+      }
+
+      set({
+        isAuthenticated: true,
+        scorerSessionToken: result.sessionToken,
+        authenticatedMatchId: result.matchId,
+        loading: false,
+        error: null,
+      });
+
+      localStorage.setItem(SESSION_KEY, result.sessionToken);
+      localStorage.setItem(MATCH_KEY, result.matchId);
+      localStorage.setItem(ROLE_KEY, 'scorer');
+      return true;
+    } catch {
+      set({ loading: false, error: 'Could not reach the server. Please check your connection and try again.' });
       return false;
     }
   },
 
   logout: () => {
-    // Try to invalidate the token on the server
-    const token = get().stageToken;
-    if (token) {
-      api.auth.logout(token).catch(() => {});
+    const sessionToken = get().scorerSessionToken;
+    if (sessionToken) {
+      api.auth.scorerLogout(sessionToken).catch(() => {});
     }
 
-    // Clean up offline session data
-    const stageId = get().authenticatedStageId;
-    if (stageId) {
-      offlineDB.clearOfflinePassword(stageId).catch(() => {});
-    }
-
+    clearScorerLocalStorage();
     set({
       isAuthenticated: false,
-      stageToken: null,
-      authenticatedStageId: null,
-      authenticatedStageName: null,
+      scorerSessionToken: null,
       authenticatedMatchId: null,
+      trustToken: null,
       error: null,
     });
-
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_stage_id');
-    localStorage.removeItem('auth_stage_name');
-    localStorage.removeItem('auth_match_id');
-    localStorage.removeItem('auth_role');
-    localStorage.removeItem('auth_offline');
   },
 
-  canEditStage: (stageId: string) => {
-    const { isAdmin, authenticatedStageId } = get();
-    if (isAdmin) return true;
-    return authenticatedStageId === stageId;
+  canEditStage: (_stageId: string) => {
+    const { isAdmin } = get();
+    return isAdmin;
   },
 
   restoreSession: async () => {
-    const role = localStorage.getItem('auth_role');
+    const role = localStorage.getItem(ROLE_KEY);
 
     if (role === 'admin') {
-      const token = localStorage.getItem('admin_token');
+      const token = localStorage.getItem(ADMIN_KEY);
       if (token) {
-        // If offline or backend unreachable, trust localStorage — admin tokens are long-lived (24h)
         if (!navigator.onLine || !(await isBackendReachable())) {
-          set({
-            isAuthenticated: true,
-            isAdmin: true,
-            adminToken: token,
-          });
+          set({ isAuthenticated: true, isAdmin: true, adminToken: token });
           get().checkLocalNetwork();
           return;
         }
 
-        // Validate the admin token with the server
         try {
           const me = await api.auth.getMe(`Bearer ${token}`);
           if (me.role === 'admin') {
-            set({
-              isAuthenticated: true,
-              isAdmin: true,
-              adminToken: token,
-            });
+            set({ isAuthenticated: true, isAdmin: true, adminToken: token });
             get().checkLocalNetwork();
             return;
           }
         } catch {
-          // Token invalid, clear it
-          localStorage.removeItem('admin_token');
-          localStorage.removeItem('auth_role');
+          localStorage.removeItem(ADMIN_KEY);
+          localStorage.removeItem(ROLE_KEY);
         }
       }
     } else if (role === 'scorer') {
-      const token = localStorage.getItem('auth_token');
-      const stageId = localStorage.getItem('auth_stage_id');
-      const stageName = localStorage.getItem('auth_stage_name');
-      const matchId = localStorage.getItem('auth_match_id');
-
-      if (token && stageId) {
-        // If offline or backend unreachable, trust localStorage — scorer tokens are long-lived (24h)
-        if (!navigator.onLine || !(await isBackendReachable())) {
-          set({
-            isAuthenticated: true,
-            stageToken: token,
-            authenticatedStageId: stageId,
-            authenticatedStageName: stageName,
-            authenticatedMatchId: matchId,
-          });
+      const sessionToken = localStorage.getItem(SESSION_KEY);
+      const trustToken = localStorage.getItem(TRUST_KEY);
+      if (sessionToken && trustToken) {
+        const ok = await get().revalidateTrust();
+        if (ok) {
           get().checkLocalNetwork();
           return;
-        }
-
-        // Validate the scorer token with the server
-        try {
-          const me = await api.auth.getMe(`Bearer ${token}`);
-          if (me.role === 'scorer') {
-            set({
-              isAuthenticated: true,
-              stageToken: token,
-              authenticatedStageId: me.stageId || stageId,
-              authenticatedStageName: me.stageName || stageName,
-              authenticatedMatchId: me.matchId || matchId,
-            });
-            // Token validated by server — no longer an offline session
-            localStorage.removeItem('auth_offline');
-            get().checkLocalNetwork();
-            return;
-          }
-        } catch {
-          // Token invalid, clear it
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('auth_stage_id');
-          localStorage.removeItem('auth_stage_name');
-          localStorage.removeItem('auth_match_id');
-          localStorage.removeItem('auth_role');
         }
       }
     }
 
-    // Not authenticated — check if on local network for UI routing
+    const ok = await get().autoLogin();
     get().checkLocalNetwork();
-  },
-
-  syncOfflineAuth: async () => {
-    // Offline auth is no longer supported — password_hash is not exposed to client.
-    // Clear any stale offline markers.
-    const isOffline = localStorage.getItem('auth_offline') === 'true';
-    if (isOffline) {
-      localStorage.removeItem('auth_offline');
-    }
+    if (ok) return;
   },
 
   checkLocalNetwork: () => {
@@ -310,13 +277,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
     const pathname = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
 
-    // Determine domain mode from server-injected global, hostname, or URL path.
-    // Path-based detection is needed for Docker dev (Vite serves index.html without
-    // backend injection) and for IP-based LAN access like http://192.168.x.x:5173/hodnotenie.
     let domainMode: 'results' | 'scoring' | 'squads' | 'admin' = 'admin';
-    if (typeof window !== 'undefined' && window.__DOMAIN_MODE__) {
-      domainMode = window.__DOMAIN_MODE__;
-    } else if (hostname === 'vysledky.local' || hostname.endsWith('.vysledky.local') || pathname.startsWith('/vysledky')) {
+    if (hostname === 'vysledky.local' || hostname.endsWith('.vysledky.local') || pathname.startsWith('/vysledky')) {
       domainMode = 'results';
     } else if (hostname === 'hodnotenie.local' || hostname.endsWith('.hodnotenie.local') || pathname.startsWith('/hodnotenie')) {
       domainMode = 'scoring';
@@ -324,21 +286,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       domainMode = 'squads';
     }
 
-    // Domain mode overrides local network detection:
-    // - vysledky.local → public results, never show admin login
-    // - hodnotenie.local → scoring login, never show admin login
-    // - anything else → existing logic (admin on local, scoring on remote)
     const isLocal = isElectron || isLocalNetworkHostname(hostname);
-
     set({ isLocalNetwork: isLocal, domainMode });
   },
 }));
 
-/**
- * Check if a hostname corresponds to a local/trusted network address.
- * Used only for UI routing (deciding which login form to show).
- * Admin auth is password-based, not IP-based.
- */
 function isLocalNetworkHostname(hostname: string): boolean {
   if (!hostname) return false;
   if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return true;

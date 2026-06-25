@@ -105,21 +105,40 @@ app.route('/api/auth', authRoutes);
 // ─── Results routes (public reads) ───
 app.route('/api', resultsRoutes);
 
-// ─── Upload routes (public reads — stage briefing images) ───
+// ─── Public squads route (GET only, for squads.local) ───
+// Registered before authMiddleware so it's unauthenticated.
+// Squads contain no PII (just squad numbers for grouping).
+app.get('/api/matches/:matchId/squads', async (c) => {
+  const matchId = c.req.param('matchId');
+  const { sql } = await import('./db/client.js');
+  const squads = await sql`
+    SELECT mr.squad, COUNT(*) as shooter_count
+    FROM match_registrations mr
+    WHERE mr.match_id = ${matchId} AND mr.squad IS NOT NULL
+    GROUP BY mr.squad
+    ORDER BY mr.squad
+  `;
+  const unassigned = await sql`
+    SELECT COUNT(*) as count FROM match_registrations
+    WHERE match_id = ${matchId} AND squad IS NULL
+  `;
+  return c.json({
+    squads: squads.map((s: any) => ({ squad: s.squad, shooter_count: Number(s.shooter_count) })),
+    unassigned_count: Number(unassigned[0]?.count ?? 0),
+  });
+});
+
+// ─── Upload routes (briefing images — auth required) ───
+app.use('/api/uploads', authMiddleware);
 app.route('/api', uploadRoutes);
 
-// ─── Matches: public reads, admin writes ───
-// GET is public; POST/PUT/DELETE require admin
+// ─── Matches: all reads + writes require auth ───
 app.use('/api/matches', authMiddleware);
-app.use('/api/matches', methodGuard(['admin']));
 app.route('/api/matches', matchRoutes);
 
-// ─── Stages: public reads, admin writes ───
-// GET is public; POST/PUT/DELETE require admin
+// ─── Stages: all reads + writes require auth ───
 app.use('/api/matches/:matchId/stages', authMiddleware);
-app.use('/api/matches/:matchId/stages', methodGuard(['admin']));
 app.use('/api/stages', authMiddleware);
-app.use('/api/stages', methodGuard(['admin']));
 app.route('/api', stageRoutes);
 
 // ─── Shooters: admin only (including reads — PII protection) ───
@@ -127,10 +146,8 @@ app.use('/api/shooters', authMiddleware);
 app.use('/api/shooters', requireAdmin);
 app.route('/api/shooters', shooterRoutes);
 
-// ─── Registrations: public reads, admin writes ───
+// ─── Registrations: all reads + writes require auth ───
 app.use('/api/matches/:matchId/registrations', authMiddleware);
-app.use('/api/matches/:matchId/registrations', methodGuard(['admin']));
-app.use('/api/matches/:matchId/squads', authMiddleware);
 app.route('/api', registrationRoutes);
 
 // ─── Scoring: scorer or admin auth ───
@@ -186,6 +203,13 @@ app.get('/manifest.json', async (c) => {
     } catch {
       // ignore malformed referer
     }
+  }
+
+  if (!mode) {
+    const host = (c.req.header('host') || '').toLowerCase();
+    if (host.startsWith('hodnotenie.')) mode = 'scoring';
+    else if (host.startsWith('vysledky.')) mode = 'results';
+    else if (host.startsWith('squads.')) mode = 'squads';
   }
 
   const frontendDistPath = process.env.FRONTEND_DIST_PATH;
@@ -258,10 +282,6 @@ export function enableStaticServing(frontendDistPath: string) {
       let html = fs.readFileSync(indexPath, 'utf-8');
       const domainMode = c.get('domainMode') as string | undefined;
       if (domainMode && domainMode !== 'admin') {
-        html = html.replace(
-          '<head>',
-          `<head><script>window.__DOMAIN_MODE__ = "${domainMode}";</script>`
-        );
         const manifestHref = domainMode === 'results'
           ? '/manifest.json?mode=results'
           : domainMode === 'squads'

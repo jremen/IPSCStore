@@ -76,11 +76,11 @@ export default function QRCodeModal({ show, onClose, mode }: QRCodeModalProps) {
           <div className="text-2xl mb-4 font-semibold dark:text-white">
             {emoji} {label}
           </div>
-          <div className="bg-white p-4 rounded-2xl shadow-lg">
+          <div className="bg-white p-3 rounded-xl shadow-lg">
             {qr ? (
-              <img src={qr} alt={label} className="w-64 h-64 md:w-96 md:h-96" />
+              <img src={qr} alt={label} className="size-64 md:size-72" />
             ) : (
-              <div className="w-64 h-64 md:w-96 md:h-96 bg-gray-100 dark:bg-gray-800 animate-pulse rounded-lg" />
+              <div className="size-64 md:size-72 bg-gray-100 dark:bg-gray-800 animate-pulse rounded-lg" />
             )}
           </div>
           <div className="mt-4 flex items-center gap-2">
@@ -98,7 +98,7 @@ export default function QRCodeModal({ show, onClose, mode }: QRCodeModalProps) {
         </div>
 
         {/* Print-only overlay */}
-        <div className="hidden print:block fixed inset-0 z-[9999] bg-white p-8">
+        <div className="hidden print:block fixed inset-0 z-9999 bg-white p-8">
           <div className="flex flex-col items-center justify-start h-full">
             <div className="flex flex-col items-center w-full">
               {qr && <img src={qr} alt={printLabel} className="w-full max-w-[180mm] h-auto" />}

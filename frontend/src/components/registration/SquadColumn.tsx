@@ -30,7 +30,7 @@ export default function SquadColumn({ squadNumber, shooters, onAddShooter, onRem
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col min-w-[260px] max-w-[300px] bg-gray-50 dark:bg-gray-800/50 border rounded-lg overflow-hidden transition-colors ${
+      className={`flex flex-col min-w-65 max-w-75 bg-gray-50 dark:bg-gray-800/50 border rounded-lg overflow-hidden transition-colors ${
         isOver ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'
       }`}
     >
@@ -45,7 +45,7 @@ export default function SquadColumn({ squadNumber, shooters, onAddShooter, onRem
       </div>
 
       {/* Shooter list */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[80px] max-h-[400px]">
+      <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-20 max-h-100">
         {filtered.length > 0 ? (
           filtered.map((r) => (
             <ShooterCard

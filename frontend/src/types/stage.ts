@@ -39,9 +39,6 @@ export interface Stage {
   image_path: string | null;
   briefing: string | null;
   config?: StageConfig;
-  password?: string | null;
-  has_password?: boolean;
-  password_hash?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -57,5 +54,4 @@ export interface CreateStageInput {
   par_time?: number | null;
   briefing?: string | null;
   config?: StageConfig;
-  password?: string;
 }

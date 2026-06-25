@@ -51,7 +51,7 @@ export default function DesktopPaperTargets({
       <div className="flex items-center gap-2 mb-3">
         <span className="font-bold text-blue-600 dark:text-white uppercase tracking-wide">{t('scoring.paperTargets')}</span>
         <Badge size="sm" color="blue">{numTargets}</Badge>
-        <span className="text-[10px] text-gray-500 dark:text-gray-300 ml-1">× {hpp} hits each</span>
+        <span className="text-xs text-gray-500 dark:text-gray-300 ml-1">{i18n.t('scoring.paperHitsEach', {hpp})}</span>
       </div>
 
       {/* Aggregated zone inputs */}
@@ -66,7 +66,6 @@ export default function DesktopPaperTargets({
               step="1"
               min="0"
               sizing="sm"
-              numeric
               onFocus={(e) => e.target.select()}
               className={`w-20 h-9 text-center font-mono text-lg font-bold rounded-lg border-2 ${color}`}
               value={paperTotals[field]}
@@ -81,7 +80,7 @@ export default function DesktopPaperTargets({
       </div>
 
       {/* Summary */}
-      <div className="mt-3 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-300">
+      <div className="mt-3 flex items-center gap-3 text-sm text-gray-500 dark:text-gray-300">
         <span>
           {i18n.t('scoring.scoringSummary', {scoring: totalAll, total: maxHits })}
         </span>

@@ -24,7 +24,7 @@ import MenuActionListener from '../shared/MenuActionListener';
 export default function AppLayout() {
   const { activeTab, activeMatchId, setActiveMatch } = useUIStore();
   const { fetchMatches } = useMatchStore();
-  const { isAuthenticated, isAdmin, isLocalNetwork, domainMode, authenticatedStageId, authenticatedMatchId, restoreSession, logout } = useAuthStore();
+  const { isAuthenticated, isAdmin, isLocalNetwork, domainMode, authenticatedMatchId, restoreSession, logout } = useAuthStore();
   const sessionValidated = useRef(false);
 
   // Offline support hooks — always active
@@ -36,8 +36,19 @@ export default function AppLayout() {
   const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron?.();
   const menuListener = isElectron ? <MenuActionListener /> : null;
 
-  // Restore auth session on mount
+  // PWA fix: if opened at root (/) in standalone mode, redirect to /hodnotenie
+  // This handles existing PWA installations with start_url: '/' (installed from /)
+  // After redirect, the user is on /hodnotenie where domainMode='scoring' → StageLoginPage
   useEffect(() => {
+    const isStandalone = typeof window !== 'undefined' && (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      // @ts-ignore — iOS Safari standalone
+      window.navigator.standalone === true
+    );
+    if (isStandalone && window.location.pathname === '/') {
+      window.location.replace('/hodnotenie');
+      return;
+    }
     restoreSession();
   }, [restoreSession]);
 
@@ -132,14 +143,14 @@ export default function AppLayout() {
     return <StageLoginPage />;
   }
 
-  // Authenticated remote scorer → show only scoring tab
-  if (!isAdmin && authenticatedStageId) {
+  // Authenticated scorer — show scoring UI (unrestricted stage selection)
+  if (!isAdmin && authenticatedMatchId) {
     return (
       <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
         {menuListener}
         <Header />
         <main className="flex-1 min-h-0 overflow-hidden lg:overflow-auto">
-          <Scoring restrictedStageId={authenticatedStageId} />
+          <Scoring />
         </main>
       </div>
     );

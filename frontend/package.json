@@ -14,8 +14,6 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@tailwindcss/vite": "^4.3.0",
     "@types/qrcode": "^1.5.6",
-    "@zxing/browser": "^0.1.5",
-    "@zxing/library": "^0.21.3",
     "bcryptjs": "^3.0.3",
     "flowbite": "^4.0.0",
     "flowbite-react": "^0.12.0",

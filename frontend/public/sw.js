@@ -7,13 +7,10 @@
  * - Background Sync trigger for pending score saves
  */
 
-const CACHE_NAME = 'ipscscore-shell-v1';
+const CACHE_NAME = 'ipscscore-shell-v2';
 
 // App shell assets to pre-cache on install
-const APP_SHELL = [
-  '/',
-  '/index.html',
-];
+const APP_SHELL = [];
 
 // File extensions that indicate immutable hashed assets
 const IMMUTABLE_EXTENSIONS = ['.js', '.css', '.woff2', '.woff', '.ttf', '.eot'];
@@ -153,12 +150,6 @@ async function networkFirst(request) {
   } catch {
     const cached = await caches.match(request);
     if (cached) return cached;
-
-    // For navigation requests, fall back to index.html (SPA)
-    if (request.mode === 'navigate') {
-      const fallback = await caches.match('/index.html');
-      if (fallback) return fallback;
-    }
 
     return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
   }

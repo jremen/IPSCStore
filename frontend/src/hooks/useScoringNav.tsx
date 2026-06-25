@@ -9,7 +9,7 @@ import { useScoringReadOnly } from './useScoringReadOnly';
 import { precacheScoringData, precacheStageScores } from '../services/precache';
 
 
-export function useScoringNav(restrictedStageId?:string) {
+export function useScoringNav() {
   const { activeMatchId, addToast } = useUIStore();
   const { registrations, fetchRegistrations, currentRegistrationId, selectShooter,
           currentScore, loadScore, saveScore, validateScore, nextShooter, prevShooter,
@@ -22,7 +22,7 @@ export function useScoringNav(restrictedStageId?:string) {
   const prevMatchIdRef = useRef<string | null>(null);
 
   // For remote scorers: fall back to authenticatedMatchId when activeMatchId isn't set yet
-  const effectiveMatchId = activeMatchId || (restrictedStageId ? useAuthStore.getState().authenticatedMatchId : null);
+  const effectiveMatchId = activeMatchId || useAuthStore.getState().authenticatedMatchId;
 
   // Remote scorers see summary before saving; admins save directly
   const requiresSummary = !isAdmin;
@@ -56,13 +56,9 @@ export function useScoringNav(restrictedStageId?:string) {
   // Auto-select first stage once stages are loaded (only when no stage is selected)
   useEffect(() => {
     if (stages.length > 0 && !activeStageId) {
-      if (restrictedStageId) {
-        setActiveStageId(restrictedStageId);
-      } else {
-        setActiveStageId(stages[0].id);
-      }
+      setActiveStageId(stages[0].id);
     }
-  }, [stages, activeStageId, restrictedStageId, setActiveStageId]);
+  }, [stages, activeStageId, setActiveStageId]);
 
   // Pre-cache all scores for the current stage when it changes (non-blocking)
   useEffect(() => {

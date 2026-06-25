@@ -26,7 +26,10 @@ export function getAuthToken(): string | null {
   if (role === 'admin') {
     return localStorage.getItem('admin_token');
   }
-  return localStorage.getItem('auth_token');
+  if (role === 'scorer') {
+    return localStorage.getItem('auth_scorer_token');
+  }
+  return null;
 }
 
 /** Build headers with optional auth token */
@@ -48,6 +51,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       headers: authHeaders(),
       ...options,
       signal: controller.signal,
+      credentials: 'include',
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -162,20 +166,6 @@ export const api = {
     getAdminPasswordStatus: async (): Promise<{ hasPassword: boolean }> => {
       return request('/api/auth/admin-password-status');
     },
-    stageLogin: async (stageId: string, password: string): Promise<{ token: string; stageId: string; stageName: string; matchId: string; error?: string }> => {
-      try {
-        return await request('/api/auth/stage-login', {
-          method: 'POST',
-          body: JSON.stringify({ stageId, password }),
-        });
-      } catch (err: any) {
-        return { error: err.message, token: '', stageId: '', stageName: '', matchId: '' };
-      }
-    },
-    getStages: (matchId?: string) => {
-      const qs = matchId ? `?matchId=${matchId}` : '';
-      return request<any[]>(`/api/auth/stages${qs}`);
-    },
     getMe: async (authHeader?: string): Promise<{ role: string; stageId?: string; stageName?: string; isLocalNetwork: boolean; matchId?: string }> => {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (authHeader) headers['Authorization'] = authHeader;
@@ -194,28 +184,72 @@ export const api = {
       }
     },
 
-    // Stage Link Tokens
-    createStageLinkToken: async (stageId: string, ttlSeconds?: number): Promise<{ token: string; url: string; stageId: string; stageName: string; matchId: string; expiresAt: string }> => {
-      return request('/api/auth/stage-link-token', {
-        method: 'POST',
-        body: JSON.stringify({ stageId, ttlSeconds }),
-      });
+    // Scorer trust
+    redeemScorerTrust: async (trustToken: string, deviceLabel?: string): Promise<{ sessionToken: string; matchId: string; error?: string }> => {
+      try {
+        return await request('/api/auth/scorer-trust', {
+          method: 'POST',
+          body: JSON.stringify({ trustToken, deviceLabel }),
+        });
+      } catch (err: any) {
+        return { error: err.message, sessionToken: '', matchId: '' };
+      }
     },
-    redeemStageLinkToken: async (token: string): Promise<{ sessionToken: string; stageId: string; stageName: string; matchId: string; expiresAt: string }> => {
-      return request('/api/auth/stage-link-redeem', {
-        method: 'POST',
-        body: JSON.stringify({ token }),
-      });
+    revalidateScorerSession: async (trustToken: string, sessionToken: string): Promise<{ matchId: string; sessionToken: string; error?: string }> => {
+      try {
+        return await request('/api/auth/scorer-revalidate', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${sessionToken}` },
+          body: JSON.stringify({ trustToken }),
+        });
+      } catch (err: any) {
+        return { error: err.message, matchId: '', sessionToken: '' };
+      }
     },
-    getActiveStageLinkTokens: async (matchId?: string): Promise<Array<{ id: string; stageId: string; stageName: string; stageNumber: number; url: string; createdAt: string; expiresAt: string }>> => {
-      const qs = matchId ? `?matchId=${matchId}` : '';
-      return request(`/api/auth/stage-link-token${qs}`);
+    scorerLogout: async (sessionToken: string) => {
+      try {
+        return await request('/api/auth/scorer-logout', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${sessionToken}` },
+        });
+      } catch {
+        return { success: true };
+      }
     },
-    revokeStageLinkTokens: async (matchId?: string): Promise<{ revoked: number }> => {
-      return request('/api/auth/stage-link-token', {
-        method: 'DELETE',
-        body: JSON.stringify({ matchId }),
-      });
+    scorerAutoLogin: async (): Promise<{ sessionToken: string; matchId: string; error?: string }> => {
+      try {
+        return await request('/api/auth/scorer-auto-login', { method: 'POST' });
+      } catch (err: any) {
+        return { error: err.message, sessionToken: '', matchId: '' };
+      }
+    },
+    getScorerTrustInfo: async (adminToken: string): Promise<{ trustToken: string; rotatedAt: string | null; error?: string }> => {
+      try {
+        return await request('/api/auth/scorer-trust', {
+          headers: { 'Authorization': `Bearer ${adminToken}` },
+        });
+      } catch (err: any) {
+        return { trustToken: '', rotatedAt: null, error: err.message };
+      }
+    },
+    rotateScorerTrust: async (adminToken: string): Promise<{ trustToken: string; rotatedAt: string; error?: string }> => {
+      try {
+        return await request('/api/auth/scorer-trust/rotate', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${adminToken}` },
+        });
+      } catch (err: any) {
+        return { trustToken: '', rotatedAt: '', error: err.message };
+      }
+    },
+    getActiveScorerSessions: async (adminToken: string): Promise<Array<{ id: string; device_label: string | null; created_at: string; last_used_at: string }>> => {
+      try {
+        return await request('/api/auth/scorer-trust/sessions', {
+          headers: { 'Authorization': `Bearer ${adminToken}` },
+        });
+      } catch {
+        return [];
+      }
     },
   },
 

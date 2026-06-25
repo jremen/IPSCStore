@@ -1,7 +1,5 @@
 import { Hono } from 'hono';
 import { sql } from '../db/client.js';
-import bcrypt from 'bcryptjs';
-import { STAGE_PASSWORD_MIN_LENGTH } from '../utils/passwords.js';
 
 export const stageRoutes = new Hono();
 
@@ -18,23 +16,15 @@ const PUBLIC_STAGE_COLUMNS = `
   s.id, s.match_id, s.stage_number, s.name, s.scoring_type,
   s.paper_targets, s.steel_targets, s.no_shoot_targets, s.npm_targets, s.hits_per_paper,
   s.min_rounds, s.max_points, s.par_time, s.image_path, s.briefing, s.config,
-  s.password_hash IS NOT NULL AS has_password,
   s.created_at, s.updated_at
 `;
 
-const ADMIN_STAGE_COLUMNS = `
-  s.id, s.match_id, s.stage_number, s.name, s.scoring_type,
-  s.paper_targets, s.steel_targets, s.no_shoot_targets, s.npm_targets, s.hits_per_paper,
-  s.min_rounds, s.max_points, s.par_time, s.image_path, s.briefing, s.config,
-  s.password_hash, s.password_hash IS NOT NULL AS has_password,
-  s.created_at, s.updated_at
-`;
+const ADMIN_STAGE_COLUMNS = PUBLIC_STAGE_COLUMNS;
 
 const RETURNING_STAGE_COLUMNS = `
   id, match_id, stage_number, name, scoring_type,
   paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper,
   min_rounds, max_points, par_time, image_path, briefing, config,
-  password_hash, password_hash IS NOT NULL AS has_password,
   created_at, updated_at
 `;
 
@@ -107,14 +97,10 @@ stageRoutes.get('/matches/:matchId/stages', async (c) => {
 stageRoutes.post('/matches/:matchId/stages', async (c) => {
   const matchId = c.req.param('matchId');
   const body = await c.req.json();
-  const { name, scoring_type, paper_targets = 0, steel_targets = 0, no_shoot_targets = 0, npm_targets = 0, hits_per_paper = 2, par_time, config, password, briefing } = body;
+  const { name, scoring_type, paper_targets = 0, steel_targets = 0, no_shoot_targets = 0, npm_targets = 0, hits_per_paper = 2, par_time, config, briefing } = body;
 
   if (!name || !scoring_type) {
     return c.json({ error: 'name and scoring_type are required' }, 400);
-  }
-
-  if (password && password.length < STAGE_PASSWORD_MIN_LENGTH) {
-    return c.json({ error: `Stage password must be at least ${STAGE_PASSWORD_MIN_LENGTH} characters.` }, 400);
   }
 
   const [maxNum] = await sql`
@@ -125,13 +111,11 @@ stageRoutes.post('/matches/:matchId/stages', async (c) => {
   const stageConfig = config || {};
   const { min_rounds, max_points } = calcStageParams(scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, stageConfig);
 
-  const password_hash = password ? await bcrypt.hash(password, 12) : null;
-
   const [stage] = await sql`
     INSERT INTO stages (match_id, stage_number, name, scoring_type, paper_targets, steel_targets,
-                        no_shoot_targets, npm_targets, hits_per_paper, min_rounds, max_points, par_time, briefing, config, password_hash)
+                        no_shoot_targets, npm_targets, hits_per_paper, min_rounds, max_points, par_time, briefing, config)
     VALUES (${matchId}, ${stage_number}, ${name}, ${scoring_type}, ${paper_targets}, ${steel_targets},
-            ${no_shoot_targets}, ${npm_targets}, ${hits_per_paper}, ${min_rounds}, ${max_points}, ${par_time || null}, ${briefing || null}, ${JSON.stringify(stageConfig)}, ${password_hash})
+            ${no_shoot_targets}, ${npm_targets}, ${hits_per_paper}, ${min_rounds}, ${max_points}, ${par_time || null}, ${briefing || null}, ${JSON.stringify(stageConfig)})
     RETURNING ${sql.unsafe(RETURNING_STAGE_COLUMNS)}
   `;
   return c.json(parseStageJsonb(stage), 201);
@@ -153,7 +137,7 @@ stageRoutes.get('/stages/:id', async (c) => {
 stageRoutes.put('/stages/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json();
-  const { name, scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, par_time, config, password, briefing } = body;
+  const { name, scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, par_time, config, briefing } = body;
 
   const [existing] = await sql`SELECT * FROM stages WHERE id = ${id}`;
   if (!existing) return c.json({ error: 'Stage not found' }, 404);
@@ -166,18 +150,6 @@ stageRoutes.put('/stages/:id', async (c) => {
   const hpp = hits_per_paper ?? Number(existing.hits_per_paper);
   const stageConfig = config ?? (typeof existing.config === 'string' ? JSON.parse(existing.config) : existing.config || {});
   const { min_rounds, max_points } = calcStageParams(st, pt, stl, nst, npmt, hpp, stageConfig);
-
-  let password_hash: string | null;
-  if (password === '') {
-    password_hash = null;
-  } else if (password) {
-    if (password.length < STAGE_PASSWORD_MIN_LENGTH) {
-      return c.json({ error: `Stage password must be at least ${STAGE_PASSWORD_MIN_LENGTH} characters.` }, 400);
-    }
-    password_hash = await bcrypt.hash(password, 12);
-  } else {
-    password_hash = existing.password_hash;
-  }
 
   const [updated] = await sql`
     UPDATE stages
@@ -193,7 +165,6 @@ stageRoutes.put('/stages/:id', async (c) => {
         par_time = ${par_time !== undefined ? par_time : existing.par_time},
         briefing = COALESCE(${briefing}, briefing),
         config = ${JSON.stringify(stageConfig)},
-        password_hash = ${password_hash},
         updated_at = NOW()
     WHERE id = ${id}
     RETURNING ${sql.unsafe(RETURNING_STAGE_COLUMNS)}

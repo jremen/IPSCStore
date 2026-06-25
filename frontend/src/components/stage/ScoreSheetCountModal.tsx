@@ -25,7 +25,7 @@ export default function ScoreSheetCountModal({ show, stages, onClose, onGenerate
       <ModalHeader>{t('stages.printScoreSheets')}</ModalHeader>
       <ModalBody>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          {t('stages.printSheetsDescription', { defaultValue: `Generate blank score sheets for ${printableStages.length} stage(s). Set number of copies in the print dialog.` })}
+          {t('stages.printSheetsDescription', { count: printableStages.length })}
         </p>
       </ModalBody>
       <ModalFooter>

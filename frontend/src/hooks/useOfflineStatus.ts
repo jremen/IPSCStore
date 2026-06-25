@@ -25,10 +25,10 @@ export function useOfflineStatus() {
         }
         setOfflineMode(false);
 
-        // Re-authenticate any offline stage sessions with the server,
+        // Re-validate scorer trust session with the server,
         // so pending saves flush with a valid server token.
         import('../stores/authStore').then(({ useAuthStore }) => {
-          return useAuthStore.getState().syncOfflineAuth();
+          return useAuthStore.getState().revalidateTrust();
         }).then(() => {
           // Then trigger sync of pending saves
           import('../services/syncManager').then(({ flushPendingSaves, requestSync }) => {

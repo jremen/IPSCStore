@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useLanUrl } from '../../hooks/useLanUrl';
 import { useTranslation } from 'react-i18next';
 import QRCodeModal, { type QRCodeModalMode } from './QRCodeModal';
-import StageLinkModal from './StageLinkModal';
+import ScorerTrustModal from './ScorerTrustModal';
 
 export default function LanUrlBadge() {
   const { url, domainUrls } = useLanUrl();
   const { t } = useTranslation();
   const [qrModalMode, setQrModalMode] = useState<QRCodeModalMode | null>(null);
-  const [showStageLinkModal, setShowStageLinkModal] = useState(false);
+  const [showTrustModal, setShowTrustModal] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
   if (!url && !domainUrls) return null;
@@ -56,7 +56,7 @@ export default function LanUrlBadge() {
               🏆 {t('header.qrResultsLink')}
             </button>
             <button
-              onClick={() => setShowStageLinkModal(true)}
+              onClick={() => setShowTrustModal(true)}
               className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono bg-orange-700 hover:bg-orange-600 text-white rounded-full transition-colors cursor-pointer whitespace-nowrap"
               title={t('header.qrScoringHint')}
             >
@@ -82,9 +82,9 @@ export default function LanUrlBadge() {
         onClose={() => setQrModalMode(null)}
         mode="squads"
       />
-      <StageLinkModal
-        show={showStageLinkModal}
-        onClose={() => setShowStageLinkModal(false)}
+      <ScorerTrustModal
+        show={showTrustModal}
+        onClose={() => setShowTrustModal(false)}
       />
     </>
   );

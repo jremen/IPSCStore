@@ -49,7 +49,6 @@ export default function DesktopSteelTargets({
                 step="1"
                 min="0"
                 max={String(steelTargets.length)}
-                numeric
                 onFocus={(e) => e.target.select()}
                 className="w-16 text-center font-mono text-sm font-bold border-red-400 focus:ring-red-400"
                 value={steelMisses}

@@ -103,13 +103,7 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
   const handleEdit = async () => {
     if (!editStage) return;
     try {
-      // Build update payload: only include password if user typed something
-      // undefined = keep existing, empty string = remove, non-empty = set new
-      const payload = { ...form };
-      if (form.password === '' && editStage.has_password) {
-        delete (payload as any).password; // keep existing password
-      }
-      await updateStage(editStage.id, payload);
+      await updateStage(editStage.id, form);
       addToast(t('stages.updated'), 'success');
       onClose();
       setForm(emptyForm());
@@ -169,11 +163,6 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
               {visibleFields.parTime && (
                 <InputField label={t('stages.parTime')} type="number" step="0.01" min="0" decimal value={form.par_time ?? ''} onChange={(v) => setForm({ ...form, par_time: v ? parseFloat(v) : null })} disabled={form.scoring_type !== 'fixed_time'} />
               )}
-              <div>
-                <Label>{t('stages.password')}</Label>
-                <TextInput type="password" placeholder={isEdit && editStage?.has_password ? t('stages.passwordKeepHint') : t('stages.passwordPlaceholder')} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-                <p className="text-xs text-gray-500 dark:text-white mt-1">{t('stages.passwordHelp')}</p>
-              </div>
             </div>
           )}
 

@@ -40,6 +40,10 @@ services:
       dockerfile: Dockerfile.dev
     ports:
       - "5173:5173"
+    environment:
+      # Set to your machine's LAN IP so the HTTPS cert is valid for iPhone access.
+      # Example: 192.168.1.100 — find it with `ipconfig getifaddr en0`
+      VITE_HOST: ${VITE_HOST:-}
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/index.html:/app/index.html

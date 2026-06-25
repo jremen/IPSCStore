@@ -10,17 +10,6 @@ async function main() {
   console.log('Running migrations...');
   await runMigrations();
 
-  // Cleanup expired stage link tokens older than 7 days
-  try {
-    const { cleanupExpiredTokens } = await import('./services/stageLinkTokens.js');
-    const deleted = await cleanupExpiredTokens();
-    if (deleted > 0) {
-      console.log(`Cleaned up ${deleted} expired stage link token(s).`);
-    }
-  } catch (err: any) {
-    console.warn('[Startup] Token cleanup failed:', err.message);
-  }
-
   // In production (Electron), enable static file serving for the frontend
   const frontendDistPath = process.env.FRONTEND_DIST_PATH;
   if (frontendDistPath) {

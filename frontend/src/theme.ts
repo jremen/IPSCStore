@@ -76,7 +76,6 @@ export const customTheme: DeepPartial<FlowbiteTheme> = createTheme({
       sizes: {
         "1600": "max-w-1600",
         "8xl": "max-w-8xl",
-        "full": "max-w-[90vw]"
       },
     },
     content: {
@@ -92,9 +91,6 @@ export const customTheme: DeepPartial<FlowbiteTheme> = createTheme({
         ),
         icon: theme.modal.header.close.icon,
       },
-    },
-    body: {
-      base: twMerge(theme.modal.body.base, "overflow-visible"),
     },
     footer: {
       base: twMerge(theme.modal.footer.base, "justify-end"),

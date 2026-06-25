@@ -14,15 +14,9 @@ import { useScoringStore } from "../../stores/scoringStore";
 import { useStageStore } from "../../stores/stageStore";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "../../stores/uiStore";
-import { useScoringProgress } from "../../hooks/useScoringProgress";
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
-interface ScoringNavProps {
-  /** If set, restrict the view to only this stage (for remote scorers) */
-  restrictedStageId?: string;
-}
-
-export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
+export default function ScoringNav() {
   const { activeMatchId } = useUIStore();
   const { registrations, scoringProgress, currentRegistrationId,
             currentScore, nextShooter, prevShooter,
@@ -30,7 +24,7 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
   const { stages } = useStageStore();
   const { t } = useTranslation();
   const { categoryLabel, powerFactorLabel } = useConstLabels();
-  const {currentShooter, currentStage, performSave, handleSelectShooter, handleSummaryBack, handleConfirm, handleStageChange, canConfirm} = useScoringNav(restrictedStageId);
+  const {currentShooter, currentStage, performSave, handleSelectShooter, handleSummaryBack, handleConfirm, handleStageChange, canConfirm} = useScoringNav();
   const [showShooterList, setShowShooterList] = useState(false);
 
   useTabMenuAction('prev-shooter', () => prevShooter());
@@ -67,9 +61,8 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
 
   return (
     <div className="scoring-nav-root">
-      {/* Stage selector tabs — hidden for restricted (remote) scorers */}
-      {!restrictedStageId && (
-      <div className="flex overflow-x-auto border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-1 no-print" style={{ WebkitOverflowScrolling: 'touch' }}>
+      {/* Stage selector tabs — hidden on mobile (use Header picker instead) */}
+      <div className="hidden sm:flex overflow-x-auto border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-1 no-print" style={{ WebkitOverflowScrolling: 'touch' }}>
         {stages.map((stage) => (
           <button
             key={stage.id}
@@ -82,18 +75,17 @@ export default function ScoringNav({ restrictedStageId }: ScoringNavProps) {
           </button>
         ))}
       </div>
-      )}
 
       {/* Shooter selector with full-screen shooter list — pinned at top on mobile */}
       {activeStageId && (
         <div className="bg-white dark:bg-gray-800 p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700 no-print scoring-nav-pinned">
           <SquadFilterBar />
-          <div className="flex items-center justify-between mb-2 gap-1">
+          <div className="flex items-center justify-between my-2 gap-1">
             <button onClick={prevShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg disabled:opacity-30 min-h-11 min-w-11 flex items-center justify-center"><TbChevronLeft className="size-6" /></button>
             <button
               onClick={() => setShowShooterList(true)}
               disabled={!registrations.length}
-              className="flex-1 mx-1 sm:mx-2 px-3 py-2.5 text-lg rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white text-center hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-h-11 truncate"
+              className="flex-1 mx-1 sm:mx-2 px-3 py-1 text-lg rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white text-center hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-h-11 truncate"
             >
               {currentShooter ? (
                 <span className="truncate">

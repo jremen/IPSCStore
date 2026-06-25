@@ -7,7 +7,6 @@ export {};
 
 declare global {
   interface Window {
-    __DOMAIN_MODE__?: 'results' | 'scoring' | 'squads' | 'admin';
     electronAPI?: {
       getApiBaseUrl: () => string;
       isElectron: () => boolean;

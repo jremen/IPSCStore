@@ -1,121 +1,74 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Card, Select, TextInput, Button, Label, Alert } from 'flowbite-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Card, TextInput, Button, Alert } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
-import { api } from '../../services/api';
-import * as offlineDB from '../../services/offlineDB';
 import LanguageSelector from '../settings/LanguageSelector';
-import QRScanner from './QRScanner';
-import CertTrustInstructions, { useCertTrustBanner } from './CertTrustInstructions';
 
 export default function StageLoginPage() {
-  const { login, loginWithToken, loading, error } = useAuthStore();
+  const { loginWithTrustToken, autoLogin, loading, error, isLocalNetwork } = useAuthStore();
   const { t } = useTranslation();
-  const [stageId, setStageId] = useState('');
-  const [password, setPassword] = useState('');
-  const [stages, setStages] = useState<Array<{ id: string; name: string; stageNumber: number; matchName: string }>>([]);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [tokenStatus, setTokenStatus] = useState<'idle' | 'redeeming' | 'error'>('idle');
-  const [showScanner, setShowScanner] = useState(false);
-  const [showCertInstructions, setShowCertInstructions] = useState(false);
+  const [pasteMode, setPasteMode] = useState(false);
+  const [pastedUrl, setPastedUrl] = useState('');
+  const [pasteError, setPasteError] = useState('');
+  const [autoLoginAttempted, setAutoLoginAttempted] = useState(false);
 
-  const { showBanner: showCertBanner, dismiss: dismissCertBanner, isIOS } = useCertTrustBanner();
-
-  // Auto-redeem stageToken from URL query string
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const stageToken = params.get('stageToken');
-    if (!stageToken) return;
-
-    setTokenStatus('redeeming');
-    (async () => {
-      try {
-        const result = await api.auth.redeemStageLinkToken(stageToken);
-        window.history.replaceState({}, '', window.location.pathname);
-
-        const success = await loginWithToken(
-          result.stageId,
-          result.stageName,
-          result.matchId,
-          result.sessionToken
-        );
-        if (!success) {
-          setTokenStatus('error');
-        }
-      } catch {
-        window.history.replaceState({}, '', window.location.pathname);
-        setTokenStatus('error');
-      }
-    })();
-  }, [loginWithToken]);
-
-  // Fetch stages
-  useEffect(() => {
-    async function fetchStages() {
-      try {
-        const result = await api.auth.getStages();
-        setStages(result);
-      } catch (err: any) {
-        try {
-          const allStages = await offlineDB.getCachedMatches().then(async (matches) => {
-            const allStages: Array<{ id: string; name: string; stageNumber: number; matchName: string }> = [];
-            for (const match of matches) {
-              const matchStages = await offlineDB.getCachedStages(match.id);
-              for (const s of matchStages) {
-                allStages.push({
-                  id: s.id,
-                  name: s.name,
-                  stageNumber: s.stage_number,
-                  matchName: match.name,
-                });
-              }
-            }
-            return allStages;
-          });
-          if (allStages.length > 0) {
-            setStages(allStages);
-            setFetchError(null);
-          } else {
-            setFetchError(err.message);
-          }
-        } catch {
-          setFetchError(err.message);
-        }
-      }
-    }
-    fetchStages();
+  const isStandalone = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(display-mode: standalone)').matches ||
+      // @ts-ignore — iOS Safari standalone
+      (window.navigator.standalone === true);
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stageId || !password) return;
-    await login(stageId, password);
-  };
+  // Auto-redeem ?trustToken=... from URL query string
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const trustToken = params.get('trustToken');
+    if (!trustToken) return;
 
-  const handleScanResult = useCallback(async (decodedText: string) => {
-    // Parse the QR code — it should be a URL with ?stageToken=...
-    try {
-      const url = new URL(decodedText);
-      const token = url.searchParams.get('stageToken');
-      if (token) {
-        setTokenStatus('redeeming');
-        const result = await api.auth.redeemStageLinkToken(token);
-        const success = await loginWithToken(
-          result.stageId,
-          result.stageName,
-          result.matchId,
-          result.sessionToken
-        );
-        if (!success) {
-          setTokenStatus('error');
-        }
-      } else {
-        setTokenStatus('error');
+    (async () => {
+      const ok = await loginWithTrustToken(trustToken);
+      if (ok) {
+        // Don't strip ?trustToken= — keep it visible so user can copy/paste if needed
       }
-    } catch {
-      setTokenStatus('error');
+    })();
+  }, [loginWithTrustToken]);
+
+  // Check for existing cookie-based session on mount (PWA flow: user scanned in Safari, now opens PWA)
+  useEffect(() => {
+    const sessionToken = localStorage.getItem('auth_scorer_token');
+    if (sessionToken) return;
+    if (autoLoginAttempted) return;
+    setAutoLoginAttempted(true);
+    autoLogin();
+  }, [autoLogin, autoLoginAttempted]);
+
+  const handlePasteSubmit = useCallback(async () => {
+    let raw = pastedUrl.trim();
+    if (!raw) {
+      setPasteError(t('auth.trustPasteInvalid'));
+      return;
     }
-  }, [loginWithToken]);
+    // iOS Safari may copy URLs without the http:// protocol prefix
+    if (!/^https?:\/\//i.test(raw)) {
+      raw = 'http://' + raw;
+    }
+    try {
+      const url = new URL(raw);
+      const token = url.searchParams.get('trustToken');
+      if (!token) {
+        setPasteError(t('auth.trustPasteNoToken'));
+        return;
+      }
+      setPasteError('');
+      await loginWithTrustToken(token);
+    } catch {
+      setPasteError(t('auth.trustPasteInvalid'));
+    }
+  }, [pastedUrl, loginWithTrustToken, t]);
+
+  const handleCheckLogin = useCallback(async () => {
+    await autoLogin();
+  }, [autoLogin]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
@@ -124,116 +77,87 @@ export default function StageLoginPage() {
           <LanguageSelector />
         </div>
         <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          {t('auth.title')}
+          {t('auth.trustTitle')}
         </h2>
         <p className="text-sm text-center text-gray-500 dark:text-gray-400 mb-4">
-          {t('auth.subtitle')}
+          {t('auth.trustSubtitle')}
         </p>
 
-        {/* HTTPS trust banner */}
-        {showCertBanner && (
-          <Alert color="info" className="mb-4">
-            <span>{t('auth.httpsTrustBanner')}</span>
-            <button
-              onClick={() => { dismissCertBanner(); setShowCertInstructions(true); }}
-              className="underline text-blue-600 dark:text-blue-400 ml-1"
-            >
-              {t('auth.httpsTrustBannerLink')}
-            </button>
-          </Alert>
-        )}
-
-        {(error || fetchError || tokenStatus === 'error') && (
+        {error && (
           <Alert color="failure" className="mb-4">
-            {tokenStatus === 'error'
-              ? t('auth.tokenExpired')
-              : error || fetchError ? t(error || fetchError || 'auth.incorrectPassword') : ''}
+            {error}
           </Alert>
         )}
 
-        {tokenStatus === 'redeeming' && (
-          <Alert color="info" className="mb-4">
-            {t('auth.tokenRedeeming')}
-          </Alert>
-        )}
-
-        {stages.length === 0 && !fetchError && (
-          <Alert color="info" className="mb-4">
-            {t('auth.noStages')}
-          </Alert>
-        )}
-
-        {/* QR Scanner button */}
-        <Button
-          color="purple"
-          className="w-full"
-          onClick={() => setShowScanner(true)}
-          disabled={loading}
-        >
-          {t('auth.scanQr')}
-        </Button>
-
-        <div className="relative my-2">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300 dark:border-gray-600" />
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">{t('auth.orDivider')}</span>
-          </div>
+        {/* iOS-specific instructions */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+          <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+            📱 {t('auth.trustIosNote')}
+          </p>
+          <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800 dark:text-blue-200">
+            <li>{t('auth.trustStep1')}</li>
+            <li>{t('auth.trustStep2Ios')}</li>
+            <li>{t('auth.trustStep3Ios')}</li>
+          </ol>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="stage-select" className="mb-1 block">{t('auth.stage')}</Label>
-            <Select
-              id="stage-select"
-              value={stageId}
-              onChange={(e) => setStageId(e.target.value)}
-              required
-            >
-              <option value="">{t('auth.selectStage')}</option>
-              {stages.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {t('scoring.stage', { number: s.stageNumber })}: {s.name} ({s.matchName})
-                </option>
-              ))}
-            </Select>
-          </div>
+        {/* Primary action: I've scanned the QR code */}
+        <Button
+          color="blue"
+          className="w-full mb-2"
+          onClick={handleCheckLogin}
+          disabled={loading}
+        >
+          {loading ? t('auth.connecting') : t('auth.trustCheckButton')}
+        </Button>
 
-          <div>
-            <Label htmlFor="password" className="mb-1 block">{t('auth.password')}</Label>
+        {/* Secondary action: paste link */}
+        <Button
+          color="gray"
+          size="sm"
+          className="w-full"
+          onClick={() => { setPasteMode(!pasteMode); setPasteError(''); }}
+        >
+          {pasteMode ? t('common.cancel') : t('auth.trustPasteToggle')}
+        </Button>
+
+        {pasteMode && (
+          <div className="mt-4 space-y-2">
             <TextInput
-              id="password"
-              type="password"
-              placeholder={t('auth.enterPassword')}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              type="url"
+              placeholder={t('auth.trustPastePlaceholder')}
+              value={pastedUrl}
+              onChange={(e) => { setPastedUrl(e.target.value); setPasteError(''); }}
             />
+            {pasteError && (
+              <Alert color="failure" className="text-sm py-2">
+                {pasteError}
+              </Alert>
+            )}
+            <Button
+              className="w-full"
+              onClick={handlePasteSubmit}
+              disabled={!pastedUrl.trim() || loading}
+            >
+              {t('common.submit')}
+            </Button>
           </div>
+        )}
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading || !stageId || !password}
-          >
-            {loading ? t('auth.connecting') : t('auth.enterStage')}
-          </Button>
-        </form>
+        {isLocalNetwork && (
+          <div className="text-center mt-4">
+            {isStandalone ? (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                🔒 {t('auth.adminNote')}
+              </p>
+            ) : (
+              <a href="/" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                🔒 {t('auth.adminLogin')}
+              </a>
+            )}
+          </div>
+        )}
       </Card>
-
-      {/* QR Scanner Modal */}
-      <QRScanner
-        show={showScanner}
-        onScan={handleScanResult}
-        onClose={() => setShowScanner(false)}
-      />
-
-      {/* Certificate Trust Instructions Modal */}
-      <CertTrustInstructions
-        show={showCertInstructions}
-        onClose={() => setShowCertInstructions(false)}
-      />
     </div>
   );
 }

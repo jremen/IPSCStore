@@ -124,7 +124,7 @@ export const InputField = memo(
               step={type === 'number' && !decimal && !numeric ? step : undefined}
               min={type === 'number' && !decimal && !numeric ? min : undefined}
               max={type === 'number' && !decimal && !numeric ? max : undefined}
-              value={value}
+              value={Number(value).toString()}
               onChange={(e) => {
                 const v = e.target.value;
                 if (

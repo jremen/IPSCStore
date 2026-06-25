@@ -200,7 +200,7 @@ export default function RegistrationTable({ registrations, totalCount, selection
 
         <DragOverlay>
           {activeRegistration && (
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 pl-3 shadow-lg opacity-90 min-w-[150px]">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 pl-3 shadow-lg opacity-90 min-w-37.5">
               <div className="font-medium text-sm dark:text-white">
                 {activeRegistration.first_name} {activeRegistration.last_name}
               </div>

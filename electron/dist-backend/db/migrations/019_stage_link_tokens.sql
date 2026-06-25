@@ -3,8 +3,8 @@
 
 CREATE TABLE stage_link_tokens (
   id          TEXT PRIMARY KEY,                -- 32-byte random hex (256 bits)
-  match_id    TEXT NOT NULL,
-  stage_id    TEXT NOT NULL REFERENCES stages(id) ON DELETE CASCADE,
+  match_id    UUID NOT NULL,
+  stage_id    UUID NOT NULL REFERENCES stages(id) ON DELETE CASCADE,
   created_by  TEXT,                             -- admin session token (nullable)
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at  TIMESTAMPTZ NOT NULL,

@@ -5,35 +5,37 @@ import { useUIStore } from '../../stores/uiStore';
 import { useMatchStore } from '../../stores/matchStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useStageStore } from '../../stores/stageStore';
+import { useScoringStore } from '../../stores/scoringStore';
 import LanguageSelector from '../settings/LanguageSelector';
 import LanUrlBadge from './LanUrlBadge';
 import OfflineIndicator from './OfflineIndicator';
 import SettingsModal from '../settings/SettingsModal';
 import { ThemeToggle } from "../settings/ThemeToggle";
 import StageDetailsView from '../scoring/StageDetailsView';
-import { TbSettings, TbInfoCircle, TbClipboardText } from "react-icons/tb";
+import StagePickerModal from '../scoring/StagePickerModal';
+import { TbSettings, TbClipboardText, TbLogout } from "react-icons/tb";
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function Header() {
   const { activeMatchId } = useUIStore();
   const { currentMatch } = useMatchStore();
-  const { isAdmin, authenticatedStageId, authenticatedStageName, authenticatedMatchId, logout, adminLogout } = useAuthStore();
+  const { isAdmin, authenticatedMatchId, logout, adminLogout } = useAuthStore();
   const { stages, fetchStages } = useStageStore();
+  const { activeStageId } = useScoringStore();
   const { t } = useTranslation();
   const [showSettings, setShowSettings] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
 
   // Load stages for the authenticated match so the details modal has the briefing/image.
-  // Stages are already loaded by ScoringNav's useScoringNav hook in normal flow, but the
-  // Header may mount independently in some cases (admin views, public results).
   useEffect(() => {
     if (!isAdmin && authenticatedMatchId && stages.length === 0) {
       fetchStages(authenticatedMatchId);
     }
   }, [isAdmin, authenticatedMatchId, stages.length, fetchStages]);
 
-  const currentStage = !isAdmin && authenticatedStageId
-    ? stages.find((s) => s.id === authenticatedStageId) ?? null
+  const currentStage = !isAdmin && activeStageId
+    ? stages.find((s) => s.id === activeStageId) ?? null
     : null;
 
   useTabMenuAction('open-preferences', () => {
@@ -84,17 +86,18 @@ export default function Header() {
         {!isAdmin ? (
           <div className="flex gap-2">
             <Button
-              onClick={handleLogout}
+              onClick={() => setShowPicker(true)}
               color="purple"
-              className="flex-1"
-              title={t('auth.logout')}
+              className="flex-1 min-h-11"
             >
-              {t('auth.stage')} {authenticatedStageName ? `${authenticatedStageName}` : `🚪 ${t('auth.logout')}`}
+              {currentStage
+                ? `${t('scoring.stage', { number: currentStage.stage_number })}: ${currentStage.name}`
+                : t('scoring.selectStage')}
             </Button>
             <Button
               onClick={() => setShowDetails(true)}
               color="gray"
-              className="shrink-0"
+              className="shrink-0 min-h-11 min-w-11"
               title={t('stages.showDetails')}
             >
               <TbClipboardText className="size-5" />
@@ -114,7 +117,10 @@ export default function Header() {
       </header>
       {isAdmin && <SettingsModal show={showSettings} onClose={() => setShowSettings(false)} />}
       {!isAdmin && (
-        <StageDetailsView show={showDetails} onClose={() => setShowDetails(false)} stage={currentStage} />
+        <>
+          <StagePickerModal show={showPicker} onClose={() => setShowPicker(false)} />
+          <StageDetailsView show={showDetails} onClose={() => setShowDetails(false)} stage={currentStage} />
+        </>
       )}
     </>
   );

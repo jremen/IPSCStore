@@ -95,7 +95,7 @@ export default function StageDetailsView({ show, onClose, stage }: StageDetailsV
       </div>
 
       {/* Bottom bar — pinned */}
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex-shrink-0">
+      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 shrink-0">
         <button
           onClick={onClose}
           className="w-full bg-gray-200 dark:bg-gray-700 dark:text-white rounded-lg min-h-11 font-medium"

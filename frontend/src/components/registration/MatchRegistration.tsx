@@ -208,7 +208,7 @@ export default function MatchRegistration() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="min-w-[180px]">
+          <div className="min-w-45">
             <Label htmlFor="reg-div">{t('shooters.division')}</Label>
             <Select
               id="reg-div"

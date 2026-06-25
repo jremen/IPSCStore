@@ -147,6 +147,30 @@ matchRoutes.put('/:id', async (c) => {
   return c.json(updated);
 });
 
+// Bulk delete matches — admin only
+matchRoutes.delete('/bulk', async (c) => {
+  const { matchIds } = await c.req.json();
+  if (!Array.isArray(matchIds) || matchIds.length === 0) {
+    return c.json({ error: 'matchIds must be a non-empty array' }, 400);
+  }
+
+  const result = await sql`
+    DELETE FROM matches WHERE id = ANY(${matchIds}::uuid[])
+    RETURNING id, name
+  `;
+
+  const deletedIds = new Set(result.map((r: any) => r.id));
+  const failedIds = matchIds.filter((id: string) => !deletedIds.has(id));
+
+  let failed: Array<{ id: string; name: string; reason: string }> = [];
+  if (failedIds.length > 0) {
+    failed = failedIds.map((id: string) => ({ id, name: '', reason: 'Match not found' }));
+  }
+
+  await audit(c, 'match.bulk-delete', null, { count: result.length });
+  return c.json({ deleted: result.length, failed });
+});
+
 // Delete match — admin only
 matchRoutes.delete('/:id', async (c) => {
   const id = c.req.param('id');

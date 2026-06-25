@@ -557,16 +557,6 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Import seed data on first launch (after migrations have created the tables)
-  if (pgManager) {
-    try {
-      await pgManager.importSeedData();
-    } catch (err) {
-      logError('[Main] Failed to import seed data', err);
-      // Non-fatal — the app works with an empty database
-    }
-  }
-
   // Create the browser window
   // Try to set up port 80 redirect so .local domains work without port number
   const port80Active = await setupPort80Redirect(port);

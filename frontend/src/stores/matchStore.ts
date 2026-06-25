@@ -18,6 +18,7 @@ interface MatchActions {
   createMatch: (data: CreateMatchInput) => Promise<Match>;
   updateMatch: (id: string, data: Partial<CreateMatchInput>) => Promise<void>;
   deleteMatch: (id: string) => Promise<void>;
+  bulkDeleteMatches: (ids: string[]) => Promise<{ deleted: number; failed: Array<{ id: string; name: string; reason: string }> }>;
   setCurrentMatch: (id: string | null) => Promise<void>;
   markCurrent: (id: string) => Promise<void>;
   unmarkCurrent: () => Promise<void>;
@@ -101,6 +102,15 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
       matches: state.matches.filter((m) => m.id !== id),
       currentMatch: state.currentMatch?.id === id ? null : state.currentMatch,
     }));
+  },
+
+  bulkDeleteMatches: async (ids) => {
+    const result = await api.bulkDeleteMatches(ids);
+    set((state) => ({
+      matches: state.matches.filter((m) => !ids.includes(m.id)),
+      currentMatch: state.currentMatch && ids.includes(state.currentMatch.id) ? null : state.currentMatch,
+    }));
+    return result;
   },
 
   setCurrentMatch: async (id) => {

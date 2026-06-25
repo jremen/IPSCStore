@@ -262,6 +262,8 @@ export const api = {
   createMatch: (data: any) => request<any>('/api/matches', { method: 'POST', body: JSON.stringify(data) }),
   updateMatch: (id: string, data: any) => request<any>(`/api/matches/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteMatch: (id: string) => request<any>(`/api/matches/${id}`, { method: 'DELETE' }),
+  bulkDeleteMatches: (matchIds: string[]) =>
+    request<{ deleted: number; failed: Array<{ id: string; name: string; reason: string }> }>('/api/matches/bulk', { method: 'DELETE', body: JSON.stringify({ matchIds }) }),
 
   // Match Export/Import
   exportMatch: (id: string): Promise<Blob> => requestBlob(`/api/matches/${id}/export`),

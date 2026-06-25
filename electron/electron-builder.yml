@@ -23,8 +23,6 @@ extraResources:
     to: pg
     filter:
       - "**/*"
-  - from: resources/seed-data.dump
-    to: seed-data.dump
 
 # After each arch build, thin universal PG binaries to single-arch
 # so the universal merger can LIPO-merge them back properly.

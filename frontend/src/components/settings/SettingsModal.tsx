@@ -15,19 +15,19 @@ export default function SettingsModal({ show, onClose }: SettingsModalProps) {
   useEscClose(onClose);
 
   return (
-    <Modal show={show} onClose={onClose} size="lg">
+    <Modal show={show} onClose={onClose} size="7xl">
       <ModalHeader>{t('settings.title')}</ModalHeader>
       <ModalBody>
-        <div className="space-y-6">
+        <div className="lg:grid grid-cols-2 gap-12">
           <div>
             <h3 className="text-lg font-semibold dark:text-white mb-2">{t('settings.language')}</h3>
             <LanguageSelector />
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <AdminPasswordSection />
+            </div>
           </div>
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <DatabaseSettings />
-          </div>
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <AdminPasswordSection />
           </div>
         </div>
       </ModalBody>

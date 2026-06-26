@@ -25,7 +25,6 @@ interface ShooterListScreenProps {
  */
 export default function ShooterListScreen({ show, onClose, onSelect }: ShooterListScreenProps) {
   const { t } = useTranslation();
-  const { categoryLabel, powerFactorLabel } = useConstLabels();
   const { currentRegistrationId, activeStageId } = useScoringStore();
   const { stages } = useStageStore();
   const currentStage = stages.find(s => s.id === activeStageId) ?? null;
@@ -67,6 +66,7 @@ export default function ShooterListScreen({ show, onClose, onSelect }: ShooterLi
           sizing="md"
         />
         <div className="flex items-center gap-2">
+          <h3 className="dark:text-white font-medium">{t('scoring.order')}:</h3>
           <div className="inline-flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 flex-1">
             <button
               type="button"

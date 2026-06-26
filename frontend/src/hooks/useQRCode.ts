@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
 
 export interface QRCodeOptions {
   width?: number;
@@ -7,16 +8,18 @@ export interface QRCodeOptions {
   lightColor?: string;
 }
 
-/**
- * Generate a QR code PNG data URL for the given target URL.
- * The qrcode library is imported dynamically so it is only loaded when needed.
- */
+const cache = new Map<string, string>();
+
 export function useQRCode(
   url: string | null | undefined,
   options: QRCodeOptions = {}
 ): string | null {
   const { width = 512, margin = 2, darkColor = '#000000', lightColor = '#ffffff' } = options;
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const cacheKey = `${url}|${width}|${margin}|${darkColor}|${lightColor}`;
+  const [dataUrl, setDataUrl] = useState<string | null>(() => {
+    if (!url) return null;
+    return cache.get(cacheKey) ?? null;
+  });
 
   useEffect(() => {
     if (!url) {
@@ -24,24 +27,24 @@ export function useQRCode(
       return;
     }
 
-    let cancelled = false;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      setDataUrl(cached);
+      return;
+    }
 
-    import('qrcode')
-      .then((QRCode) => {
-        if (cancelled) return;
-        return QRCode.toDataURL(url, {
-          width,
-          margin,
-          color: { dark: darkColor, light: lightColor },
-        });
-      })
-      .then((result) => {
-        if (cancelled || result === undefined) return;
-        setDataUrl(result);
-      })
-      .catch(() => {
-        if (!cancelled) setDataUrl(null);
-      });
+    let cancelled = false;
+    QRCode.toDataURL(url, {
+      width,
+      margin,
+      color: { dark: darkColor, light: lightColor },
+    }).then(result => {
+      if (cancelled) return;
+      cache.set(cacheKey, result);
+      setDataUrl(result);
+    }).catch(() => {
+      if (!cancelled) setDataUrl(null);
+    });
 
     return () => {
       cancelled = true;

@@ -36,7 +36,6 @@ function IPSCSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
 
   const paperTargets = score.targets.filter(t => t.target_type === 'paper');
   const steelTargets = score.targets.filter(t => t.target_type === 'steel');
-  const noShootTargets = score.targets.filter(t => t.target_type === 'no_shoot');
   const npmTargets = score.targets.filter(t => t.target_type === 'npm');
 
   const totalAlpha = paperTargets.reduce((s, t) => s + t.alpha, 0) + steelTargets.filter(t => t.steel_hit === true).length;
@@ -46,7 +45,6 @@ function IPSCSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
   const totalNS = score.targets.reduce((s, t) => s + t.no_shoot_hits, 0);
   const totalNPM = npmTargets.filter(t => t.steel_hit === true).length;
 
-  const pv = getPointValues(shooterDetails.powerFactor);
 
   const preview = useMemo(
     () => calculatePreview(
@@ -200,7 +198,7 @@ function IPSCSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
       </div>
 
       {/* Bottom bar — pinned */}
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
+      <div className="bg-white max-md:pb-8 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
         <Button color="gray" onClick={onBack} className="min-h-11">{t('common.back')}</Button>
         <Button color="blue" onClick={onApprove} className="min-h-11">{t('scoring.approve')}</Button>
       </div>
@@ -287,7 +285,7 @@ function IDPASummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
+      <div className="bg-white max-md:pb-8 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
         <Button color="gray" onClick={onBack} className="min-h-11">{t('common.back')}</Button>
         <Button color="blue" onClick={onApprove} className="min-h-11">{t('scoring.approve')}</Button>
       </div>
@@ -345,7 +343,7 @@ function ActionSteelSummary({ stage, score, shooterName, shooterDetails, onBack,
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
+      <div className="bg-white max-md:pb-8  dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
         <Button color="gray" onClick={onBack} className="min-h-11">{t('common.back')}</Button>
         <Button color="blue" onClick={onApprove} className="min-h-11">{t('scoring.approve')}</Button>
       </div>
@@ -404,7 +402,7 @@ function MultiGunSummary({ stage, score, shooterName, shooterDetails, onBack, on
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
+      <div className="bg-white max-md:pb-8 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
         <Button color="gray" onClick={onBack} className="min-h-11">{t('common.back')}</Button>
         <Button color="blue" onClick={onApprove} className="min-h-11">{t('scoring.approve')}</Button>
       </div>
@@ -445,7 +443,7 @@ function RingSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
+      <div className="bg-white max-md:pb-8 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
         <Button color="gray" onClick={onBack} className="min-h-11">{t('common.back')}</Button>
         <Button color="blue" onClick={onApprove} className="min-h-11">{t('scoring.approve')}</Button>
       </div>
@@ -489,7 +487,7 @@ function HitCountSummary({ stage, score, shooterName, shooterDetails, onBack, on
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
+      <div className="bg-white max-md:pb-8 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
         <Button color="gray" onClick={onBack} className="min-h-11">{t('common.back')}</Button>
         <Button color="blue" onClick={onApprove} className="min-h-11">{t('scoring.approve')}</Button>
       </div>

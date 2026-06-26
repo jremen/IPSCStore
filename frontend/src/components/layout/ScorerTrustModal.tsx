@@ -3,6 +3,7 @@ import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from 'flowbite-rea
 import { useTranslation } from 'react-i18next';
 import { useQRCode } from '../../hooks/useQRCode';
 import { useEscClose } from '../../hooks/useEscClose';
+import { useLanUrl } from '../../hooks/useLanUrl';
 import { api } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 import { BsCopy, BsCheckCircle } from 'react-icons/bs';
@@ -15,6 +16,7 @@ export interface ScorerTrustModalProps {
 export default function ScorerTrustModal({ show, onClose }: ScorerTrustModalProps) {
   const { t } = useTranslation();
   const { adminToken } = useAuthStore();
+  const { domainUrls } = useLanUrl();
   const [trustToken, setTrustToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [rotating, setRotating] = useState(false);
@@ -44,8 +46,8 @@ export default function ScorerTrustModal({ show, onClose }: ScorerTrustModalProp
   // Build QR URL: ${origin}/hodnotenie?trustToken=${token}
   // Always points to /hodnotenie (the scorer page), regardless of which page the admin is on.
   // When scanned by iPhone camera, opens Safari at /hodnotenie with ?trustToken=... auto-redeemed.
-  const qrUrl = trustToken
-    ? `${window.location.origin}/hodnotenie?trustToken=${trustToken}`
+  const qrUrl = trustToken && domainUrls?.hodnotenie
+    ? `${domainUrls.hodnotenie}?trustToken=${trustToken}`
     : null;
   const qr = useQRCode(qrUrl, { width: 512, margin: 2 });
 

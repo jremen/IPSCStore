@@ -129,7 +129,7 @@ export default function ScoringNav() {
 
       {/* Bottom bar — pinned at bottom on mobile */}
       {activeStageId && currentRegistrationId && (
-        <div className="sm:fixed bottom-0 z-100  w-full bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-3 flex justify-between items-center no-print scoring-nav-pinned">
+        <div className="sm:fixed max-md:pb-8 bottom-0 z-100  w-full bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-3 flex justify-between items-center no-print scoring-nav-pinned">
           <Button color="gray" onClick={() => prevShooter()} className="min-h-11"><TbChevronLeft className="size-6 mr-1" />{t('common.prev')}</Button>
           <Button color="blue" onClick={handleConfirm} disabled={!canConfirm} className="min-h-11">
             {t('common.confirm')}

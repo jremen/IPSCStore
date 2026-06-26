@@ -369,11 +369,12 @@ export const api = {
   exportShootersCSV: () => requestText('/api/shooters/export/csv'),
 
   // Import
-  importShooters: (file: File, options?: { hasHeader?: boolean; columnMapping?: Record<string, string> }) => {
+  importShooters: (file: File, options?: { hasHeader?: boolean; columnMapping?: Record<string, string>; updateIfExists?: boolean }) => {
     const form = new FormData();
     form.append('file', file);
     if (options?.hasHeader !== undefined) form.append('hasHeader', String(options.hasHeader));
     if (options?.columnMapping) form.append('columnMapping', JSON.stringify(options.columnMapping));
+    if (options?.updateIfExists !== undefined) form.append('updateIfExists', String(options.updateIfExists));
     const headers: Record<string, string> = {};
     const token = getAuthToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;

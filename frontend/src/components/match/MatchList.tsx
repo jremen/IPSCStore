@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { Button, Badge, TextInput, Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell, Checkbox, Select, Label, Datepicker } from 'flowbite-react';
+import { Button, Badge, TextInput, Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell, Checkbox, Select, Label, Datepicker, theme } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useMatchStore } from '../../stores/matchStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -18,6 +18,7 @@ import SelectAllCheckbox from '../shared/SelectAllCheckbox';
 import BulkActionToolbar from '../shared/BulkActionToolbar';
 import { TbTrash, TbFileExport, TbFileUpload } from 'react-icons/tb';
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
+import { twMerge } from "tailwind-merge";
 
 export default function MatchList() {
   const { matches, loading, fetchMatches, markCurrent, unmarkCurrent } = useMatchStore();
@@ -123,6 +124,7 @@ export default function MatchList() {
           <div className="flex flex-col">
             <Label className="text-sm text-gray-500 whitespace-nowrap">{t('matches.filterDateFrom')}</Label>
             <Datepicker
+              className="mt-0.5"
               value={dateFrom ? new Date(dateFrom) : null}
               onChange={(date: Date | null) => {
                 if (date) {
@@ -140,6 +142,7 @@ export default function MatchList() {
           <div className="flex flex-col">
             <Label className="text-sm text-gray-500 whitespace-nowrap">{t('matches.filterDateTo')}</Label>
             <Datepicker
+              className="mt-0.5"
               value={dateTo ? new Date(dateTo) : null}
               onChange={(date: Date | null) => {
                 if (date) {
@@ -152,6 +155,7 @@ export default function MatchList() {
                 }
               }}
               placeholder={t('matches.filterDateTo')}
+              theme={{popup: {root: {base: twMerge(theme.datepicker.popup.root.base, "right-0")}}}}
             />
           </div>
         </div>

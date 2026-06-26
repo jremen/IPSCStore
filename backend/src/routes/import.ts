@@ -102,10 +102,12 @@ importRoutes.post('/shooters', async (c) => {
   }
 
   const { hasHeader, columnMapping } = parseCSVOptions(body);
+  const updateIfExists = body['updateIfExists'] !== 'false';
   const text = await file.text();
   const records = parseCSV(text, hasHeader, columnMapping);
 
   let imported = 0;
+  let updated = 0;
   let skipped = 0;
   const errors: string[] = [];
 
@@ -125,15 +127,36 @@ importRoutes.post('/shooters', async (c) => {
       continue;
     }
 
-    // Check for duplicate by name + email (exclude soft-deleted shooters)
+    // Check for existing shooter by name + email (exclude soft-deleted)
     const existing = await sql`
       SELECT id FROM shooters
       WHERE first_name = ${first_name} AND last_name = ${last_name}
-      AND (email = ${email || null} OR (email IS NULL AND ${email || null} IS NULL))
       AND deleted_at IS NULL
+      AND COALESCE(email, '') = COALESCE(${email || null}, '')
+      LIMIT 1
     `;
+
     if (existing.length > 0) {
-      skipped++;
+      if (!updateIfExists) {
+        skipped++;
+        continue;
+      }
+      try {
+        await sql`
+          UPDATE shooters
+          SET category = ${category},
+              division = ${division},
+              power_factor = ${power_factor},
+              region = ${region},
+              tag = ${tag || null},
+              email = ${email || null},
+              updated_at = NOW()
+          WHERE id = ${existing[0].id}
+        `;
+        updated++;
+      } catch (err: any) {
+        errors.push(`Row ${i + 2}: ${err.message}`);
+      }
       continue;
     }
 
@@ -148,8 +171,8 @@ importRoutes.post('/shooters', async (c) => {
     }
   }
 
-  await audit(c, 'import.shooters', null, { imported, skipped, errors: errors.length });
-  return c.json({ imported, skipped, errors });
+  await audit(c, 'import.shooters', null, { imported, updated, skipped, errors: errors.length });
+  return c.json({ imported, updated, skipped, errors });
 });
 
 // Import registrations from CSV

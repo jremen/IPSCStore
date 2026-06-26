@@ -22,13 +22,13 @@ export const WINMSS_DIVISION_MAP: Record<number, string> = {
 
 // ── Category Mapping ──────────────────────────────────────────────────
 // WinMSS uses integer TypeCategoryId
-// These are default mappings — the tblTypeCategory table may override them
+// These are default mappings — the tblTypeCategory/tblTypeNonTeamCategory table may override them
 export const WINMSS_CATEGORY_MAP: Record<number, string> = {
-  1: 'regular',
-  2: 'lady',
-  3: 'junior',
-  4: 'senior',
-  5: 'super_senior',
+  0: 'regular',
+  1: 'lady',
+  2: 'junior',
+  3: 'senior',
+  4: 'super_senior',
 };
 
 // ── Power Factor Mapping ──────────────────────────────────────────────
@@ -54,7 +54,8 @@ export const TABLE_ALIASES: Record<string, string[]> = {
   competitor: ['tblMatchCompetitor', 'tblCompetitor', 'MatchCompetitor', 'Competitors', 'Registrations'],
   score: ['tblMatchStageScore', 'tblStageScore', 'MatchStageScore', 'Scores', 'StageScores'],
   division: ['tblTypeDivision', 'TypeDivision', 'Divisions', 'tblDivision'],
-  category: ['tblTypeCategory', 'TypeCategory', 'Categories', 'tblCategory'],
+  category: ['tblTypeCategory', 'tblTypeNonTeamCategory', 'TypeCategory', 'TypeNonTeamCategory', 'Categories', 'tblCategory'],
+  nonTeamCategory: ['tblTypeNonTeamCategory', 'TypeNonTeamCategory'],
   powerFactor: ['tblTypePowerFactor', 'TypePowerFactor', 'PowerFactors', 'tblPowerFactor'],
   stdStageSetup: ['tblTypeStdStageSetup', 'TypeStdStageSetup', 'StdStageSetup'],
   tag: ['tblTag', 'Tag', 'Tags', 'MemberTags'],
@@ -104,8 +105,8 @@ export const COLUMN_ALIASES: Record<string, string[]> = {
   lastName: ['Lastname', 'LastName', 'Last_Name', 'LName', 'NameLast', 'Surname', 'FamilyName'],
   region: ['Region', 'State', 'Country', 'NatCode'],
   club: ['Club', 'ClubName', 'ClubId'],
-  shooterDivision: ['TypeDivisionId', 'DivisionId', 'Division'],
-  shooterCategory: ['TypeCategoryId', 'CategoryId', 'Category'],
+  shooterDivision: ['TypeDivisionId', 'DivisionId', 'Division', 'DfltDivisionId'],
+  shooterCategory: ['TypeCategoryId', 'CategoryId', 'Category', 'DfltNonTeamCategoryId'],
   shooterPowerFactor: ['TypePowerFactorId', 'PowerFactorId', 'PowerFactor', 'PF'],
   shooterFirearmType: ['TypeFirearmId', 'FirearmType'],
   shooterTag: ['MemberNumber', 'MemberNum', 'ShooterNumber', 'ShooterNum', 'Number', 'RegNumber', 'RegNum', 'IPSCNumber', 'IPSCNum', 'LicenseNumber', 'LicNum'],
@@ -141,8 +142,8 @@ export const COLUMN_ALIASES: Record<string, string[]> = {
   // Division/Category lookup tables
   divisionId: ['TypeDivisionId', 'DivisionId', 'Id', 'ID'],
   divisionName: ['DivisionName', 'Division', 'Name', 'ShortName'],
-  categoryId: ['TypeCategoryId', 'CategoryId', 'Id', 'ID'],
-  categoryName: ['CategoryName', 'Category', 'Name', 'ShortName'],
+  categoryId: ['TypeCategoryId', 'TypeNonTeamCategoryId', 'CategoryId', 'Id', 'ID'],
+  categoryName: ['CategoryName', 'TypeNonTeamCategory', 'Category', 'Name', 'ShortName'],
   powerFactorId: ['TypePowerFactorId', 'PowerFactorId', 'Id', 'ID'],
   powerFactorName: ['PowerFactorName', 'PowerFactor', 'Name', 'ShortName', 'PFName'],
 

@@ -57,6 +57,7 @@ export default function CSVImportModal({ show, onClose, type, matchId, onImportC
   const [importing, setImporting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [hasHeader, setHasHeader] = useState(true);
+  const [updateExisting, setUpdateExisting] = useState(true);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [step, setStep] = useState<'upload' | 'mapping' | 'result'>('upload');
@@ -141,7 +142,7 @@ export default function CSVImportModal({ show, onClose, type, matchId, onImportC
     try {
       let res: CSVImportResult;
       if (type === 'shooters') {
-        res = await api.importShooters(selectedFile, { hasHeader, columnMapping });
+        res = await api.importShooters(selectedFile, { hasHeader, columnMapping, updateIfExists: updateExisting });
       } else if (type === 'registrations' && matchId) {
         res = await api.importRegistrations(matchId, selectedFile, { hasHeader, columnMapping });
       } else if (type === 'scores' && matchId) {
@@ -151,7 +152,10 @@ export default function CSVImportModal({ show, onClose, type, matchId, onImportC
       }
       setResult(res);
       setStep('result');
-      addToast(t('import.importedCount', { count: res.imported }), 'success');
+      const toastMsg = res.updated
+        ? `${t('import.importedCount', { count: res.imported })} / ${t('import.updatedCount', { count: res.updated })}`
+        : t('import.importedCount', { count: res.imported });
+      addToast(toastMsg, 'success');
       onImportComplete?.();
     } catch (err: any) {
       addToast(err.message, 'error');
@@ -222,6 +226,13 @@ export default function CSVImportModal({ show, onClose, type, matchId, onImportC
               <Label className="ml-2 text-sm">{t('import.firstRowHeader')}</Label>
             </div>
 
+            {type === 'shooters' && (
+              <div className="mb-4">
+                <Checkbox checked={updateExisting} onChange={(e) => setUpdateExisting(e.target.checked)} />
+                <Label className="ml-2 text-sm">{t('import.updateExisting')}</Label>
+              </div>
+            )}
+
             <div className="space-y-3">
               <h4 className="font-semibold dark:text-white text-sm">{t('import.mapColumns')}</h4>
               {columns.map((col) => (
@@ -257,7 +268,7 @@ export default function CSVImportModal({ show, onClose, type, matchId, onImportC
         {step === 'result' && result && (
           <Alert color={result.errors.length > 0 ? 'warning' : 'success'}>
             <p className="font-semibold">{t('import.importComplete')}</p>
-            <p>{t('import.imported')}: {result.imported} | {t('import.skipped')}: {result.skipped}</p>
+            <p>{t('import.imported')}: {result.imported}{result.updated !== undefined && <> | {t('import.updated')}: {result.updated}</>} | {t('import.skipped')}: {result.skipped}</p>
             {result.errors.length > 0 && (
               <ul className="text-xs mt-1 list-disc list-inside">
                 {result.errors.slice(0, 10).map((e, i) => <li key={i}>{e}</li>)}

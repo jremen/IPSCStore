@@ -6306,6 +6306,23 @@ shooterRoutes.get("/", async (c) => {
   }
   return c.json({ shooters, total, limit, offset });
 });
+shooterRoutes.get("/export/csv", async (c) => {
+  const shooters = await sql`
+    SELECT first_name, last_name, category, tag, division, power_factor, region, email
+    FROM shooters
+    WHERE deleted_at IS NULL
+    ORDER BY last_name, first_name
+  `;
+  let csv = "\uFEFF";
+  csv += "first_name;last_name;category;tag;division;power_factor;region;email\n";
+  for (const s of shooters) {
+    csv += `${s.first_name};${s.last_name};${s.category};${s.tag || ""};${s.division};${s.power_factor};${s.region};${s.email || ""}
+`;
+  }
+  c.header("Content-Type", "text/csv; charset=utf-8");
+  c.header("Content-Disposition", 'attachment; filename="shooters.csv"');
+  return c.body(csv);
+});
 shooterRoutes.get("/tags", async (c) => {
   const tags = await sql`
     SELECT DISTINCT tag FROM shooters
@@ -9970,9 +9987,11 @@ importRoutes.post("/shooters", async (c) => {
     return c.json({ error: "No CSV file provided" }, 400);
   }
   const { hasHeader, columnMapping } = parseCSVOptions(body);
+  const updateIfExists = body["updateIfExists"] !== "false";
   const text = await file.text();
   const records = parseCSV(text, hasHeader, columnMapping);
   let imported = 0;
+  let updated = 0;
   let skipped = 0;
   const errors = [];
   for (let i = 0; i < records.length; i++) {
@@ -9992,11 +10011,31 @@ importRoutes.post("/shooters", async (c) => {
     const existing = await sql`
       SELECT id FROM shooters
       WHERE first_name = ${first_name} AND last_name = ${last_name}
-      AND (email = ${email || null} OR (email IS NULL AND ${email || null} IS NULL))
       AND deleted_at IS NULL
+      AND COALESCE(email, '') = COALESCE(${email || null}, '')
+      LIMIT 1
     `;
     if (existing.length > 0) {
-      skipped++;
+      if (!updateIfExists) {
+        skipped++;
+        continue;
+      }
+      try {
+        await sql`
+          UPDATE shooters
+          SET category = ${category},
+              division = ${division},
+              power_factor = ${power_factor},
+              region = ${region},
+              tag = ${tag || null},
+              email = ${email || null},
+              updated_at = NOW()
+          WHERE id = ${existing[0].id}
+        `;
+        updated++;
+      } catch (err) {
+        errors.push(`Row ${i + 2}: ${err.message}`);
+      }
       continue;
     }
     try {
@@ -10009,8 +10048,8 @@ importRoutes.post("/shooters", async (c) => {
       errors.push(`Row ${i + 2}: ${err.message}`);
     }
   }
-  await audit(c, "import.shooters", null, { imported, skipped, errors: errors.length });
-  return c.json({ imported, skipped, errors });
+  await audit(c, "import.shooters", null, { imported, updated, skipped, errors: errors.length });
+  return c.json({ imported, updated, skipped, errors });
 });
 importRoutes.post("/matches/:matchId/registrations", async (c) => {
   const matchId = c.req.param("matchId");
@@ -15910,11 +15949,11 @@ var WINMSS_DIVISION_MAP = {
   24: "production_optics"
 };
 var WINMSS_CATEGORY_MAP = {
-  1: "regular",
-  2: "lady",
-  3: "junior",
-  4: "senior",
-  5: "super_senior"
+  0: "regular",
+  1: "lady",
+  2: "junior",
+  3: "senior",
+  4: "super_senior"
 };
 var WINMSS_POWER_FACTOR_MAP = {
   1: "major",
@@ -15934,7 +15973,8 @@ var TABLE_ALIASES = {
   competitor: ["tblMatchCompetitor", "tblCompetitor", "MatchCompetitor", "Competitors", "Registrations"],
   score: ["tblMatchStageScore", "tblStageScore", "MatchStageScore", "Scores", "StageScores"],
   division: ["tblTypeDivision", "TypeDivision", "Divisions", "tblDivision"],
-  category: ["tblTypeCategory", "TypeCategory", "Categories", "tblCategory"],
+  category: ["tblTypeCategory", "tblTypeNonTeamCategory", "TypeCategory", "TypeNonTeamCategory", "Categories", "tblCategory"],
+  nonTeamCategory: ["tblTypeNonTeamCategory", "TypeNonTeamCategory"],
   powerFactor: ["tblTypePowerFactor", "TypePowerFactor", "PowerFactors", "tblPowerFactor"],
   stdStageSetup: ["tblTypeStdStageSetup", "TypeStdStageSetup", "StdStageSetup"],
   tag: ["tblTag", "Tag", "Tags", "MemberTags"],
@@ -15972,8 +16012,8 @@ var COLUMN_ALIASES = {
   lastName: ["Lastname", "LastName", "Last_Name", "LName", "NameLast", "Surname", "FamilyName"],
   region: ["Region", "State", "Country", "NatCode"],
   club: ["Club", "ClubName", "ClubId"],
-  shooterDivision: ["TypeDivisionId", "DivisionId", "Division"],
-  shooterCategory: ["TypeCategoryId", "CategoryId", "Category"],
+  shooterDivision: ["TypeDivisionId", "DivisionId", "Division", "DfltDivisionId"],
+  shooterCategory: ["TypeCategoryId", "CategoryId", "Category", "DfltNonTeamCategoryId"],
   shooterPowerFactor: ["TypePowerFactorId", "PowerFactorId", "PowerFactor", "PF"],
   shooterFirearmType: ["TypeFirearmId", "FirearmType"],
   shooterTag: ["MemberNumber", "MemberNum", "ShooterNumber", "ShooterNum", "Number", "RegNumber", "RegNum", "IPSCNumber", "IPSCNum", "LicenseNumber", "LicNum"],
@@ -16006,8 +16046,8 @@ var COLUMN_ALIASES = {
   // Division/Category lookup tables
   divisionId: ["TypeDivisionId", "DivisionId", "Id", "ID"],
   divisionName: ["DivisionName", "Division", "Name", "ShortName"],
-  categoryId: ["TypeCategoryId", "CategoryId", "Id", "ID"],
-  categoryName: ["CategoryName", "Category", "Name", "ShortName"],
+  categoryId: ["TypeCategoryId", "TypeNonTeamCategoryId", "CategoryId", "Id", "ID"],
+  categoryName: ["CategoryName", "TypeNonTeamCategory", "Category", "Name", "ShortName"],
   powerFactorId: ["TypePowerFactorId", "PowerFactorId", "Id", "ID"],
   powerFactorName: ["PowerFactorName", "PowerFactor", "Name", "ShortName", "PFName"],
   // Tag table columns (for tblTag lookup)

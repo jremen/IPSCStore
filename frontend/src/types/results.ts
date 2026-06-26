@@ -37,6 +37,7 @@ export interface StageResultGroup {
 
 export interface CSVImportResult {
   imported: number;
+  updated?: number;
   skipped: number;
   errors: string[];
 }

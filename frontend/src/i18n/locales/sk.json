@@ -543,6 +543,11 @@
     "importedCount_many": "Importovaných {{count}} záznamov",
     "exporting": "Exportujem...",
     "csvExported": "CSV exportované",
+    "updateExisting": "Aktualizovať existujúcich strelcov novými hodnotami",
+    "updated": "Aktualizované:",
+    "updatedCount_one": "Aktualizovaný 1 záznam",
+    "updatedCount_few": "Aktualizované {{count}} záznamy",
+    "updatedCount_many": "Aktualizovaných {{count}} záznamov",
     "winMss": {
       "title": "Importovať WinMSS databázu",
       "button": "Importovať WinMSS",
@@ -703,7 +708,7 @@
   },
   "localBackup": {
     "title": "Automatické zálohovanie",
-    "description": "Zálohuje vaše dáta do priečinka na tomto počítači. Použite Google Drive, iCloud, Dropbox alebo inú synchronizačnú službu na automatické kopírovanie priečinka inde.",
+    "description": "Automaticky zálohuje vaše dáta do priečinka na tomto počítači. Použite Google Drive, iCloud, Dropbox alebo inú synchronizačnú službu, alebo USB disk či NAS. Ak nastavíte zálohu do priečinka pre iCloud či Google Drive, bude tento priečinok automaticky zálohovaný na tieto služby.",
     "pickFolder": "Vybrať priečinok pre zálohy",
     "changeFolder": "Zmeniť priečinok",
     "folderSet": "Priečinok pre zálohy nastavený. Automatické zálohovanie je zapnuté.",

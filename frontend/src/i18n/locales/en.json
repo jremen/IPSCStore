@@ -529,6 +529,10 @@
     "importedCount_other": "Imported {{count}} records",
     "exporting": "Exporting...",
     "csvExported": "CSV exported",
+    "updateExisting": "Update existing shooters with new values",
+    "updated": "Updated:",
+    "updatedCount_one": "Updated 1 record",
+    "updatedCount_other": "Updated {{count}} records",
     "winMss": {
       "title": "Import WinMSS Database",
       "button": "Import WinMSS",
@@ -686,7 +690,7 @@
   },
   "localBackup": {
     "title": "Automatic Backup",
-    "description": "Backs up your data to a folder on this computer. Use Google Drive, iCloud, Dropbox, or any sync service to copy the folder elsewhere automatically.",
+    "description": "Automatically backs up your data to a folder on this computer. Use Google Drive, iCloud, Dropbox, or any sync service, USB drive or NAS. If you set the iCloud folder or Google Drive or OneDrive as a backup destination, this folder will be automatically backed to this cloud service.",
     "pickFolder": "Choose backup folder",
     "changeFolder": "Change folder",
     "folderSet": "Backup folder set. Automatic backup is now enabled.",

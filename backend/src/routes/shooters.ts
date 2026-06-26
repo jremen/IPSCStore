@@ -105,6 +105,26 @@ shooterRoutes.get('/', async (c) => {
   return c.json({ shooters, total, limit, offset });
 });
 
+// Export all active shooters as CSV — admin only
+shooterRoutes.get('/export/csv', async (c) => {
+  const shooters = await sql`
+    SELECT first_name, last_name, category, tag, division, power_factor, region, email
+    FROM shooters
+    WHERE deleted_at IS NULL
+    ORDER BY last_name, first_name
+  `;
+
+  let csv = '﻿';
+  csv += 'first_name;last_name;category;tag;division;power_factor;region;email\n';
+  for (const s of shooters) {
+    csv += `${s.first_name};${s.last_name};${s.category};${s.tag || ''};${s.division};${s.power_factor};${s.region};${s.email || ''}\n`;
+  }
+
+  c.header('Content-Type', 'text/csv; charset=utf-8');
+  c.header('Content-Disposition', 'attachment; filename="shooters.csv"');
+  return c.body(csv);
+});
+
 // Get all distinct tags for autocomplete
 shooterRoutes.get('/tags', async (c) => {
   const tags = await sql`

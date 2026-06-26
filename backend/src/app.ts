@@ -22,6 +22,7 @@ import { importRoutes } from './routes/import.js';
 import { winmssImportRoutes } from './routes/winmssImport.js';
 import { authRoutes } from './routes/auth.js';
 import { backupRoutes } from './routes/backup.js';
+import { localBackupRoutes } from './routes/localBackup.js';
 import { matchExportRoutes } from './routes/matchExport.js';
 import { env } from './env.js';
 import { eventBroadcaster } from './services/events.js';
@@ -168,6 +169,11 @@ app.use('/api/backup', requireAdmin);
 app.use('/api/restore', authMiddleware);
 app.use('/api/restore', requireAdmin);
 app.route('/api', backupRoutes);
+
+// ─── Local Backup (Electron folder backup): admin only ───
+app.use('/api/local-backup', authMiddleware);
+app.use('/api/local-backup', requireAdmin);
+app.route('/api', localBackupRoutes);
 
 // ─── Import: admin only ───
 app.use('/api/import', authMiddleware);

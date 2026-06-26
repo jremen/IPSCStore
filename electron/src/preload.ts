@@ -12,8 +12,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getApiBaseUrl: () => apiBaseUrl,
   isElectron: () => true,
   getLanIp: () => lanIp,
-  // Domain URLs are now direct IP+path links (e.g. http://192.168.1.5:3001/vysledky)
-  // instead of .local hostnames, which do not resolve on Android and are unreliable.
   getDomainUrls: () => ({ vysledky: vysledkyUrl, hodnotenie: hodnotenieUrl, squads: squadsUrl }),
   isPort80Active: () => port80Active,
 
@@ -24,4 +22,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('menu-action', handler);
   },
   setMenuState: (state: Record<string, any>) => ipcRenderer.send('set-menu-state', state),
+
+  // Folder picker for local backup
+  pickBackupFolder: () => ipcRenderer.invoke('pick-backup-folder') as Promise<string | null>,
 });

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, utilityProcess } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, utilityProcess } from 'electron';
 import path from 'path';
 import os from 'os';
 import fs from 'fs/promises';
@@ -556,6 +556,18 @@ async function main(): Promise<void> {
     app.quit();
     return;
   }
+
+  // Set up folder picker handler for local backup.
+  // Must be registered before createWindow() so it's available immediately.
+  ipcMain.handle('pick-backup-folder', async () => {
+    log('[Backup] pickBackupFolder invoked, mainWindow=' + (mainWindow ? 'set' : 'null'));
+    if (!mainWindow) return null;
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    log('[Backup] dialog result canceled=' + result.canceled + ' paths=' + JSON.stringify(result.filePaths));
+    return result.canceled ? null : result.filePaths[0];
+  });
 
   // Create the browser window
   // Try to set up port 80 redirect so .local domains work without port number

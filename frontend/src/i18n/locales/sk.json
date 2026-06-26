@@ -700,5 +700,28 @@
     "unassigned": "Nepriradení",
     "noShooters": "Žiadni priradení strelci.",
     "offline": "Offline — zobrazujú sa uložené dáta"
+  },
+  "localBackup": {
+    "title": "Automatické zálohovanie",
+    "description": "Zálohuje vaše dáta do priečinka na tomto počítači. Použite Google Drive, iCloud, Dropbox alebo inú synchronizačnú službu na automatické kopírovanie priečinka inde.",
+    "pickFolder": "Vybrať priečinok pre zálohy",
+    "changeFolder": "Zmeniť priečinok",
+    "folderSet": "Priečinok pre zálohy nastavený. Automatické zálohovanie je zapnuté.",
+    "enabled": "Automatické zálohovanie beží",
+    "disabled": "Automatické zálohovanie je pozastavené",
+    "lastFull": "Posledná kompletná záloha",
+    "deltas": "Nespracované delta zmeny",
+    "diskUsage": "Veľkosť na disku",
+    "never": "Nikdy",
+    "backupNow": "Zálohovať teraz",
+    "backupDone": "Kompletná záloha vytvorená: {{key}}",
+    "folderNotAccessible": "Priečinok pre zálohy nie je dostupný. Ak používate externý disk, skontrolujte, či je pripojený.",
+    "restore": "Obnoviť z priečinka",
+    "restoreConfirm": "Nahradiť všetky dáta?",
+    "restoreWarning": "Toto nahradí VŠETKY dáta najnovšou kompletnou zálohou + všetkými delta zmenami. Túto akciu nie je možné vrátiť.",
+    "restoreDone": "Obnovené. {{deltas}} delta zmien aplikovaných. Načítavam stránku...",
+    "restoreFrom": "Obnovuje sa z:",
+    "restoring": "Prebieha obnova dát…",
+    "restoreSummary": "Full: {{file}} ({{size}}) + {{deltas}} delt ({{earliest}} → {{latest}})"
   }
 }

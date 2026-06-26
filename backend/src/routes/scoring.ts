@@ -7,6 +7,7 @@ import {
 } from '../utils/scoringCalc.js';
 import { eventBroadcaster } from '../services/events.js';
 import { audit } from '../services/audit.js';
+import { scheduleDeltaBackup } from '../services/localBackup.js';
 
 export const scoringRoutes = new Hono();
 
@@ -372,6 +373,8 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
     type: 'score:saved',
     payload: { matchId, stageId, registrationId },
   });
+
+  scheduleDeltaBackup(matchId as string, stageId as string, registrationId as string);
 
   await audit(c, 'score.write', `stage_scores:${stageId}:${registrationId}`, { matchId, stageId, registrationId });
 

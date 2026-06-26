@@ -1608,13 +1608,13 @@ function Subscribe(postgres2, options) {
       }
     }
     function handle(a, b2) {
-      const path4 = b2.relation.schema + "." + b2.relation.table;
+      const path5 = b2.relation.schema + "." + b2.relation.table;
       call("*", a, b2);
-      call("*:" + path4, a, b2);
-      b2.relation.keys.length && call("*:" + path4 + "=" + b2.relation.keys.map((x2) => a[x2.name]), a, b2);
+      call("*:" + path5, a, b2);
+      b2.relation.keys.length && call("*:" + path5 + "=" + b2.relation.keys.map((x2) => a[x2.name]), a, b2);
       call(b2.command, a, b2);
-      call(b2.command + ":" + path4, a, b2);
-      b2.relation.keys.length && call(b2.command + ":" + path4 + "=" + b2.relation.keys.map((x2) => a[x2.name]), a, b2);
+      call(b2.command + ":" + path5, a, b2);
+      b2.relation.keys.length && call(b2.command + ":" + path5 + "=" + b2.relation.keys.map((x2) => a[x2.name]), a, b2);
     }
     function pong() {
       const x2 = Buffer.alloc(34);
@@ -1727,8 +1727,8 @@ function parseEvent(x) {
   const xs = x.match(/^(\*|insert|update|delete)?:?([^.]+?\.?[^=]+)?=?(.+)?/i) || [];
   if (!xs)
     throw new Error("Malformed subscribe pattern: " + x);
-  const [, command, path4, key] = xs;
-  return (command || "*") + (path4 ? ":" + (path4.indexOf(".") === -1 ? "public." + path4 : path4) : "") + (key ? "=" + key : "");
+  const [, command, path5, key] = xs;
+  return (command || "*") + (path5 ? ":" + (path5.indexOf(".") === -1 ? "public." + path5 : path5) : "") + (key ? "=" + key : "");
 }
 var noop2;
 var init_subscribe = __esm({
@@ -1868,10 +1868,10 @@ function Postgres(a, b2) {
       });
       return query;
     }
-    function file(path4, args = [], options2 = {}) {
+    function file(path5, args = [], options2 = {}) {
       arguments.length === 2 && !Array.isArray(args) && (options2 = args, args = []);
       const query = new Query([], args, (query2) => {
-        fs.readFile(path4, "utf8", (err, string) => {
+        fs.readFile(path5, "utf8", (err, string) => {
           if (err)
             return query2.reject(err);
           query2.strings = [string];
@@ -2229,6 +2229,11 @@ var init_src = __esm({
 });
 
 // ../backend/src/db/client.ts
+var client_exports = {};
+__export(client_exports, {
+  closeDb: () => closeDb,
+  sql: () => sql
+});
 async function closeDb() {
   await sql.end();
 }
@@ -2527,121 +2532,6 @@ function checkPfPassed(calculatedPf, declaredPf, organization) {
 var init_scoringCalc = __esm({
   "../backend/src/utils/scoringCalc.ts"() {
     "use strict";
-  }
-});
-
-// ../backend/src/services/stageLinkTokens.ts
-var stageLinkTokens_exports = {};
-__export(stageLinkTokens_exports, {
-  TokenError: () => TokenError,
-  cleanupExpiredTokens: () => cleanupExpiredTokens,
-  createStageLinkToken: () => createStageLinkToken,
-  getActiveStageLinkTokens: () => getActiveStageLinkTokens,
-  redeemStageLinkToken: () => redeemStageLinkToken,
-  revokeStageLinkTokens: () => revokeStageLinkTokens
-});
-import crypto4 from "crypto";
-async function createStageLinkToken(stageId, ttlSeconds = DEFAULT_TTL_SECONDS, createdBy) {
-  const clampedTtl = Math.min(Math.max(ttlSeconds, 60), MAX_TTL_SECONDS);
-  const [stage] = await sql`
-    SELECT s.id, s.name, s.match_id
-    FROM stages s
-    WHERE s.id = ${stageId}
-  `;
-  if (!stage) {
-    throw new Error("Stage not found");
-  }
-  const token = crypto4.randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + clampedTtl * 1e3);
-  await sql`
-    INSERT INTO stage_link_tokens (id, match_id, stage_id, created_by, expires_at)
-    VALUES (${token}, ${stage.match_id}, ${stageId}, ${createdBy || null}, ${expiresAt.toISOString()})
-  `;
-  return {
-    token,
-    stageId: stage.id,
-    stageName: stage.name,
-    matchId: stage.match_id,
-    expiresAt
-  };
-}
-async function redeemStageLinkToken(token, clientIp) {
-  const [row] = await sql`
-    SELECT t.id, t.stage_id, t.match_id, t.expires_at, t.redeemed_at, t.revoked_at,
-           s.name as stage_name
-    FROM stage_link_tokens t
-    JOIN stages s ON s.id = t.stage_id
-    WHERE t.id = ${token}
-  `;
-  if (!row) {
-    throw new TokenError("Token not found", 404);
-  }
-  if (row.revoked_at) {
-    throw new TokenError("Token has been revoked", 410);
-  }
-  if (row.redeemed_at) {
-    throw new TokenError("Token already used", 410);
-  }
-  if (new Date(row.expires_at) < /* @__PURE__ */ new Date()) {
-    throw new TokenError("Token has expired", 410);
-  }
-  await sql`
-    UPDATE stage_link_tokens
-    SET redeemed_at = now(), redeemed_ip = ${clientIp || null}
-    WHERE id = ${token}
-  `;
-  return {
-    stageId: row.stage_id,
-    stageName: row.stage_name,
-    matchId: row.match_id,
-    expiresAt: new Date(row.expires_at)
-  };
-}
-async function revokeStageLinkTokens(matchId) {
-  const result = await sql`
-    UPDATE stage_link_tokens
-    SET revoked_at = now()
-    WHERE match_id = ${matchId}
-      AND revoked_at IS NULL
-      AND redeemed_at IS NULL
-  `;
-  return result.count;
-}
-async function getActiveStageLinkTokens(matchId) {
-  return sql`
-    SELECT t.id, t.stage_id, t.match_id, t.created_at, t.expires_at,
-           s.name as stage_name, s.stage_number
-    FROM stage_link_tokens t
-    JOIN stages s ON s.id = t.stage_id
-    WHERE t.match_id = ${matchId}
-      AND t.redeemed_at IS NULL
-      AND t.revoked_at IS NULL
-      AND t.expires_at > now()
-    ORDER BY t.created_at DESC
-  `;
-}
-async function cleanupExpiredTokens() {
-  const result = await sql`
-    DELETE FROM stage_link_tokens
-    WHERE expires_at < now() - interval '${sql.unsafe(String(CLEANUP_AGE_DAYS))} days'
-  `;
-  return result.count;
-}
-var DEFAULT_TTL_SECONDS, MAX_TTL_SECONDS, CLEANUP_AGE_DAYS, TokenError;
-var init_stageLinkTokens = __esm({
-  "../backend/src/services/stageLinkTokens.ts"() {
-    "use strict";
-    init_client();
-    DEFAULT_TTL_SECONDS = 5 * 60 * 60;
-    MAX_TTL_SECONDS = 24 * 60 * 60;
-    CLEANUP_AGE_DAYS = 7;
-    TokenError = class extends Error {
-      status;
-      constructor(message, status) {
-        super(message);
-        this.status = status;
-      }
-    };
   }
 });
 
@@ -3288,12 +3178,12 @@ var serve = (options, listeningListener) => {
 
 // ../backend/src/index.ts
 import { createServer } from "https";
-import fs6 from "fs";
+import fs5 from "fs";
 
 // ../backend/src/app.ts
 import os3 from "os";
-import fs5 from "fs";
-import path3 from "path";
+import fs4 from "fs";
+import path4 from "path";
 
 // ../node_modules/hono/dist/compose.js
 var compose = (middleware, onError, onNotFound) => {
@@ -3415,26 +3305,26 @@ var handleParsingNestedValues = (form, key, value) => {
 };
 
 // ../node_modules/hono/dist/utils/url.js
-var splitPath = (path4) => {
-  const paths = path4.split("/");
+var splitPath = (path5) => {
+  const paths = path5.split("/");
   if (paths[0] === "") {
     paths.shift();
   }
   return paths;
 };
 var splitRoutingPath = (routePath) => {
-  const { groups, path: path4 } = extractGroupsFromPath(routePath);
-  const paths = splitPath(path4);
+  const { groups, path: path5 } = extractGroupsFromPath(routePath);
+  const paths = splitPath(path5);
   return replaceGroupMarks(paths, groups);
 };
-var extractGroupsFromPath = (path4) => {
+var extractGroupsFromPath = (path5) => {
   const groups = [];
-  path4 = path4.replace(/\{[^}]+\}/g, (match2, index) => {
+  path5 = path5.replace(/\{[^}]+\}/g, (match2, index) => {
     const mark = `@${index}`;
     groups.push([mark, match2]);
     return mark;
   });
-  return { groups, path: path4 };
+  return { groups, path: path5 };
 };
 var replaceGroupMarks = (paths, groups) => {
   for (let i = groups.length - 1; i >= 0; i--) {
@@ -3491,8 +3381,8 @@ var getPath = (request) => {
       const queryIndex = url.indexOf("?", i);
       const hashIndex = url.indexOf("#", i);
       const end = queryIndex === -1 ? hashIndex === -1 ? void 0 : hashIndex : hashIndex === -1 ? queryIndex : Math.min(queryIndex, hashIndex);
-      const path4 = url.slice(start, end);
-      return tryDecodeURI(path4.includes("%25") ? path4.replace(/%25/g, "%2525") : path4);
+      const path5 = url.slice(start, end);
+      return tryDecodeURI(path5.includes("%25") ? path5.replace(/%25/g, "%2525") : path5);
     } else if (charCode === 63 || charCode === 35) {
       break;
     }
@@ -3509,11 +3399,11 @@ var mergePath = (base, sub, ...rest) => {
   }
   return `${base?.[0] === "/" ? "" : "/"}${base}${sub === "/" ? "" : `${base?.at(-1) === "/" ? "" : "/"}${sub?.[0] === "/" ? sub.slice(1) : sub}`}`;
 };
-var checkOptionalParameter = (path4) => {
-  if (path4.charCodeAt(path4.length - 1) !== 63 || !path4.includes(":")) {
+var checkOptionalParameter = (path5) => {
+  if (path5.charCodeAt(path5.length - 1) !== 63 || !path5.includes(":")) {
     return null;
   }
-  const segments = path4.split("/");
+  const segments = path5.split("/");
   const results = [];
   let basePath = "";
   segments.forEach((segment) => {
@@ -3654,9 +3544,9 @@ var HonoRequest = class {
    */
   path;
   bodyCache = {};
-  constructor(request, path4 = "/", matchResult = [[]]) {
+  constructor(request, path5 = "/", matchResult = [[]]) {
     this.raw = request;
-    this.path = path4;
+    this.path = path5;
     this.#matchResult = matchResult;
     this.#validatedData = {};
   }
@@ -4408,8 +4298,8 @@ var Hono = class _Hono {
         return this;
       };
     });
-    this.on = (method, path4, ...handlers) => {
-      for (const p of [path4].flat()) {
+    this.on = (method, path5, ...handlers) => {
+      for (const p of [path5].flat()) {
         this.#path = p;
         for (const m of [method].flat()) {
           handlers.map((handler) => {
@@ -4466,8 +4356,8 @@ var Hono = class _Hono {
    * app.route("/api", app2) // GET /api/user
    * ```
    */
-  route(path4, app2) {
-    const subApp = this.basePath(path4);
+  route(path5, app2) {
+    const subApp = this.basePath(path5);
     app2.routes.map((r) => {
       let handler;
       if (app2.errorHandler === errorHandler) {
@@ -4493,9 +4383,9 @@ var Hono = class _Hono {
    * const api = new Hono().basePath('/api')
    * ```
    */
-  basePath(path4) {
+  basePath(path5) {
     const subApp = this.#clone();
-    subApp._basePath = mergePath(this._basePath, path4);
+    subApp._basePath = mergePath(this._basePath, path5);
     return subApp;
   }
   /**
@@ -4569,7 +4459,7 @@ var Hono = class _Hono {
    * })
    * ```
    */
-  mount(path4, applicationHandler, options) {
+  mount(path5, applicationHandler, options) {
     let replaceRequest;
     let optionHandler;
     if (options) {
@@ -4596,7 +4486,7 @@ var Hono = class _Hono {
       return [c.env, executionContext];
     };
     replaceRequest ||= (() => {
-      const mergedPath = mergePath(this._basePath, path4);
+      const mergedPath = mergePath(this._basePath, path5);
       const pathPrefixLength = mergedPath === "/" ? 0 : mergedPath.length;
       return (request) => {
         const url = new URL(request.url);
@@ -4611,19 +4501,19 @@ var Hono = class _Hono {
       }
       await next();
     };
-    this.#addRoute(METHOD_NAME_ALL, mergePath(path4, "*"), handler);
+    this.#addRoute(METHOD_NAME_ALL, mergePath(path5, "*"), handler);
     return this;
   }
-  #addRoute(method, path4, handler, baseRoutePath) {
+  #addRoute(method, path5, handler, baseRoutePath) {
     method = method.toUpperCase();
-    path4 = mergePath(this._basePath, path4);
+    path5 = mergePath(this._basePath, path5);
     const r = {
       basePath: baseRoutePath !== void 0 ? mergePath(this._basePath, baseRoutePath) : this._basePath,
-      path: path4,
+      path: path5,
       method,
       handler
     };
-    this.router.add(method, path4, [handler, r]);
+    this.router.add(method, path5, [handler, r]);
     this.routes.push(r);
   }
   #handleError(err, c) {
@@ -4636,10 +4526,10 @@ var Hono = class _Hono {
     if (method === "HEAD") {
       return (async () => new Response(null, await this.#dispatch(request, executionCtx, env2, "GET")))();
     }
-    const path4 = this.getPath(request, { env: env2 });
-    const matchResult = this.router.match(method, path4);
+    const path5 = this.getPath(request, { env: env2 });
+    const matchResult = this.router.match(method, path5);
     const c = new Context(request, {
-      path: path4,
+      path: path5,
       matchResult,
       env: env2,
       executionCtx,
@@ -4739,7 +4629,7 @@ var Hono = class _Hono {
 
 // ../node_modules/hono/dist/router/reg-exp-router/matcher.js
 var emptyParam = [];
-function match(method, path4) {
+function match(method, path5) {
   const matchers = this.buildAllMatchers();
   const match2 = ((method2, path22) => {
     const matcher = matchers[method2] || matchers[METHOD_NAME_ALL];
@@ -4755,7 +4645,7 @@ function match(method, path4) {
     return [matcher[1][index], match3];
   });
   this.match = match2;
-  return match2(method, path4);
+  return match2(method, path5);
 }
 
 // ../node_modules/hono/dist/router/reg-exp-router/node.js
@@ -4870,12 +4760,12 @@ var Node = class _Node {
 var Trie = class {
   #context = { varIndex: 0 };
   #root = new Node();
-  insert(path4, index, pathErrorCheckOnly) {
+  insert(path5, index, pathErrorCheckOnly) {
     const paramAssoc = [];
     const groups = [];
     for (let i = 0; ; ) {
       let replaced = false;
-      path4 = path4.replace(/\{[^}]+\}/g, (m) => {
+      path5 = path5.replace(/\{[^}]+\}/g, (m) => {
         const mark = `@\\${i}`;
         groups[i] = [mark, m];
         i++;
@@ -4886,7 +4776,7 @@ var Trie = class {
         break;
       }
     }
-    const tokens = path4.match(/(?::[^\/]+)|(?:\/\*$)|./g) || [];
+    const tokens = path5.match(/(?::[^\/]+)|(?:\/\*$)|./g) || [];
     for (let i = groups.length - 1; i >= 0; i--) {
       const [mark] = groups[i];
       for (let j = tokens.length - 1; j >= 0; j--) {
@@ -4925,9 +4815,9 @@ var Trie = class {
 // ../node_modules/hono/dist/router/reg-exp-router/router.js
 var nullMatcher = [/^$/, [], /* @__PURE__ */ Object.create(null)];
 var wildcardRegExpCache = /* @__PURE__ */ Object.create(null);
-function buildWildcardRegExp(path4) {
-  return wildcardRegExpCache[path4] ??= new RegExp(
-    path4 === "*" ? "" : `^${path4.replace(
+function buildWildcardRegExp(path5) {
+  return wildcardRegExpCache[path5] ??= new RegExp(
+    path5 === "*" ? "" : `^${path5.replace(
       /\/\*$|([.\\+*[^\]$()])/g,
       (_, metaChar) => metaChar ? `\\${metaChar}` : "(?:|/.*)"
     )}$`
@@ -4949,17 +4839,17 @@ function buildMatcherFromPreprocessedRoutes(routes) {
   );
   const staticMap = /* @__PURE__ */ Object.create(null);
   for (let i = 0, j = -1, len = routesWithStaticPathFlag.length; i < len; i++) {
-    const [pathErrorCheckOnly, path4, handlers] = routesWithStaticPathFlag[i];
+    const [pathErrorCheckOnly, path5, handlers] = routesWithStaticPathFlag[i];
     if (pathErrorCheckOnly) {
-      staticMap[path4] = [handlers.map(([h]) => [h, /* @__PURE__ */ Object.create(null)]), emptyParam];
+      staticMap[path5] = [handlers.map(([h]) => [h, /* @__PURE__ */ Object.create(null)]), emptyParam];
     } else {
       j++;
     }
     let paramAssoc;
     try {
-      paramAssoc = trie.insert(path4, j, pathErrorCheckOnly);
+      paramAssoc = trie.insert(path5, j, pathErrorCheckOnly);
     } catch (e) {
-      throw e === PATH_ERROR ? new UnsupportedPathError(path4) : e;
+      throw e === PATH_ERROR ? new UnsupportedPathError(path5) : e;
     }
     if (pathErrorCheckOnly) {
       continue;
@@ -4993,12 +4883,12 @@ function buildMatcherFromPreprocessedRoutes(routes) {
   }
   return [regexp, handlerMap, staticMap];
 }
-function findMiddleware(middleware, path4) {
+function findMiddleware(middleware, path5) {
   if (!middleware) {
     return void 0;
   }
   for (const k of Object.keys(middleware).sort((a, b2) => b2.length - a.length)) {
-    if (buildWildcardRegExp(k).test(path4)) {
+    if (buildWildcardRegExp(k).test(path5)) {
       return [...middleware[k]];
     }
   }
@@ -5012,7 +4902,7 @@ var RegExpRouter = class {
     this.#middleware = { [METHOD_NAME_ALL]: /* @__PURE__ */ Object.create(null) };
     this.#routes = { [METHOD_NAME_ALL]: /* @__PURE__ */ Object.create(null) };
   }
-  add(method, path4, handler) {
+  add(method, path5, handler) {
     const middleware = this.#middleware;
     const routes = this.#routes;
     if (!middleware || !routes) {
@@ -5027,18 +4917,18 @@ var RegExpRouter = class {
         });
       });
     }
-    if (path4 === "/*") {
-      path4 = "*";
+    if (path5 === "/*") {
+      path5 = "*";
     }
-    const paramCount = (path4.match(/\/:/g) || []).length;
-    if (/\*$/.test(path4)) {
-      const re = buildWildcardRegExp(path4);
+    const paramCount = (path5.match(/\/:/g) || []).length;
+    if (/\*$/.test(path5)) {
+      const re = buildWildcardRegExp(path5);
       if (method === METHOD_NAME_ALL) {
         Object.keys(middleware).forEach((m) => {
-          middleware[m][path4] ||= findMiddleware(middleware[m], path4) || findMiddleware(middleware[METHOD_NAME_ALL], path4) || [];
+          middleware[m][path5] ||= findMiddleware(middleware[m], path5) || findMiddleware(middleware[METHOD_NAME_ALL], path5) || [];
         });
       } else {
-        middleware[method][path4] ||= findMiddleware(middleware[method], path4) || findMiddleware(middleware[METHOD_NAME_ALL], path4) || [];
+        middleware[method][path5] ||= findMiddleware(middleware[method], path5) || findMiddleware(middleware[METHOD_NAME_ALL], path5) || [];
       }
       Object.keys(middleware).forEach((m) => {
         if (method === METHOD_NAME_ALL || method === m) {
@@ -5056,7 +4946,7 @@ var RegExpRouter = class {
       });
       return;
     }
-    const paths = checkOptionalParameter(path4) || [path4];
+    const paths = checkOptionalParameter(path5) || [path5];
     for (let i = 0, len = paths.length; i < len; i++) {
       const path22 = paths[i];
       Object.keys(routes).forEach((m) => {
@@ -5083,13 +4973,13 @@ var RegExpRouter = class {
     const routes = [];
     let hasOwnRoute = method === METHOD_NAME_ALL;
     [this.#middleware, this.#routes].forEach((r) => {
-      const ownRoute = r[method] ? Object.keys(r[method]).map((path4) => [path4, r[method][path4]]) : [];
+      const ownRoute = r[method] ? Object.keys(r[method]).map((path5) => [path5, r[method][path5]]) : [];
       if (ownRoute.length !== 0) {
         hasOwnRoute ||= true;
         routes.push(...ownRoute);
       } else if (method !== METHOD_NAME_ALL) {
         routes.push(
-          ...Object.keys(r[METHOD_NAME_ALL]).map((path4) => [path4, r[METHOD_NAME_ALL][path4]])
+          ...Object.keys(r[METHOD_NAME_ALL]).map((path5) => [path5, r[METHOD_NAME_ALL][path5]])
         );
       }
     });
@@ -5109,13 +4999,13 @@ var SmartRouter = class {
   constructor(init) {
     this.#routers = init.routers;
   }
-  add(method, path4, handler) {
+  add(method, path5, handler) {
     if (!this.#routes) {
       throw new Error(MESSAGE_MATCHER_IS_ALREADY_BUILT);
     }
-    this.#routes.push([method, path4, handler]);
+    this.#routes.push([method, path5, handler]);
   }
-  match(method, path4) {
+  match(method, path5) {
     if (!this.#routes) {
       throw new Error("Fatal error");
     }
@@ -5130,7 +5020,7 @@ var SmartRouter = class {
         for (let i2 = 0, len2 = routes.length; i2 < len2; i2++) {
           router.add(...routes[i2]);
         }
-        res = router.match(method, path4);
+        res = router.match(method, path5);
       } catch (e) {
         if (e instanceof UnsupportedPathError) {
           continue;
@@ -5180,10 +5070,10 @@ var Node2 = class _Node2 {
     }
     this.#patterns = [];
   }
-  insert(method, path4, handler) {
+  insert(method, path5, handler) {
     this.#order = ++this.#order;
     let curNode = this;
-    const parts = splitRoutingPath(path4);
+    const parts = splitRoutingPath(path5);
     const possibleKeys = [];
     for (let i = 0, len = parts.length; i < len; i++) {
       const p = parts[i];
@@ -5232,12 +5122,12 @@ var Node2 = class _Node2 {
       }
     }
   }
-  search(method, path4) {
+  search(method, path5) {
     const handlerSets = [];
     this.#params = emptyParams;
     const curNode = this;
     let curNodes = [curNode];
-    const parts = splitPath(path4);
+    const parts = splitPath(path5);
     const curNodesQueue = [];
     const len = parts.length;
     let partOffsets = null;
@@ -5279,13 +5169,13 @@ var Node2 = class _Node2 {
           if (matcher instanceof RegExp) {
             if (partOffsets === null) {
               partOffsets = new Array(len);
-              let offset = path4[0] === "/" ? 1 : 0;
+              let offset = path5[0] === "/" ? 1 : 0;
               for (let p = 0; p < len; p++) {
                 partOffsets[p] = offset;
                 offset += parts[p].length + 1;
               }
             }
-            const restPathString = path4.substring(partOffsets[i]);
+            const restPathString = path5.substring(partOffsets[i]);
             const m = matcher.exec(restPathString);
             if (m) {
               params[name] = m[0];
@@ -5338,18 +5228,18 @@ var TrieRouter = class {
   constructor() {
     this.#node = new Node2();
   }
-  add(method, path4, handler) {
-    const results = checkOptionalParameter(path4);
+  add(method, path5, handler) {
+    const results = checkOptionalParameter(path5);
     if (results) {
       for (let i = 0, len = results.length; i < len; i++) {
         this.#node.insert(method, results[i], handler);
       }
       return;
     }
-    this.#node.insert(method, path4, handler);
+    this.#node.insert(method, path5, handler);
   }
-  match(method, path4) {
-    return this.#node.search(method, path4);
+  match(method, path5) {
+    return this.#node.search(method, path5);
   }
 };
 
@@ -5476,10 +5366,10 @@ var createStreamBody = (stream2) => {
   });
   return body;
 };
-var getStats = (path4) => {
+var getStats = (path5) => {
   let stats;
   try {
-    stats = statSync(path4);
+    stats = statSync(path5);
   } catch {
   }
   return stats;
@@ -5522,21 +5412,21 @@ var serveStatic = (options = { root: "" }) => {
         return next();
       }
     }
-    let path4 = join(
+    let path5 = join(
       root,
       !optionPath && options.rewriteRequestPath ? options.rewriteRequestPath(filename, c) : filename
     );
-    let stats = getStats(path4);
+    let stats = getStats(path5);
     if (stats && stats.isDirectory()) {
       const indexFile = options.index ?? "index.html";
-      path4 = join(path4, indexFile);
-      stats = getStats(path4);
+      path5 = join(path5, indexFile);
+      stats = getStats(path5);
     }
     if (!stats) {
-      await options.onNotFound?.(path4, c);
+      await options.onNotFound?.(path5, c);
       return next();
     }
-    const mimeType = getMimeType(path4);
+    const mimeType = getMimeType(path5);
     c.header("Content-Type", mimeType || "application/octet-stream");
     if (options.precompressed && (!mimeType || COMPRESSIBLE_CONTENT_TYPE_REGEX.test(mimeType))) {
       const acceptEncodingSet = new Set(
@@ -5546,12 +5436,12 @@ var serveStatic = (options = { root: "" }) => {
         if (!acceptEncodingSet.has(encoding)) {
           continue;
         }
-        const precompressedStats = getStats(path4 + ENCODINGS[encoding]);
+        const precompressedStats = getStats(path5 + ENCODINGS[encoding]);
         if (precompressedStats) {
           c.header("Content-Encoding", encoding);
           c.header("Vary", "Accept-Encoding", { append: true });
           stats = precompressedStats;
-          path4 = path4 + ENCODINGS[encoding];
+          path5 = path5 + ENCODINGS[encoding];
           break;
         }
       }
@@ -5565,7 +5455,7 @@ var serveStatic = (options = { root: "" }) => {
       result = c.body(null);
     } else if (!range) {
       c.header("Content-Length", size2.toString());
-      result = c.body(createStreamBody(createReadStream(path4)), 200);
+      result = c.body(createStreamBody(createReadStream(path5)), 200);
     } else {
       c.header("Accept-Ranges", "bytes");
       c.header("Date", stats.birthtime.toUTCString());
@@ -5576,12 +5466,12 @@ var serveStatic = (options = { root: "" }) => {
         end = size2 - 1;
       }
       const chunksize = end - start + 1;
-      const stream2 = createReadStream(path4, { start, end });
+      const stream2 = createReadStream(path5, { start, end });
       c.header("Content-Length", chunksize.toString());
       c.header("Content-Range", `bytes ${start}-${end}/${stats.size}`);
       result = c.body(createStreamBody(stream2), 206);
     }
-    await options.onFound?.(path4, c);
+    await options.onFound?.(path5, c);
     return result;
   };
 };
@@ -5864,83 +5754,37 @@ var requestLogger = async (c, next) => {
 // ../backend/src/middleware/auth.ts
 init_client();
 async function authMiddleware(c, next) {
-  if (c.req.method === "GET") {
-    const authHeader2 = c.req.header("Authorization");
-    if (authHeader2 && authHeader2.startsWith("Bearer ")) {
-      const token2 = authHeader2.slice(7);
-      const [adminSession2] = await sql`
-        SELECT id FROM admin_sessions WHERE token = ${token2} AND expires_at > now()
-      `;
-      if (adminSession2) {
-        c.set("authRole", "admin");
-        c.set("authStageId", "*");
-        return next();
-      }
-      const [session2] = await sql`
-        SELECT ss.stage_id, ss.expires_at
-        FROM stage_sessions ss
-        WHERE ss.token = ${token2}
-      `;
-      if (session2 && new Date(session2.expires_at) >= /* @__PURE__ */ new Date()) {
-        await sql`UPDATE stage_sessions SET last_used_at = now() WHERE token = ${token2}`;
-        c.set("authRole", "scorer");
-        c.set("authStageId", session2.stage_id);
-        return next();
-      }
-    }
-    c.set("authRole", "anonymous");
-    c.set("authStageId", "*");
-    return next();
-  }
   const authHeader = c.req.header("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return c.json({ error: "Authentication required. Provide a session token." }, 401);
+    return c.json({ error: "Authentication required." }, 401);
   }
   const token = authHeader.slice(7);
   const [adminSession] = await sql`
     SELECT id FROM admin_sessions WHERE token = ${token} AND expires_at > now()
   `;
   if (adminSession) {
-    const [epochSetting] = await sql`
-      SELECT value FROM app_settings WHERE key = 'session_epoch'
-    `;
-    const currentEpoch = epochSetting?.value || "0";
     c.set("authRole", "admin");
     c.set("authStageId", "*");
-    c.set("sessionEpoch", currentEpoch);
+    await sql`UPDATE admin_sessions SET expires_at = ${new Date(Date.now() + 24 * 60 * 60 * 1e3).toISOString()} WHERE token = ${token}`;
     return next();
   }
-  const [session] = await sql`
-    SELECT ss.stage_id, ss.expires_at
-    FROM stage_sessions ss
-    WHERE ss.token = ${token}
+  const [scorerSession] = await sql`
+    SELECT match_id FROM scorer_sessions WHERE session_token = ${token}
   `;
-  if (!session) {
-    return c.json({ error: "Invalid or expired session token." }, 401);
+  if (scorerSession) {
+    await sql`UPDATE scorer_sessions SET last_used_at = now() WHERE session_token = ${token}`;
+    c.set("authRole", "scorer");
+    c.set("authStageId", "*");
+    return next();
   }
-  if (new Date(session.expires_at) < /* @__PURE__ */ new Date()) {
-    await sql`DELETE FROM stage_sessions WHERE token = ${token}`;
-    return c.json({ error: "Session token has expired. Please log in again." }, 401);
-  }
-  await sql`UPDATE stage_sessions SET last_used_at = now() WHERE token = ${token}`;
-  c.set("authRole", "scorer");
-  c.set("authStageId", session.stage_id);
-  return next();
+  return c.json({ error: "Invalid or expired session token." }, 401);
 }
 async function stageAccessMiddleware(c, next) {
-  if (c.req.method === "GET") {
-    return next();
-  }
   const role = c.get("authRole");
-  const allowedStageId = c.get("authStageId");
-  if (role === "admin") {
+  if (role === "admin" || role === "scorer") {
     return next();
   }
-  const requestedStageId = c.req.param("stageId");
-  if (requestedStageId && requestedStageId !== allowedStageId) {
-    return c.json({ error: "Access denied. You can only score the stage you are assigned to." }, 403);
-  }
-  return next();
+  return c.json({ error: "Access denied." }, 403);
 }
 
 // ../backend/src/middleware/scoreLock.ts
@@ -5988,18 +5832,6 @@ async function requireAdmin(c, next) {
     return c.json({ error: "Admin access required." }, 401);
   }
   return next();
-}
-function methodGuard(allowedWriteRoles = ["admin"]) {
-  return async (c, next) => {
-    if (c.req.method === "GET") {
-      return next();
-    }
-    const role = c.get("authRole");
-    if (!allowedWriteRoles.includes(role)) {
-      return c.json({ error: "Insufficient permissions." }, 401);
-    }
-    return next();
-  };
 }
 
 // ../backend/src/routes/matches.ts
@@ -6142,6 +5974,24 @@ matchRoutes.put("/:id", async (c) => {
   await audit(c, "match.update", `matches:${id}`);
   return c.json(updated);
 });
+matchRoutes.delete("/bulk", async (c) => {
+  const { matchIds } = await c.req.json();
+  if (!Array.isArray(matchIds) || matchIds.length === 0) {
+    return c.json({ error: "matchIds must be a non-empty array" }, 400);
+  }
+  const result = await sql`
+    DELETE FROM matches WHERE id = ANY(${matchIds}::uuid[])
+    RETURNING id, name
+  `;
+  const deletedIds = new Set(result.map((r) => r.id));
+  const failedIds = matchIds.filter((id) => !deletedIds.has(id));
+  let failed = [];
+  if (failedIds.length > 0) {
+    failed = failedIds.map((id) => ({ id, name: "", reason: "Match not found" }));
+  }
+  await audit(c, "match.bulk-delete", null, { count: result.length });
+  return c.json({ deleted: result.length, failed });
+});
 matchRoutes.delete("/:id", async (c) => {
   const id = c.req.param("id");
   const result = await sql`DELETE FROM matches WHERE id = ${id} RETURNING id`;
@@ -6152,1734 +6002,6 @@ matchRoutes.delete("/:id", async (c) => {
 
 // ../backend/src/routes/stages.ts
 init_client();
-
-// ../node_modules/bcryptjs/index.js
-import nodeCrypto from "crypto";
-var randomFallback = null;
-function randomBytes(len) {
-  try {
-    return crypto.getRandomValues(new Uint8Array(len));
-  } catch {
-  }
-  try {
-    return nodeCrypto.randomBytes(len);
-  } catch {
-  }
-  if (!randomFallback) {
-    throw Error(
-      "Neither WebCryptoAPI nor a crypto module is available. Use bcrypt.setRandomFallback to set an alternative"
-    );
-  }
-  return randomFallback(len);
-}
-function setRandomFallback(random) {
-  randomFallback = random;
-}
-function genSaltSync(rounds, seed_length) {
-  rounds = rounds || GENSALT_DEFAULT_LOG2_ROUNDS;
-  if (typeof rounds !== "number")
-    throw Error(
-      "Illegal arguments: " + typeof rounds + ", " + typeof seed_length
-    );
-  if (rounds < 4) rounds = 4;
-  else if (rounds > 31) rounds = 31;
-  var salt = [];
-  salt.push("$2b$");
-  if (rounds < 10) salt.push("0");
-  salt.push(rounds.toString());
-  salt.push("$");
-  salt.push(base64_encode(randomBytes(BCRYPT_SALT_LEN), BCRYPT_SALT_LEN));
-  return salt.join("");
-}
-function genSalt(rounds, seed_length, callback) {
-  if (typeof seed_length === "function")
-    callback = seed_length, seed_length = void 0;
-  if (typeof rounds === "function") callback = rounds, rounds = void 0;
-  if (typeof rounds === "undefined") rounds = GENSALT_DEFAULT_LOG2_ROUNDS;
-  else if (typeof rounds !== "number")
-    throw Error("illegal arguments: " + typeof rounds);
-  function _async(callback2) {
-    nextTick(function() {
-      try {
-        callback2(null, genSaltSync(rounds));
-      } catch (err) {
-        callback2(err);
-      }
-    });
-  }
-  if (callback) {
-    if (typeof callback !== "function")
-      throw Error("Illegal callback: " + typeof callback);
-    _async(callback);
-  } else
-    return new Promise(function(resolve, reject) {
-      _async(function(err, res) {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(res);
-      });
-    });
-}
-function hashSync(password, salt) {
-  if (typeof salt === "undefined") salt = GENSALT_DEFAULT_LOG2_ROUNDS;
-  if (typeof salt === "number") salt = genSaltSync(salt);
-  if (typeof password !== "string" || typeof salt !== "string")
-    throw Error("Illegal arguments: " + typeof password + ", " + typeof salt);
-  return _hash(password, salt);
-}
-function hash(password, salt, callback, progressCallback) {
-  function _async(callback2) {
-    if (typeof password === "string" && typeof salt === "number")
-      genSalt(salt, function(err, salt2) {
-        _hash(password, salt2, callback2, progressCallback);
-      });
-    else if (typeof password === "string" && typeof salt === "string")
-      _hash(password, salt, callback2, progressCallback);
-    else
-      nextTick(
-        callback2.bind(
-          this,
-          Error("Illegal arguments: " + typeof password + ", " + typeof salt)
-        )
-      );
-  }
-  if (callback) {
-    if (typeof callback !== "function")
-      throw Error("Illegal callback: " + typeof callback);
-    _async(callback);
-  } else
-    return new Promise(function(resolve, reject) {
-      _async(function(err, res) {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(res);
-      });
-    });
-}
-function safeStringCompare(known, unknown) {
-  var diff = known.length ^ unknown.length;
-  for (var i = 0; i < known.length; ++i) {
-    diff |= known.charCodeAt(i) ^ unknown.charCodeAt(i);
-  }
-  return diff === 0;
-}
-function compareSync(password, hash3) {
-  if (typeof password !== "string" || typeof hash3 !== "string")
-    throw Error("Illegal arguments: " + typeof password + ", " + typeof hash3);
-  if (hash3.length !== 60) return false;
-  return safeStringCompare(
-    hashSync(password, hash3.substring(0, hash3.length - 31)),
-    hash3
-  );
-}
-function compare(password, hashValue, callback, progressCallback) {
-  function _async(callback2) {
-    if (typeof password !== "string" || typeof hashValue !== "string") {
-      nextTick(
-        callback2.bind(
-          this,
-          Error(
-            "Illegal arguments: " + typeof password + ", " + typeof hashValue
-          )
-        )
-      );
-      return;
-    }
-    if (hashValue.length !== 60) {
-      nextTick(callback2.bind(this, null, false));
-      return;
-    }
-    hash(
-      password,
-      hashValue.substring(0, 29),
-      function(err, comp) {
-        if (err) callback2(err);
-        else callback2(null, safeStringCompare(comp, hashValue));
-      },
-      progressCallback
-    );
-  }
-  if (callback) {
-    if (typeof callback !== "function")
-      throw Error("Illegal callback: " + typeof callback);
-    _async(callback);
-  } else
-    return new Promise(function(resolve, reject) {
-      _async(function(err, res) {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(res);
-      });
-    });
-}
-function getRounds(hash3) {
-  if (typeof hash3 !== "string")
-    throw Error("Illegal arguments: " + typeof hash3);
-  return parseInt(hash3.split("$")[2], 10);
-}
-function getSalt(hash3) {
-  if (typeof hash3 !== "string")
-    throw Error("Illegal arguments: " + typeof hash3);
-  if (hash3.length !== 60)
-    throw Error("Illegal hash length: " + hash3.length + " != 60");
-  return hash3.substring(0, 29);
-}
-function truncates(password) {
-  if (typeof password !== "string")
-    throw Error("Illegal arguments: " + typeof password);
-  return utf8Length(password) > 72;
-}
-var nextTick = typeof setImmediate === "function" ? setImmediate : typeof scheduler === "object" && typeof scheduler.postTask === "function" ? scheduler.postTask.bind(scheduler) : setTimeout;
-function utf8Length(string) {
-  var len = 0, c = 0;
-  for (var i = 0; i < string.length; ++i) {
-    c = string.charCodeAt(i);
-    if (c < 128) len += 1;
-    else if (c < 2048) len += 2;
-    else if ((c & 64512) === 55296 && (string.charCodeAt(i + 1) & 64512) === 56320) {
-      ++i;
-      len += 4;
-    } else len += 3;
-  }
-  return len;
-}
-function utf8Array(string) {
-  var offset = 0, c1, c2;
-  var buffer2 = new Array(utf8Length(string));
-  for (var i = 0, k = string.length; i < k; ++i) {
-    c1 = string.charCodeAt(i);
-    if (c1 < 128) {
-      buffer2[offset++] = c1;
-    } else if (c1 < 2048) {
-      buffer2[offset++] = c1 >> 6 | 192;
-      buffer2[offset++] = c1 & 63 | 128;
-    } else if ((c1 & 64512) === 55296 && ((c2 = string.charCodeAt(i + 1)) & 64512) === 56320) {
-      c1 = 65536 + ((c1 & 1023) << 10) + (c2 & 1023);
-      ++i;
-      buffer2[offset++] = c1 >> 18 | 240;
-      buffer2[offset++] = c1 >> 12 & 63 | 128;
-      buffer2[offset++] = c1 >> 6 & 63 | 128;
-      buffer2[offset++] = c1 & 63 | 128;
-    } else {
-      buffer2[offset++] = c1 >> 12 | 224;
-      buffer2[offset++] = c1 >> 6 & 63 | 128;
-      buffer2[offset++] = c1 & 63 | 128;
-    }
-  }
-  return buffer2;
-}
-var BASE64_CODE = "./ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".split("");
-var BASE64_INDEX = [
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  0,
-  1,
-  54,
-  55,
-  56,
-  57,
-  58,
-  59,
-  60,
-  61,
-  62,
-  63,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  2,
-  3,
-  4,
-  5,
-  6,
-  7,
-  8,
-  9,
-  10,
-  11,
-  12,
-  13,
-  14,
-  15,
-  16,
-  17,
-  18,
-  19,
-  20,
-  21,
-  22,
-  23,
-  24,
-  25,
-  26,
-  27,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1,
-  28,
-  29,
-  30,
-  31,
-  32,
-  33,
-  34,
-  35,
-  36,
-  37,
-  38,
-  39,
-  40,
-  41,
-  42,
-  43,
-  44,
-  45,
-  46,
-  47,
-  48,
-  49,
-  50,
-  51,
-  52,
-  53,
-  -1,
-  -1,
-  -1,
-  -1,
-  -1
-];
-function base64_encode(b2, len) {
-  var off = 0, rs = [], c1, c2;
-  if (len <= 0 || len > b2.length) throw Error("Illegal len: " + len);
-  while (off < len) {
-    c1 = b2[off++] & 255;
-    rs.push(BASE64_CODE[c1 >> 2 & 63]);
-    c1 = (c1 & 3) << 4;
-    if (off >= len) {
-      rs.push(BASE64_CODE[c1 & 63]);
-      break;
-    }
-    c2 = b2[off++] & 255;
-    c1 |= c2 >> 4 & 15;
-    rs.push(BASE64_CODE[c1 & 63]);
-    c1 = (c2 & 15) << 2;
-    if (off >= len) {
-      rs.push(BASE64_CODE[c1 & 63]);
-      break;
-    }
-    c2 = b2[off++] & 255;
-    c1 |= c2 >> 6 & 3;
-    rs.push(BASE64_CODE[c1 & 63]);
-    rs.push(BASE64_CODE[c2 & 63]);
-  }
-  return rs.join("");
-}
-function base64_decode(s, len) {
-  var off = 0, slen = s.length, olen = 0, rs = [], c1, c2, c3, c4, o, code;
-  if (len <= 0) throw Error("Illegal len: " + len);
-  while (off < slen - 1 && olen < len) {
-    code = s.charCodeAt(off++);
-    c1 = code < BASE64_INDEX.length ? BASE64_INDEX[code] : -1;
-    code = s.charCodeAt(off++);
-    c2 = code < BASE64_INDEX.length ? BASE64_INDEX[code] : -1;
-    if (c1 == -1 || c2 == -1) break;
-    o = c1 << 2 >>> 0;
-    o |= (c2 & 48) >> 4;
-    rs.push(String.fromCharCode(o));
-    if (++olen >= len || off >= slen) break;
-    code = s.charCodeAt(off++);
-    c3 = code < BASE64_INDEX.length ? BASE64_INDEX[code] : -1;
-    if (c3 == -1) break;
-    o = (c2 & 15) << 4 >>> 0;
-    o |= (c3 & 60) >> 2;
-    rs.push(String.fromCharCode(o));
-    if (++olen >= len || off >= slen) break;
-    code = s.charCodeAt(off++);
-    c4 = code < BASE64_INDEX.length ? BASE64_INDEX[code] : -1;
-    o = (c3 & 3) << 6 >>> 0;
-    o |= c4;
-    rs.push(String.fromCharCode(o));
-    ++olen;
-  }
-  var res = [];
-  for (off = 0; off < olen; off++) res.push(rs[off].charCodeAt(0));
-  return res;
-}
-var BCRYPT_SALT_LEN = 16;
-var GENSALT_DEFAULT_LOG2_ROUNDS = 10;
-var BLOWFISH_NUM_ROUNDS = 16;
-var MAX_EXECUTION_TIME = 100;
-var P_ORIG = [
-  608135816,
-  2242054355,
-  320440878,
-  57701188,
-  2752067618,
-  698298832,
-  137296536,
-  3964562569,
-  1160258022,
-  953160567,
-  3193202383,
-  887688300,
-  3232508343,
-  3380367581,
-  1065670069,
-  3041331479,
-  2450970073,
-  2306472731
-];
-var S_ORIG = [
-  3509652390,
-  2564797868,
-  805139163,
-  3491422135,
-  3101798381,
-  1780907670,
-  3128725573,
-  4046225305,
-  614570311,
-  3012652279,
-  134345442,
-  2240740374,
-  1667834072,
-  1901547113,
-  2757295779,
-  4103290238,
-  227898511,
-  1921955416,
-  1904987480,
-  2182433518,
-  2069144605,
-  3260701109,
-  2620446009,
-  720527379,
-  3318853667,
-  677414384,
-  3393288472,
-  3101374703,
-  2390351024,
-  1614419982,
-  1822297739,
-  2954791486,
-  3608508353,
-  3174124327,
-  2024746970,
-  1432378464,
-  3864339955,
-  2857741204,
-  1464375394,
-  1676153920,
-  1439316330,
-  715854006,
-  3033291828,
-  289532110,
-  2706671279,
-  2087905683,
-  3018724369,
-  1668267050,
-  732546397,
-  1947742710,
-  3462151702,
-  2609353502,
-  2950085171,
-  1814351708,
-  2050118529,
-  680887927,
-  999245976,
-  1800124847,
-  3300911131,
-  1713906067,
-  1641548236,
-  4213287313,
-  1216130144,
-  1575780402,
-  4018429277,
-  3917837745,
-  3693486850,
-  3949271944,
-  596196993,
-  3549867205,
-  258830323,
-  2213823033,
-  772490370,
-  2760122372,
-  1774776394,
-  2652871518,
-  566650946,
-  4142492826,
-  1728879713,
-  2882767088,
-  1783734482,
-  3629395816,
-  2517608232,
-  2874225571,
-  1861159788,
-  326777828,
-  3124490320,
-  2130389656,
-  2716951837,
-  967770486,
-  1724537150,
-  2185432712,
-  2364442137,
-  1164943284,
-  2105845187,
-  998989502,
-  3765401048,
-  2244026483,
-  1075463327,
-  1455516326,
-  1322494562,
-  910128902,
-  469688178,
-  1117454909,
-  936433444,
-  3490320968,
-  3675253459,
-  1240580251,
-  122909385,
-  2157517691,
-  634681816,
-  4142456567,
-  3825094682,
-  3061402683,
-  2540495037,
-  79693498,
-  3249098678,
-  1084186820,
-  1583128258,
-  426386531,
-  1761308591,
-  1047286709,
-  322548459,
-  995290223,
-  1845252383,
-  2603652396,
-  3431023940,
-  2942221577,
-  3202600964,
-  3727903485,
-  1712269319,
-  422464435,
-  3234572375,
-  1170764815,
-  3523960633,
-  3117677531,
-  1434042557,
-  442511882,
-  3600875718,
-  1076654713,
-  1738483198,
-  4213154764,
-  2393238008,
-  3677496056,
-  1014306527,
-  4251020053,
-  793779912,
-  2902807211,
-  842905082,
-  4246964064,
-  1395751752,
-  1040244610,
-  2656851899,
-  3396308128,
-  445077038,
-  3742853595,
-  3577915638,
-  679411651,
-  2892444358,
-  2354009459,
-  1767581616,
-  3150600392,
-  3791627101,
-  3102740896,
-  284835224,
-  4246832056,
-  1258075500,
-  768725851,
-  2589189241,
-  3069724005,
-  3532540348,
-  1274779536,
-  3789419226,
-  2764799539,
-  1660621633,
-  3471099624,
-  4011903706,
-  913787905,
-  3497959166,
-  737222580,
-  2514213453,
-  2928710040,
-  3937242737,
-  1804850592,
-  3499020752,
-  2949064160,
-  2386320175,
-  2390070455,
-  2415321851,
-  4061277028,
-  2290661394,
-  2416832540,
-  1336762016,
-  1754252060,
-  3520065937,
-  3014181293,
-  791618072,
-  3188594551,
-  3933548030,
-  2332172193,
-  3852520463,
-  3043980520,
-  413987798,
-  3465142937,
-  3030929376,
-  4245938359,
-  2093235073,
-  3534596313,
-  375366246,
-  2157278981,
-  2479649556,
-  555357303,
-  3870105701,
-  2008414854,
-  3344188149,
-  4221384143,
-  3956125452,
-  2067696032,
-  3594591187,
-  2921233993,
-  2428461,
-  544322398,
-  577241275,
-  1471733935,
-  610547355,
-  4027169054,
-  1432588573,
-  1507829418,
-  2025931657,
-  3646575487,
-  545086370,
-  48609733,
-  2200306550,
-  1653985193,
-  298326376,
-  1316178497,
-  3007786442,
-  2064951626,
-  458293330,
-  2589141269,
-  3591329599,
-  3164325604,
-  727753846,
-  2179363840,
-  146436021,
-  1461446943,
-  4069977195,
-  705550613,
-  3059967265,
-  3887724982,
-  4281599278,
-  3313849956,
-  1404054877,
-  2845806497,
-  146425753,
-  1854211946,
-  1266315497,
-  3048417604,
-  3681880366,
-  3289982499,
-  290971e4,
-  1235738493,
-  2632868024,
-  2414719590,
-  3970600049,
-  1771706367,
-  1449415276,
-  3266420449,
-  422970021,
-  1963543593,
-  2690192192,
-  3826793022,
-  1062508698,
-  1531092325,
-  1804592342,
-  2583117782,
-  2714934279,
-  4024971509,
-  1294809318,
-  4028980673,
-  1289560198,
-  2221992742,
-  1669523910,
-  35572830,
-  157838143,
-  1052438473,
-  1016535060,
-  1802137761,
-  1753167236,
-  1386275462,
-  3080475397,
-  2857371447,
-  1040679964,
-  2145300060,
-  2390574316,
-  1461121720,
-  2956646967,
-  4031777805,
-  4028374788,
-  33600511,
-  2920084762,
-  1018524850,
-  629373528,
-  3691585981,
-  3515945977,
-  2091462646,
-  2486323059,
-  586499841,
-  988145025,
-  935516892,
-  3367335476,
-  2599673255,
-  2839830854,
-  265290510,
-  3972581182,
-  2759138881,
-  3795373465,
-  1005194799,
-  847297441,
-  406762289,
-  1314163512,
-  1332590856,
-  1866599683,
-  4127851711,
-  750260880,
-  613907577,
-  1450815602,
-  3165620655,
-  3734664991,
-  3650291728,
-  3012275730,
-  3704569646,
-  1427272223,
-  778793252,
-  1343938022,
-  2676280711,
-  2052605720,
-  1946737175,
-  3164576444,
-  3914038668,
-  3967478842,
-  3682934266,
-  1661551462,
-  3294938066,
-  4011595847,
-  840292616,
-  3712170807,
-  616741398,
-  312560963,
-  711312465,
-  1351876610,
-  322626781,
-  1910503582,
-  271666773,
-  2175563734,
-  1594956187,
-  70604529,
-  3617834859,
-  1007753275,
-  1495573769,
-  4069517037,
-  2549218298,
-  2663038764,
-  504708206,
-  2263041392,
-  3941167025,
-  2249088522,
-  1514023603,
-  1998579484,
-  1312622330,
-  694541497,
-  2582060303,
-  2151582166,
-  1382467621,
-  776784248,
-  2618340202,
-  3323268794,
-  2497899128,
-  2784771155,
-  503983604,
-  4076293799,
-  907881277,
-  423175695,
-  432175456,
-  1378068232,
-  4145222326,
-  3954048622,
-  3938656102,
-  3820766613,
-  2793130115,
-  2977904593,
-  26017576,
-  3274890735,
-  3194772133,
-  1700274565,
-  1756076034,
-  4006520079,
-  3677328699,
-  720338349,
-  1533947780,
-  354530856,
-  688349552,
-  3973924725,
-  1637815568,
-  332179504,
-  3949051286,
-  53804574,
-  2852348879,
-  3044236432,
-  1282449977,
-  3583942155,
-  3416972820,
-  4006381244,
-  1617046695,
-  2628476075,
-  3002303598,
-  1686838959,
-  431878346,
-  2686675385,
-  1700445008,
-  1080580658,
-  1009431731,
-  832498133,
-  3223435511,
-  2605976345,
-  2271191193,
-  2516031870,
-  1648197032,
-  4164389018,
-  2548247927,
-  300782431,
-  375919233,
-  238389289,
-  3353747414,
-  2531188641,
-  2019080857,
-  1475708069,
-  455242339,
-  2609103871,
-  448939670,
-  3451063019,
-  1395535956,
-  2413381860,
-  1841049896,
-  1491858159,
-  885456874,
-  4264095073,
-  4001119347,
-  1565136089,
-  3898914787,
-  1108368660,
-  540939232,
-  1173283510,
-  2745871338,
-  3681308437,
-  4207628240,
-  3343053890,
-  4016749493,
-  1699691293,
-  1103962373,
-  3625875870,
-  2256883143,
-  3830138730,
-  1031889488,
-  3479347698,
-  1535977030,
-  4236805024,
-  3251091107,
-  2132092099,
-  1774941330,
-  1199868427,
-  1452454533,
-  157007616,
-  2904115357,
-  342012276,
-  595725824,
-  1480756522,
-  206960106,
-  497939518,
-  591360097,
-  863170706,
-  2375253569,
-  3596610801,
-  1814182875,
-  2094937945,
-  3421402208,
-  1082520231,
-  3463918190,
-  2785509508,
-  435703966,
-  3908032597,
-  1641649973,
-  2842273706,
-  3305899714,
-  1510255612,
-  2148256476,
-  2655287854,
-  3276092548,
-  4258621189,
-  236887753,
-  3681803219,
-  274041037,
-  1734335097,
-  3815195456,
-  3317970021,
-  1899903192,
-  1026095262,
-  4050517792,
-  356393447,
-  2410691914,
-  3873677099,
-  3682840055,
-  3913112168,
-  2491498743,
-  4132185628,
-  2489919796,
-  1091903735,
-  1979897079,
-  3170134830,
-  3567386728,
-  3557303409,
-  857797738,
-  1136121015,
-  1342202287,
-  507115054,
-  2535736646,
-  337727348,
-  3213592640,
-  1301675037,
-  2528481711,
-  1895095763,
-  1721773893,
-  3216771564,
-  62756741,
-  2142006736,
-  835421444,
-  2531993523,
-  1442658625,
-  3659876326,
-  2882144922,
-  676362277,
-  1392781812,
-  170690266,
-  3921047035,
-  1759253602,
-  3611846912,
-  1745797284,
-  664899054,
-  1329594018,
-  3901205900,
-  3045908486,
-  2062866102,
-  2865634940,
-  3543621612,
-  3464012697,
-  1080764994,
-  553557557,
-  3656615353,
-  3996768171,
-  991055499,
-  499776247,
-  1265440854,
-  648242737,
-  3940784050,
-  980351604,
-  3713745714,
-  1749149687,
-  3396870395,
-  4211799374,
-  3640570775,
-  1161844396,
-  3125318951,
-  1431517754,
-  545492359,
-  4268468663,
-  3499529547,
-  1437099964,
-  2702547544,
-  3433638243,
-  2581715763,
-  2787789398,
-  1060185593,
-  1593081372,
-  2418618748,
-  4260947970,
-  69676912,
-  2159744348,
-  86519011,
-  2512459080,
-  3838209314,
-  1220612927,
-  3339683548,
-  133810670,
-  1090789135,
-  1078426020,
-  1569222167,
-  845107691,
-  3583754449,
-  4072456591,
-  1091646820,
-  628848692,
-  1613405280,
-  3757631651,
-  526609435,
-  236106946,
-  48312990,
-  2942717905,
-  3402727701,
-  1797494240,
-  859738849,
-  992217954,
-  4005476642,
-  2243076622,
-  3870952857,
-  3732016268,
-  765654824,
-  3490871365,
-  2511836413,
-  1685915746,
-  3888969200,
-  1414112111,
-  2273134842,
-  3281911079,
-  4080962846,
-  172450625,
-  2569994100,
-  980381355,
-  4109958455,
-  2819808352,
-  2716589560,
-  2568741196,
-  3681446669,
-  3329971472,
-  1835478071,
-  660984891,
-  3704678404,
-  4045999559,
-  3422617507,
-  3040415634,
-  1762651403,
-  1719377915,
-  3470491036,
-  2693910283,
-  3642056355,
-  3138596744,
-  1364962596,
-  2073328063,
-  1983633131,
-  926494387,
-  3423689081,
-  2150032023,
-  4096667949,
-  1749200295,
-  3328846651,
-  309677260,
-  2016342300,
-  1779581495,
-  3079819751,
-  111262694,
-  1274766160,
-  443224088,
-  298511866,
-  1025883608,
-  3806446537,
-  1145181785,
-  168956806,
-  3641502830,
-  3584813610,
-  1689216846,
-  3666258015,
-  3200248200,
-  1692713982,
-  2646376535,
-  4042768518,
-  1618508792,
-  1610833997,
-  3523052358,
-  4130873264,
-  2001055236,
-  3610705100,
-  2202168115,
-  4028541809,
-  2961195399,
-  1006657119,
-  2006996926,
-  3186142756,
-  1430667929,
-  3210227297,
-  1314452623,
-  4074634658,
-  4101304120,
-  2273951170,
-  1399257539,
-  3367210612,
-  3027628629,
-  1190975929,
-  2062231137,
-  2333990788,
-  2221543033,
-  2438960610,
-  1181637006,
-  548689776,
-  2362791313,
-  3372408396,
-  3104550113,
-  3145860560,
-  296247880,
-  1970579870,
-  3078560182,
-  3769228297,
-  1714227617,
-  3291629107,
-  3898220290,
-  166772364,
-  1251581989,
-  493813264,
-  448347421,
-  195405023,
-  2709975567,
-  677966185,
-  3703036547,
-  1463355134,
-  2715995803,
-  1338867538,
-  1343315457,
-  2802222074,
-  2684532164,
-  233230375,
-  2599980071,
-  2000651841,
-  3277868038,
-  1638401717,
-  4028070440,
-  3237316320,
-  6314154,
-  819756386,
-  300326615,
-  590932579,
-  1405279636,
-  3267499572,
-  3150704214,
-  2428286686,
-  3959192993,
-  3461946742,
-  1862657033,
-  1266418056,
-  963775037,
-  2089974820,
-  2263052895,
-  1917689273,
-  448879540,
-  3550394620,
-  3981727096,
-  150775221,
-  3627908307,
-  1303187396,
-  508620638,
-  2975983352,
-  2726630617,
-  1817252668,
-  1876281319,
-  1457606340,
-  908771278,
-  3720792119,
-  3617206836,
-  2455994898,
-  1729034894,
-  1080033504,
-  976866871,
-  3556439503,
-  2881648439,
-  1522871579,
-  1555064734,
-  1336096578,
-  3548522304,
-  2579274686,
-  3574697629,
-  3205460757,
-  3593280638,
-  3338716283,
-  3079412587,
-  564236357,
-  2993598910,
-  1781952180,
-  1464380207,
-  3163844217,
-  3332601554,
-  1699332808,
-  1393555694,
-  1183702653,
-  3581086237,
-  1288719814,
-  691649499,
-  2847557200,
-  2895455976,
-  3193889540,
-  2717570544,
-  1781354906,
-  1676643554,
-  2592534050,
-  3230253752,
-  1126444790,
-  2770207658,
-  2633158820,
-  2210423226,
-  2615765581,
-  2414155088,
-  3127139286,
-  673620729,
-  2805611233,
-  1269405062,
-  4015350505,
-  3341807571,
-  4149409754,
-  1057255273,
-  2012875353,
-  2162469141,
-  2276492801,
-  2601117357,
-  993977747,
-  3918593370,
-  2654263191,
-  753973209,
-  36408145,
-  2530585658,
-  25011837,
-  3520020182,
-  2088578344,
-  530523599,
-  2918365339,
-  1524020338,
-  1518925132,
-  3760827505,
-  3759777254,
-  1202760957,
-  3985898139,
-  3906192525,
-  674977740,
-  4174734889,
-  2031300136,
-  2019492241,
-  3983892565,
-  4153806404,
-  3822280332,
-  352677332,
-  2297720250,
-  60907813,
-  90501309,
-  3286998549,
-  1016092578,
-  2535922412,
-  2839152426,
-  457141659,
-  509813237,
-  4120667899,
-  652014361,
-  1966332200,
-  2975202805,
-  55981186,
-  2327461051,
-  676427537,
-  3255491064,
-  2882294119,
-  3433927263,
-  1307055953,
-  942726286,
-  933058658,
-  2468411793,
-  3933900994,
-  4215176142,
-  1361170020,
-  2001714738,
-  2830558078,
-  3274259782,
-  1222529897,
-  1679025792,
-  2729314320,
-  3714953764,
-  1770335741,
-  151462246,
-  3013232138,
-  1682292957,
-  1483529935,
-  471910574,
-  1539241949,
-  458788160,
-  3436315007,
-  1807016891,
-  3718408830,
-  978976581,
-  1043663428,
-  3165965781,
-  1927990952,
-  4200891579,
-  2372276910,
-  3208408903,
-  3533431907,
-  1412390302,
-  2931980059,
-  4132332400,
-  1947078029,
-  3881505623,
-  4168226417,
-  2941484381,
-  1077988104,
-  1320477388,
-  886195818,
-  18198404,
-  3786409e3,
-  2509781533,
-  112762804,
-  3463356488,
-  1866414978,
-  891333506,
-  18488651,
-  661792760,
-  1628790961,
-  3885187036,
-  3141171499,
-  876946877,
-  2693282273,
-  1372485963,
-  791857591,
-  2686433993,
-  3759982718,
-  3167212022,
-  3472953795,
-  2716379847,
-  445679433,
-  3561995674,
-  3504004811,
-  3574258232,
-  54117162,
-  3331405415,
-  2381918588,
-  3769707343,
-  4154350007,
-  1140177722,
-  4074052095,
-  668550556,
-  3214352940,
-  367459370,
-  261225585,
-  2610173221,
-  4209349473,
-  3468074219,
-  3265815641,
-  314222801,
-  3066103646,
-  3808782860,
-  282218597,
-  3406013506,
-  3773591054,
-  379116347,
-  1285071038,
-  846784868,
-  2669647154,
-  3771962079,
-  3550491691,
-  2305946142,
-  453669953,
-  1268987020,
-  3317592352,
-  3279303384,
-  3744833421,
-  2610507566,
-  3859509063,
-  266596637,
-  3847019092,
-  517658769,
-  3462560207,
-  3443424879,
-  370717030,
-  4247526661,
-  2224018117,
-  4143653529,
-  4112773975,
-  2788324899,
-  2477274417,
-  1456262402,
-  2901442914,
-  1517677493,
-  1846949527,
-  2295493580,
-  3734397586,
-  2176403920,
-  1280348187,
-  1908823572,
-  3871786941,
-  846861322,
-  1172426758,
-  3287448474,
-  3383383037,
-  1655181056,
-  3139813346,
-  901632758,
-  1897031941,
-  2986607138,
-  3066810236,
-  3447102507,
-  1393639104,
-  373351379,
-  950779232,
-  625454576,
-  3124240540,
-  4148612726,
-  2007998917,
-  544563296,
-  2244738638,
-  2330496472,
-  2058025392,
-  1291430526,
-  424198748,
-  50039436,
-  29584100,
-  3605783033,
-  2429876329,
-  2791104160,
-  1057563949,
-  3255363231,
-  3075367218,
-  3463963227,
-  1469046755,
-  985887462
-];
-var C_ORIG = [
-  1332899944,
-  1700884034,
-  1701343084,
-  1684370003,
-  1668446532,
-  1869963892
-];
-function _encipher(lr, off, P, S) {
-  var n, l = lr[off], r = lr[off + 1];
-  l ^= P[0];
-  n = S[l >>> 24];
-  n += S[256 | l >> 16 & 255];
-  n ^= S[512 | l >> 8 & 255];
-  n += S[768 | l & 255];
-  r ^= n ^ P[1];
-  n = S[r >>> 24];
-  n += S[256 | r >> 16 & 255];
-  n ^= S[512 | r >> 8 & 255];
-  n += S[768 | r & 255];
-  l ^= n ^ P[2];
-  n = S[l >>> 24];
-  n += S[256 | l >> 16 & 255];
-  n ^= S[512 | l >> 8 & 255];
-  n += S[768 | l & 255];
-  r ^= n ^ P[3];
-  n = S[r >>> 24];
-  n += S[256 | r >> 16 & 255];
-  n ^= S[512 | r >> 8 & 255];
-  n += S[768 | r & 255];
-  l ^= n ^ P[4];
-  n = S[l >>> 24];
-  n += S[256 | l >> 16 & 255];
-  n ^= S[512 | l >> 8 & 255];
-  n += S[768 | l & 255];
-  r ^= n ^ P[5];
-  n = S[r >>> 24];
-  n += S[256 | r >> 16 & 255];
-  n ^= S[512 | r >> 8 & 255];
-  n += S[768 | r & 255];
-  l ^= n ^ P[6];
-  n = S[l >>> 24];
-  n += S[256 | l >> 16 & 255];
-  n ^= S[512 | l >> 8 & 255];
-  n += S[768 | l & 255];
-  r ^= n ^ P[7];
-  n = S[r >>> 24];
-  n += S[256 | r >> 16 & 255];
-  n ^= S[512 | r >> 8 & 255];
-  n += S[768 | r & 255];
-  l ^= n ^ P[8];
-  n = S[l >>> 24];
-  n += S[256 | l >> 16 & 255];
-  n ^= S[512 | l >> 8 & 255];
-  n += S[768 | l & 255];
-  r ^= n ^ P[9];
-  n = S[r >>> 24];
-  n += S[256 | r >> 16 & 255];
-  n ^= S[512 | r >> 8 & 255];
-  n += S[768 | r & 255];
-  l ^= n ^ P[10];
-  n = S[l >>> 24];
-  n += S[256 | l >> 16 & 255];
-  n ^= S[512 | l >> 8 & 255];
-  n += S[768 | l & 255];
-  r ^= n ^ P[11];
-  n = S[r >>> 24];
-  n += S[256 | r >> 16 & 255];
-  n ^= S[512 | r >> 8 & 255];
-  n += S[768 | r & 255];
-  l ^= n ^ P[12];
-  n = S[l >>> 24];
-  n += S[256 | l >> 16 & 255];
-  n ^= S[512 | l >> 8 & 255];
-  n += S[768 | l & 255];
-  r ^= n ^ P[13];
-  n = S[r >>> 24];
-  n += S[256 | r >> 16 & 255];
-  n ^= S[512 | r >> 8 & 255];
-  n += S[768 | r & 255];
-  l ^= n ^ P[14];
-  n = S[l >>> 24];
-  n += S[256 | l >> 16 & 255];
-  n ^= S[512 | l >> 8 & 255];
-  n += S[768 | l & 255];
-  r ^= n ^ P[15];
-  n = S[r >>> 24];
-  n += S[256 | r >> 16 & 255];
-  n ^= S[512 | r >> 8 & 255];
-  n += S[768 | r & 255];
-  l ^= n ^ P[16];
-  lr[off] = r ^ P[BLOWFISH_NUM_ROUNDS + 1];
-  lr[off + 1] = l;
-  return lr;
-}
-function _streamtoword(data, offp) {
-  for (var i = 0, word = 0; i < 4; ++i)
-    word = word << 8 | data[offp] & 255, offp = (offp + 1) % data.length;
-  return { key: word, offp };
-}
-function _key(key, P, S) {
-  var offset = 0, lr = [0, 0], plen = P.length, slen = S.length, sw;
-  for (var i = 0; i < plen; i++)
-    sw = _streamtoword(key, offset), offset = sw.offp, P[i] = P[i] ^ sw.key;
-  for (i = 0; i < plen; i += 2)
-    lr = _encipher(lr, 0, P, S), P[i] = lr[0], P[i + 1] = lr[1];
-  for (i = 0; i < slen; i += 2)
-    lr = _encipher(lr, 0, P, S), S[i] = lr[0], S[i + 1] = lr[1];
-}
-function _ekskey(data, key, P, S) {
-  var offp = 0, lr = [0, 0], plen = P.length, slen = S.length, sw;
-  for (var i = 0; i < plen; i++)
-    sw = _streamtoword(key, offp), offp = sw.offp, P[i] = P[i] ^ sw.key;
-  offp = 0;
-  for (i = 0; i < plen; i += 2)
-    sw = _streamtoword(data, offp), offp = sw.offp, lr[0] ^= sw.key, sw = _streamtoword(data, offp), offp = sw.offp, lr[1] ^= sw.key, lr = _encipher(lr, 0, P, S), P[i] = lr[0], P[i + 1] = lr[1];
-  for (i = 0; i < slen; i += 2)
-    sw = _streamtoword(data, offp), offp = sw.offp, lr[0] ^= sw.key, sw = _streamtoword(data, offp), offp = sw.offp, lr[1] ^= sw.key, lr = _encipher(lr, 0, P, S), S[i] = lr[0], S[i + 1] = lr[1];
-}
-function _crypt(b2, salt, rounds, callback, progressCallback) {
-  var cdata = C_ORIG.slice(), clen = cdata.length, err;
-  if (rounds < 4 || rounds > 31) {
-    err = Error("Illegal number of rounds (4-31): " + rounds);
-    if (callback) {
-      nextTick(callback.bind(this, err));
-      return;
-    } else throw err;
-  }
-  if (salt.length !== BCRYPT_SALT_LEN) {
-    err = Error(
-      "Illegal salt length: " + salt.length + " != " + BCRYPT_SALT_LEN
-    );
-    if (callback) {
-      nextTick(callback.bind(this, err));
-      return;
-    } else throw err;
-  }
-  rounds = 1 << rounds >>> 0;
-  var P, S, i = 0, j;
-  if (typeof Int32Array === "function") {
-    P = new Int32Array(P_ORIG);
-    S = new Int32Array(S_ORIG);
-  } else {
-    P = P_ORIG.slice();
-    S = S_ORIG.slice();
-  }
-  _ekskey(salt, b2, P, S);
-  function next() {
-    if (progressCallback) progressCallback(i / rounds);
-    if (i < rounds) {
-      var start = Date.now();
-      for (; i < rounds; ) {
-        i = i + 1;
-        _key(b2, P, S);
-        _key(salt, P, S);
-        if (Date.now() - start > MAX_EXECUTION_TIME) break;
-      }
-    } else {
-      for (i = 0; i < 64; i++)
-        for (j = 0; j < clen >> 1; j++) _encipher(cdata, j << 1, P, S);
-      var ret = [];
-      for (i = 0; i < clen; i++)
-        ret.push((cdata[i] >> 24 & 255) >>> 0), ret.push((cdata[i] >> 16 & 255) >>> 0), ret.push((cdata[i] >> 8 & 255) >>> 0), ret.push((cdata[i] & 255) >>> 0);
-      if (callback) {
-        callback(null, ret);
-        return;
-      } else return ret;
-    }
-    if (callback) nextTick(next);
-  }
-  if (typeof callback !== "undefined") {
-    next();
-  } else {
-    var res;
-    while (true) if (typeof (res = next()) !== "undefined") return res || [];
-  }
-}
-function _hash(password, salt, callback, progressCallback) {
-  var err;
-  if (typeof password !== "string" || typeof salt !== "string") {
-    err = Error("Invalid string / salt: Not a string");
-    if (callback) {
-      nextTick(callback.bind(this, err));
-      return;
-    } else throw err;
-  }
-  var minor, offset;
-  if (salt.charAt(0) !== "$" || salt.charAt(1) !== "2") {
-    err = Error("Invalid salt version: " + salt.substring(0, 2));
-    if (callback) {
-      nextTick(callback.bind(this, err));
-      return;
-    } else throw err;
-  }
-  if (salt.charAt(2) === "$") minor = String.fromCharCode(0), offset = 3;
-  else {
-    minor = salt.charAt(2);
-    if (minor !== "a" && minor !== "b" && minor !== "y" || salt.charAt(3) !== "$") {
-      err = Error("Invalid salt revision: " + salt.substring(2, 4));
-      if (callback) {
-        nextTick(callback.bind(this, err));
-        return;
-      } else throw err;
-    }
-    offset = 4;
-  }
-  if (salt.charAt(offset + 2) > "$") {
-    err = Error("Missing salt rounds");
-    if (callback) {
-      nextTick(callback.bind(this, err));
-      return;
-    } else throw err;
-  }
-  var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r2 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r2, real_salt = salt.substring(offset + 3, offset + 25);
-  password += minor >= "a" ? "\0" : "";
-  var passwordb = utf8Array(password), saltb = base64_decode(real_salt, BCRYPT_SALT_LEN);
-  function finish(bytes) {
-    var res = [];
-    res.push("$2");
-    if (minor >= "a") res.push(minor);
-    res.push("$");
-    if (rounds < 10) res.push("0");
-    res.push(rounds.toString());
-    res.push("$");
-    res.push(base64_encode(saltb, saltb.length));
-    res.push(base64_encode(bytes, C_ORIG.length * 4 - 1));
-    return res.join("");
-  }
-  if (typeof callback == "undefined")
-    return finish(_crypt(passwordb, saltb, rounds));
-  else {
-    _crypt(
-      passwordb,
-      saltb,
-      rounds,
-      function(err2, bytes) {
-        if (err2) callback(err2, null);
-        else callback(null, finish(bytes));
-      },
-      progressCallback
-    );
-  }
-}
-function encodeBase64(bytes, length) {
-  return base64_encode(bytes, length);
-}
-function decodeBase64(string, length) {
-  return base64_decode(string, length);
-}
-var bcryptjs_default = {
-  setRandomFallback,
-  genSaltSync,
-  genSalt,
-  hashSync,
-  hash,
-  compareSync,
-  compare,
-  getRounds,
-  getSalt,
-  truncates,
-  encodeBase64,
-  decodeBase64
-};
-
-// ../backend/src/utils/passwords.ts
-var STAGE_PASSWORD_MIN_LENGTH = 8;
-
-// ../backend/src/routes/stages.ts
 var stageRoutes = new Hono2();
 function parseStageJsonb(stage) {
   if (!stage) return stage;
@@ -7897,14 +6019,12 @@ var PUBLIC_STAGE_COLUMNS = `
   s.id, s.match_id, s.stage_number, s.name, s.scoring_type,
   s.paper_targets, s.steel_targets, s.no_shoot_targets, s.npm_targets, s.hits_per_paper,
   s.min_rounds, s.max_points, s.par_time, s.image_path, s.briefing, s.config,
-  s.password_hash IS NOT NULL AS has_password,
   s.created_at, s.updated_at
 `;
 var RETURNING_STAGE_COLUMNS = `
   id, match_id, stage_number, name, scoring_type,
   paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper,
   min_rounds, max_points, par_time, image_path, briefing, config,
-  password_hash, password_hash IS NOT NULL AS has_password,
   created_at, updated_at
 `;
 function calcStageParams(scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, config) {
@@ -7972,12 +6092,9 @@ stageRoutes.get("/matches/:matchId/stages", async (c) => {
 stageRoutes.post("/matches/:matchId/stages", async (c) => {
   const matchId = c.req.param("matchId");
   const body = await c.req.json();
-  const { name, scoring_type, paper_targets = 0, steel_targets = 0, no_shoot_targets = 0, npm_targets = 0, hits_per_paper = 2, par_time, config, password, briefing } = body;
+  const { name, scoring_type, paper_targets = 0, steel_targets = 0, no_shoot_targets = 0, npm_targets = 0, hits_per_paper = 2, par_time, config, briefing } = body;
   if (!name || !scoring_type) {
     return c.json({ error: "name and scoring_type are required" }, 400);
-  }
-  if (password && password.length < STAGE_PASSWORD_MIN_LENGTH) {
-    return c.json({ error: `Stage password must be at least ${STAGE_PASSWORD_MIN_LENGTH} characters.` }, 400);
   }
   const [maxNum] = await sql`
     SELECT COALESCE(MAX(stage_number), 0) as max_num FROM stages WHERE match_id = ${matchId}
@@ -7985,12 +6102,11 @@ stageRoutes.post("/matches/:matchId/stages", async (c) => {
   const stage_number = Number(maxNum.max_num) + 1;
   const stageConfig = config || {};
   const { min_rounds, max_points } = calcStageParams(scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, stageConfig);
-  const password_hash = password ? await bcryptjs_default.hash(password, 12) : null;
   const [stage] = await sql`
     INSERT INTO stages (match_id, stage_number, name, scoring_type, paper_targets, steel_targets,
-                        no_shoot_targets, npm_targets, hits_per_paper, min_rounds, max_points, par_time, briefing, config, password_hash)
+                        no_shoot_targets, npm_targets, hits_per_paper, min_rounds, max_points, par_time, briefing, config)
     VALUES (${matchId}, ${stage_number}, ${name}, ${scoring_type}, ${paper_targets}, ${steel_targets},
-            ${no_shoot_targets}, ${npm_targets}, ${hits_per_paper}, ${min_rounds}, ${max_points}, ${par_time || null}, ${briefing || null}, ${JSON.stringify(stageConfig)}, ${password_hash})
+            ${no_shoot_targets}, ${npm_targets}, ${hits_per_paper}, ${min_rounds}, ${max_points}, ${par_time || null}, ${briefing || null}, ${JSON.stringify(stageConfig)})
     RETURNING ${sql.unsafe(RETURNING_STAGE_COLUMNS)}
   `;
   return c.json(parseStageJsonb(stage), 201);
@@ -8008,7 +6124,7 @@ stageRoutes.get("/stages/:id", async (c) => {
 stageRoutes.put("/stages/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
-  const { name, scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, par_time, config, password, briefing } = body;
+  const { name, scoring_type, paper_targets, steel_targets, no_shoot_targets, npm_targets, hits_per_paper, par_time, config, briefing } = body;
   const [existing] = await sql`SELECT * FROM stages WHERE id = ${id}`;
   if (!existing) return c.json({ error: "Stage not found" }, 404);
   const st = scoring_type || existing.scoring_type;
@@ -8019,17 +6135,6 @@ stageRoutes.put("/stages/:id", async (c) => {
   const hpp = hits_per_paper ?? Number(existing.hits_per_paper);
   const stageConfig = config ?? (typeof existing.config === "string" ? JSON.parse(existing.config) : existing.config || {});
   const { min_rounds, max_points } = calcStageParams(st, pt, stl, nst, npmt, hpp, stageConfig);
-  let password_hash;
-  if (password === "") {
-    password_hash = null;
-  } else if (password) {
-    if (password.length < STAGE_PASSWORD_MIN_LENGTH) {
-      return c.json({ error: `Stage password must be at least ${STAGE_PASSWORD_MIN_LENGTH} characters.` }, 400);
-    }
-    password_hash = await bcryptjs_default.hash(password, 12);
-  } else {
-    password_hash = existing.password_hash;
-  }
   const [updated] = await sql`
     UPDATE stages
     SET name = COALESCE(${name}, name),
@@ -8044,7 +6149,6 @@ stageRoutes.put("/stages/:id", async (c) => {
         par_time = ${par_time !== void 0 ? par_time : existing.par_time},
         briefing = COALESCE(${briefing}, briefing),
         config = ${JSON.stringify(stageConfig)},
-        password_hash = ${password_hash},
         updated_at = NOW()
     WHERE id = ${id}
     RETURNING ${sql.unsafe(RETURNING_STAGE_COLUMNS)}
@@ -8856,6 +6960,420 @@ var EventBroadcaster = class {
 };
 var eventBroadcaster = new EventBroadcaster();
 
+// ../backend/src/services/localBackup.ts
+init_client();
+import { gzipSync, gunzipSync } from "node:zlib";
+import { writeFile as writeFile2, readFile, unlink as unlink2, mkdir as mkdir2, readdir, stat } from "node:fs/promises";
+import path from "node:path";
+var deltaTimer = null;
+var pendingDeltas = [];
+var deltaRunning = false;
+function compressJson(json) {
+  return gzipSync(Buffer.from(json, "utf-8"));
+}
+function decompressGzip(buf) {
+  return gunzipSync(buf).toString("utf-8");
+}
+async function getBackupFolder() {
+  const [row] = await sql`SELECT value FROM app_settings WHERE key = 'local_backup_folder'`;
+  return row?.value || "";
+}
+async function getBackupEnabled() {
+  const [row] = await sql`SELECT value FROM app_settings WHERE key = 'local_backup_enabled'`;
+  return row?.value === "true";
+}
+async function isFolderAccessible(folder) {
+  try {
+    await stat(folder);
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function writeFileToFolder(folder, relativePath, data) {
+  const fullPath = path.join(folder, relativePath);
+  await mkdir2(path.dirname(fullPath), { recursive: true });
+  await writeFile2(fullPath, data);
+}
+async function exportFullDbAsJson() {
+  const matches = await sql`SELECT * FROM matches`;
+  const stages = await sql`SELECT * FROM stages`;
+  const shooters = await sql`SELECT * FROM shooters`;
+  const registrations = await sql`SELECT * FROM match_registrations`;
+  const scores = await sql`SELECT * FROM stage_scores`;
+  const targets = await sql`SELECT * FROM target_scores`;
+  const chrono = await sql`SELECT * FROM chrono_results`;
+  const settings = await sql`SELECT * FROM app_settings`;
+  const adminSessions = await sql`SELECT * FROM admin_sessions`;
+  const scorerSessions = await sql`SELECT * FROM scorer_sessions`;
+  return JSON.stringify({
+    version: 2,
+    exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    matches,
+    stages,
+    shooters,
+    registrations,
+    scores,
+    targets,
+    chrono,
+    settings,
+    adminSessions,
+    scorerSessions
+  });
+}
+async function importJsonToDb(json) {
+  const data = JSON.parse(json);
+  const cols = (row) => Object.keys(row);
+  await sql.begin(async (sql2) => {
+    await sql2`DELETE FROM target_scores`;
+    await sql2`DELETE FROM chrono_results`;
+    await sql2`DELETE FROM stage_scores`;
+    await sql2`DELETE FROM match_registrations`;
+    await sql2`DELETE FROM stages`;
+    await sql2`DELETE FROM matches`;
+    await sql2`DELETE FROM shooters`;
+    await sql2`DELETE FROM app_settings`;
+    await sql2`DELETE FROM admin_sessions`;
+    await sql2`DELETE FROM scorer_sessions`;
+    for (const r of data.matches || []) {
+      const c = cols(r);
+      await sql2`INSERT INTO matches ${sql2(r, ...c)}`;
+    }
+    for (const r of data.stages || []) {
+      const c = cols(r);
+      await sql2`INSERT INTO stages ${sql2(r, ...c)}`;
+    }
+    for (const r of data.shooters || []) {
+      const c = cols(r);
+      await sql2`INSERT INTO shooters ${sql2(r, ...c)}`;
+    }
+    for (const r of data.registrations || []) {
+      const c = cols(r);
+      await sql2`INSERT INTO match_registrations ${sql2(r, ...c)}`;
+    }
+    for (const r of data.scores || []) {
+      const c = cols(r);
+      await sql2`INSERT INTO stage_scores ${sql2(r, ...c)}`;
+    }
+    for (const r of data.targets || []) {
+      const c = cols(r);
+      await sql2`INSERT INTO target_scores ${sql2(r, ...c)}`;
+    }
+    for (const r of data.chrono || []) {
+      const c = cols(r);
+      await sql2`INSERT INTO chrono_results ${sql2(r, ...c)}`;
+    }
+    for (const r of data.settings || []) {
+      await sql2`INSERT INTO app_settings (key, value) VALUES (${r.key}, ${r.value}) ON CONFLICT (key) DO NOTHING`;
+    }
+    for (const r of data.adminSessions || []) {
+      const c = cols(r);
+      await sql2`INSERT INTO admin_sessions ${sql2(r, ...c)}`;
+    }
+    for (const r of data.scorerSessions || []) {
+      const c = cols(r);
+      await sql2`INSERT INTO scorer_sessions ${sql2(r, ...c)}`;
+    }
+  });
+}
+async function buildDeltaPayload(matchId, stageId, registrationId) {
+  const [score] = await sql`
+    SELECT * FROM stage_scores WHERE match_id = ${matchId} AND stage_id = ${stageId} AND registration_id = ${registrationId}
+  `;
+  if (!score) throw new Error(`Score not found: ${matchId}/${stageId}/${registrationId}`);
+  const targets = await sql`
+    SELECT * FROM target_scores WHERE stage_score_id = ${score.id} ORDER BY target_index
+  `;
+  const [chrono] = await sql`
+    SELECT * FROM chrono_results WHERE stage_score_id = ${score.id}
+  `;
+  return {
+    type: "score",
+    ts: (/* @__PURE__ */ new Date()).toISOString(),
+    matchId,
+    stageId,
+    registrationId,
+    score,
+    targets,
+    chrono: chrono || null
+  };
+}
+async function triggerFullBackup() {
+  const folder = await getBackupFolder();
+  if (!folder) throw new Error("No backup folder configured");
+  if (!await isFolderAccessible(folder)) throw new Error("Backup folder is not accessible \u2014 is the drive mounted?");
+  const json = await exportFullDbAsJson();
+  const compressed = compressJson(json);
+  const ts = (/* @__PURE__ */ new Date()).toISOString();
+  await writeFileToFolder(folder, `ipscscore-full-${ts}.json.gz`, compressed);
+  await writeFileToFolder(folder, `ipscscore-latest.json.gz`, compressed);
+  const tsForDb = ts.replace(/\.\d+Z$/, "Z");
+  await sql`INSERT INTO app_settings (key, value) VALUES ('last_full_backup_at', ${tsForDb})
+            ON CONFLICT (key) DO UPDATE SET value = ${tsForDb}`;
+  await rotateBackups(folder);
+  await clearDeltas(folder);
+  return { success: true, key: `ipscscore-full-${ts}.json.gz`, size: compressed.length };
+}
+async function rotateBackups(folder) {
+  try {
+    const files = await readdir(folder);
+    const fullBackups = files.filter((f) => f.startsWith("ipscscore-full-") && f.endsWith(".json.gz")).sort();
+    while (fullBackups.length > 3) {
+      const oldest = fullBackups.shift();
+      if (oldest) await unlink2(path.join(folder, oldest)).catch(() => {
+      });
+    }
+  } catch {
+  }
+}
+async function clearDeltas(folder) {
+  try {
+    const dir = path.join(folder, "deltas");
+    const files = await readdir(dir);
+    for (const f of files) {
+      await unlink2(path.join(dir, f)).catch(() => {
+      });
+    }
+  } catch {
+  }
+}
+function scheduleDeltaBackup(matchId, stageId, registrationId) {
+  pendingDeltas.push({ matchId, stageId, registrationId });
+  if (deltaTimer) clearTimeout(deltaTimer);
+  deltaTimer = setTimeout(flushDeltas, 5e3);
+}
+async function flushDeltas() {
+  if (deltaRunning) return;
+  deltaRunning = true;
+  try {
+    const folder = await getBackupFolder();
+    if (!folder) return;
+    const enabled = await getBackupEnabled();
+    if (!enabled) return;
+    if (!await isFolderAccessible(folder)) {
+      pendingDeltas = [];
+      console.log("[LocalBackup] Backup folder not accessible, dropping pending deltas");
+      return;
+    }
+    const deltas = [...pendingDeltas];
+    pendingDeltas = [];
+    for (const d of deltas) {
+      try {
+        const payload = await buildDeltaPayload(d.matchId, d.stageId, d.registrationId);
+        const ts = (/* @__PURE__ */ new Date()).toISOString();
+        const fileName = `${ts}-${d.registrationId}.json`;
+        await writeFileToFolder(folder, `deltas/${fileName}`, Buffer.from(JSON.stringify(payload)));
+      } catch (err) {
+        console.error("[LocalBackup] Delta write failed:", err);
+      }
+    }
+  } finally {
+    deltaRunning = false;
+  }
+}
+async function previewFolderBackup(folder) {
+  if (!await isFolderAccessible(folder)) throw new Error("Backup folder is not accessible \u2014 is the drive mounted?");
+  const files = await readdir(folder);
+  let fullFile = null;
+  if (files.includes("ipscscore-latest.json.gz")) {
+    fullFile = "ipscscore-latest.json.gz";
+  } else {
+    const fulls = files.filter((f) => f.startsWith("ipscscore-full-") && f.endsWith(".json.gz")).sort();
+    if (fulls.length > 0) fullFile = fulls[fulls.length - 1];
+  }
+  if (!fullFile) throw new Error("No full backup file found in folder");
+  const s = await stat(path.join(folder, fullFile));
+  let deltasCount = 0;
+  let earliest = null;
+  let latest = null;
+  try {
+    const deltaFiles = await readdir(path.join(folder, "deltas"));
+    deltaFiles.sort();
+    deltasCount = deltaFiles.length;
+    if (deltasCount > 0) {
+      earliest = deltaFiles[0];
+      latest = deltaFiles[deltasCount - 1];
+    }
+  } catch {
+  }
+  return {
+    fullFile,
+    fullSize: s.size,
+    fullDate: s.mtime.toISOString(),
+    deltasCount,
+    deltaDates: { earliest, latest }
+  };
+}
+async function applyFolderBackup(folder) {
+  if (!await isFolderAccessible(folder)) throw new Error("Backup folder is not accessible \u2014 is the drive mounted?");
+  const files = await readdir(folder);
+  let fullFile = null;
+  if (files.includes("ipscscore-latest.json.gz")) {
+    fullFile = "ipscscore-latest.json.gz";
+  } else {
+    const fulls = files.filter((f) => f.startsWith("ipscscore-full-") && f.endsWith(".json.gz")).sort();
+    if (fulls.length > 0) fullFile = fulls[fulls.length - 1];
+  }
+  if (!fullFile) throw new Error("No full backup file found in folder");
+  const fullData = await readFile(path.join(folder, fullFile));
+  const fullJson = decompressGzip(fullData);
+  await importJsonToDb(fullJson);
+  let deltasApplied = 0;
+  const errors = [];
+  try {
+    const deltaDir = path.join(folder, "deltas");
+    const deltaFiles = await readdir(deltaDir);
+    deltaFiles.sort();
+    for (const df of deltaFiles) {
+      if (!df.endsWith(".json")) continue;
+      try {
+        const deltaData = await readFile(path.join(deltaDir, df), "utf-8");
+        await importDelta(deltaData);
+        deltasApplied++;
+      } catch (err) {
+        errors.push(`Delta ${df}: ${err.message}`);
+      }
+    }
+  } catch {
+  }
+  return { fullFile, deltasApplied, errors };
+}
+async function importDelta(json) {
+  const d = JSON.parse(json);
+  const s = d.score;
+  await sql`
+    INSERT INTO stage_scores (id, match_id, stage_id, registration_id, time,
+      extra_shot_count, extra_hit_count, stacking_count, overtime_shot_count,
+      procedural_count, ftsa_count, is_dnf,
+      raw_points, penalty_points, net_points, hit_factor,
+      total_time, x_count, score_data)
+    VALUES (${s.id}, ${s.match_id}, ${s.stage_id}, ${s.registration_id}, ${s.time},
+      ${s.extra_shot_count}, ${s.extra_hit_count}, ${s.stacking_count}, ${s.overtime_shot_count},
+      ${s.procedural_count}, ${s.ftsa_count}, ${s.is_dnf},
+      ${s.raw_points}, ${s.penalty_points}, ${s.net_points}, ${s.hit_factor},
+      ${s.total_time}, ${s.x_count}, ${s.score_data})
+    ON CONFLICT (stage_id, registration_id) DO UPDATE SET
+      time = ${s.time},
+      raw_points = ${s.raw_points}, penalty_points = ${s.penalty_points},
+      net_points = ${s.net_points}, hit_factor = ${s.hit_factor},
+      updated_at = NOW()
+  `;
+  for (const t of d.targets) {
+    await sql`
+      INSERT INTO target_scores (id, stage_score_id, target_index, target_type, alpha, charlie, delta, miss, no_shoot_hits, steel_hit, target_data)
+      VALUES (${t.id}, ${t.stage_score_id}, ${t.target_index}, ${t.target_type},
+        ${t.alpha}, ${t.charlie}, ${t.delta}, ${t.miss}, ${t.no_shoot_hits}, ${t.steel_hit}, ${t.target_data})
+      ON CONFLICT (stage_score_id, target_index) DO UPDATE SET
+        alpha = ${t.alpha}, charlie = ${t.charlie}, delta = ${t.delta},
+        miss = ${t.miss}, no_shoot_hits = ${t.no_shoot_hits},
+        steel_hit = ${t.steel_hit}
+    `;
+  }
+  if (d.chrono) {
+    const ch = d.chrono;
+    await sql`
+      INSERT INTO chrono_results (id, stage_score_id, bullet_weight, velocity_1, velocity_2, velocity_3,
+                                   avg_velocity, calculated_pf, pf_passed)
+      VALUES (${ch.id}, ${ch.stage_score_id}, ${ch.bullet_weight}, ${ch.velocity_1}, ${ch.velocity_2}, ${ch.velocity_3},
+              ${ch.avg_velocity}, ${ch.calculated_pf}, ${ch.pf_passed})
+      ON CONFLICT (stage_score_id) DO UPDATE SET
+        bullet_weight = ${ch.bullet_weight},
+        avg_velocity = ${ch.avg_velocity},
+        calculated_pf = ${ch.calculated_pf},
+        pf_passed = ${ch.pf_passed}
+    `;
+  }
+}
+async function getStatus() {
+  const folder = await getBackupFolder();
+  const enabled = await getBackupEnabled();
+  const [row] = await sql`SELECT value FROM app_settings WHERE key = 'last_full_backup_at'`;
+  let deltasSinceFull = 0;
+  let diskUsage = 0;
+  let folderAccessible = false;
+  if (folder) {
+    folderAccessible = await isFolderAccessible(folder);
+    if (folderAccessible) {
+      try {
+        const files = await readdir(folder);
+        for (const f of files) {
+          if (f.startsWith("ipscscore-") || f === "ipscscore-latest.json.gz") {
+            try {
+              const s = await stat(path.join(folder, f));
+              diskUsage += s.size;
+            } catch {
+            }
+          }
+        }
+        try {
+          const deltaDir = path.join(folder, "deltas");
+          const deltaFiles = await readdir(deltaDir);
+          deltasSinceFull = deltaFiles.length;
+          for (const f of deltaFiles) {
+            try {
+              const s2 = await stat(path.join(deltaDir, f));
+              diskUsage += s2.size;
+            } catch {
+            }
+          }
+        } catch {
+        }
+      } catch {
+      }
+    }
+  }
+  return {
+    folder,
+    enabled,
+    lastFullBackupAt: row?.value || null,
+    deltasSinceFull,
+    diskUsage,
+    folderAccessible
+  };
+}
+async function saveConfig(config) {
+  if (config.folder !== void 0) {
+    const existing = await sql`SELECT value FROM app_settings WHERE key = 'local_backup_folder'`;
+    if (existing.length > 0) {
+      await sql`UPDATE app_settings SET value = ${config.folder} WHERE key = 'local_backup_folder'`;
+    } else {
+      await sql`INSERT INTO app_settings (key, value) VALUES ('local_backup_folder', ${config.folder})`;
+    }
+  }
+  if (config.enabled !== void 0) {
+    const val = config.enabled ? "true" : "false";
+    const existing = await sql`SELECT value FROM app_settings WHERE key = 'local_backup_enabled'`;
+    if (existing.length > 0) {
+      await sql`UPDATE app_settings SET value = ${val} WHERE key = 'local_backup_enabled'`;
+    } else {
+      await sql`INSERT INTO app_settings (key, value) VALUES ('local_backup_enabled', ${val})`;
+    }
+  }
+}
+var fullBackupTimer = null;
+function startFullBackupTimer() {
+  if (fullBackupTimer) return;
+  fullBackupTimer = setInterval(async () => {
+    try {
+      const folder = await getBackupFolder();
+      if (!folder) return;
+      const enabled = await getBackupEnabled();
+      if (!enabled) return;
+      if (!await isFolderAccessible(folder)) {
+        console.log("[LocalBackup] Backup folder not accessible, skipping");
+        return;
+      }
+      await triggerFullBackup();
+    } catch (err) {
+      console.error("[LocalBackup] Timer error:", err);
+    }
+  }, 30 * 60 * 1e3);
+  if (typeof fullBackupTimer === "object" && "unref" in fullBackupTimer) {
+    fullBackupTimer.unref();
+  }
+  console.log("[LocalBackup] Full backup timer started (30 min interval)");
+}
+
 // ../backend/src/routes/scoring.ts
 var scoringRoutes = new Hono2();
 function parseJsonbFields(score) {
@@ -9189,6 +7707,7 @@ scoringRoutes.put("/matches/:matchId/stages/:stageId/scores/:registrationId", as
     type: "score:saved",
     payload: { matchId, stageId, registrationId }
   });
+  scheduleDeltaBackup(matchId, stageId, registrationId);
   await audit(c, "score.write", `stage_scores:${stageId}:${registrationId}`, { matchId, stageId, registrationId });
   return c.json({ ...parseJsonbFields(scoreResult), targets: targets.map(parseTargetJsonbFields), calcResult });
 });
@@ -9880,8 +8399,8 @@ uploadRoutes.get("/uploads/:filename", async (c) => {
     return c.json({ error: "Image not found" }, 404);
   }
   try {
-    const { readFile } = await import("fs/promises");
-    const data = await readFile(stage.image_path);
+    const { readFile: readFile2 } = await import("fs/promises");
+    const data = await readFile2(stage.image_path);
     const ext = filename.split(".").pop()?.toLowerCase();
     const contentType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : ext === "gif" ? "image/gif" : "image/jpeg";
     return c.body(data, 200, { "Content-Type": contentType, "Cache-Control": "public, max-age=86400" });
@@ -11922,7 +10441,7 @@ function maskTableId(id) {
 }
 
 // ../node_modules/mdb-reader/lib/node/crypto/hash.js
-function hash2(algorithm, buffers, length) {
+function hash(algorithm, buffers, length) {
   const digest = createHash(algorithm);
   for (const buffer2 of buffers) {
     digest.update(buffer2);
@@ -11936,15 +10455,15 @@ function hash2(algorithm, buffers, length) {
 
 // ../node_modules/mdb-reader/lib/node/crypto/deriveKey.js
 function deriveKey(password, blockBytes, algorithm, salt, iterations, keyByteLength) {
-  const baseHash = hash2(algorithm, [salt, password]);
+  const baseHash = hash(algorithm, [salt, password]);
   const iterHash = iterateHash(algorithm, baseHash, iterations);
-  const finalHash = hash2(algorithm, [iterHash, blockBytes]);
+  const finalHash = hash(algorithm, [iterHash, blockBytes]);
   return fixBufferLength(finalHash, keyByteLength, 54);
 }
 function iterateHash(algorithm, baseBuffer, iterations) {
   let iterHash = baseBuffer;
   for (let i = 0; i < iterations; ++i) {
-    iterHash = hash2(algorithm, [intToBuffer(i), iterHash]);
+    iterHash = hash(algorithm, [intToBuffer(i), iterHash]);
   }
   return iterHash;
 }
@@ -14766,16 +13285,16 @@ var MatcherView = class {
    * @returns {string|undefined}
    */
   getCurrentTag() {
-    const path4 = this._matcher.path;
-    return path4.length > 0 ? path4[path4.length - 1].tag : void 0;
+    const path5 = this._matcher.path;
+    return path5.length > 0 ? path5[path5.length - 1].tag : void 0;
   }
   /**
    * Get current namespace.
    * @returns {string|undefined}
    */
   getCurrentNamespace() {
-    const path4 = this._matcher.path;
-    return path4.length > 0 ? path4[path4.length - 1].namespace : void 0;
+    const path5 = this._matcher.path;
+    return path5.length > 0 ? path5[path5.length - 1].namespace : void 0;
   }
   /**
    * Get current node's attribute value.
@@ -14783,9 +13302,9 @@ var MatcherView = class {
    * @returns {*}
    */
   getAttrValue(attrName) {
-    const path4 = this._matcher.path;
-    if (path4.length === 0) return void 0;
-    return path4[path4.length - 1].values?.[attrName];
+    const path5 = this._matcher.path;
+    if (path5.length === 0) return void 0;
+    return path5[path5.length - 1].values?.[attrName];
   }
   /**
    * Check if current node has an attribute.
@@ -14793,9 +13312,9 @@ var MatcherView = class {
    * @returns {boolean}
    */
   hasAttr(attrName) {
-    const path4 = this._matcher.path;
-    if (path4.length === 0) return false;
-    const current = path4[path4.length - 1];
+    const path5 = this._matcher.path;
+    if (path5.length === 0) return false;
+    const current = path5[path5.length - 1];
     return current.values !== void 0 && attrName in current.values;
   }
   /**
@@ -14803,18 +13322,18 @@ var MatcherView = class {
    * @returns {number}
    */
   getPosition() {
-    const path4 = this._matcher.path;
-    if (path4.length === 0) return -1;
-    return path4[path4.length - 1].position ?? 0;
+    const path5 = this._matcher.path;
+    if (path5.length === 0) return -1;
+    return path5[path5.length - 1].position ?? 0;
   }
   /**
    * Get current node's repeat counter (occurrence count of this tag name).
    * @returns {number}
    */
   getCounter() {
-    const path4 = this._matcher.path;
-    if (path4.length === 0) return -1;
-    return path4[path4.length - 1].counter ?? 0;
+    const path5 = this._matcher.path;
+    if (path5.length === 0) return -1;
+    return path5[path5.length - 1].counter ?? 0;
   }
   /**
    * Get current node's sibling index (alias for getPosition).
@@ -16010,13 +14529,13 @@ function createAgileCodecHandler(encodingKey, encryptionProvider, password) {
   const key = decryptKeyValue(password, passwordKeyEncryptor);
   const decryptPage = (b2, pageNumber) => {
     const pageEncodingKey = getPageEncodingKey(encodingKey, pageNumber);
-    const iv = hash2(keyData.hash.algorithm, [keyData.salt, pageEncodingKey], keyData.blockSize);
+    const iv = hash(keyData.hash.algorithm, [keyData.salt, pageEncodingKey], keyData.blockSize);
     return blockDecrypt(keyData.cipher, key, iv, b2);
   };
   const verifyPassword = () => {
     const verifier = decryptVerifierHashInput(password, passwordKeyEncryptor);
     const verifierHash = decryptVerifierHashValue(password, passwordKeyEncryptor);
-    let testHash = hash2(passwordKeyEncryptor.hash.algorithm, [verifier]);
+    let testHash = hash(passwordKeyEncryptor.hash.algorithm, [verifier]);
     const blockSize = passwordKeyEncryptor.blockSize;
     if (testHash.length % blockSize != 0) {
       const hashLength = Math.floor((testHash.length + blockSize - 1) / blockSize) * blockSize;
@@ -16197,7 +14716,7 @@ function createRC4CryptoAPICodecHandler(encodingKey, encryptionProvider, passwor
   const headerBuffer = encryptionProvider.slice(12, 12 + headerLength);
   const encryptionHeader = parseEncryptionHeader(headerBuffer, VALID_CRYPTO_ALGORITHMS, VALID_HASH_ALGORITHMS);
   const encryptionVerifier = parseEncryptionVerifier(encryptionProvider, encryptionHeader.cryptoAlgorithm);
-  const baseHash = hash2("sha1", [encryptionVerifier.salt, password]);
+  const baseHash = hash("sha1", [encryptionVerifier.salt, password]);
   const decryptPage = (pageBuffer, pageIndex) => {
     const pageEncodingKey = getPageEncodingKey(encodingKey, pageIndex);
     const encryptionKey = getEncryptionKey(encryptionHeader, baseHash, pageEncodingKey);
@@ -16210,13 +14729,13 @@ function createRC4CryptoAPICodecHandler(encodingKey, encryptionProvider, passwor
       const rc4Decrypter = createRC4Decrypter(encryptionKey);
       const verifier = rc4Decrypter(encryptionVerifier.encryptionVerifier);
       const verifierHash = fixBufferLength(rc4Decrypter(encryptionVerifier.encryptionVerifierHash), encryptionVerifier.encryptionVerifierHashSize);
-      const testHash = fixBufferLength(hash2("sha1", [verifier]), encryptionVerifier.encryptionVerifierHashSize);
+      const testHash = fixBufferLength(hash("sha1", [verifier]), encryptionVerifier.encryptionVerifierHashSize);
       return verifierHash.equals(testHash);
     }
   };
 }
 function getEncryptionKey(header, baseHash, data) {
-  const key = hash2("sha1", [baseHash, data], roundToFullByte(header.keySize));
+  const key = hash("sha1", [baseHash, data], roundToFullByte(header.keySize));
   if (header.keySize === 40) {
     return key.slice(0, roundToFullByte(128));
   }
@@ -18390,9 +16909,1987 @@ winmssImportRoutes.post("/winmss", async (c) => {
 // ../backend/src/routes/auth.ts
 init_client();
 import crypto5 from "crypto";
-import fs2 from "fs";
-init_env();
-init_stageLinkTokens();
+
+// ../node_modules/bcryptjs/index.js
+import nodeCrypto from "crypto";
+var randomFallback = null;
+function randomBytes(len) {
+  try {
+    return crypto.getRandomValues(new Uint8Array(len));
+  } catch {
+  }
+  try {
+    return nodeCrypto.randomBytes(len);
+  } catch {
+  }
+  if (!randomFallback) {
+    throw Error(
+      "Neither WebCryptoAPI nor a crypto module is available. Use bcrypt.setRandomFallback to set an alternative"
+    );
+  }
+  return randomFallback(len);
+}
+function setRandomFallback(random) {
+  randomFallback = random;
+}
+function genSaltSync(rounds, seed_length) {
+  rounds = rounds || GENSALT_DEFAULT_LOG2_ROUNDS;
+  if (typeof rounds !== "number")
+    throw Error(
+      "Illegal arguments: " + typeof rounds + ", " + typeof seed_length
+    );
+  if (rounds < 4) rounds = 4;
+  else if (rounds > 31) rounds = 31;
+  var salt = [];
+  salt.push("$2b$");
+  if (rounds < 10) salt.push("0");
+  salt.push(rounds.toString());
+  salt.push("$");
+  salt.push(base64_encode(randomBytes(BCRYPT_SALT_LEN), BCRYPT_SALT_LEN));
+  return salt.join("");
+}
+function genSalt(rounds, seed_length, callback) {
+  if (typeof seed_length === "function")
+    callback = seed_length, seed_length = void 0;
+  if (typeof rounds === "function") callback = rounds, rounds = void 0;
+  if (typeof rounds === "undefined") rounds = GENSALT_DEFAULT_LOG2_ROUNDS;
+  else if (typeof rounds !== "number")
+    throw Error("illegal arguments: " + typeof rounds);
+  function _async(callback2) {
+    nextTick(function() {
+      try {
+        callback2(null, genSaltSync(rounds));
+      } catch (err) {
+        callback2(err);
+      }
+    });
+  }
+  if (callback) {
+    if (typeof callback !== "function")
+      throw Error("Illegal callback: " + typeof callback);
+    _async(callback);
+  } else
+    return new Promise(function(resolve, reject) {
+      _async(function(err, res) {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(res);
+      });
+    });
+}
+function hashSync(password, salt) {
+  if (typeof salt === "undefined") salt = GENSALT_DEFAULT_LOG2_ROUNDS;
+  if (typeof salt === "number") salt = genSaltSync(salt);
+  if (typeof password !== "string" || typeof salt !== "string")
+    throw Error("Illegal arguments: " + typeof password + ", " + typeof salt);
+  return _hash(password, salt);
+}
+function hash2(password, salt, callback, progressCallback) {
+  function _async(callback2) {
+    if (typeof password === "string" && typeof salt === "number")
+      genSalt(salt, function(err, salt2) {
+        _hash(password, salt2, callback2, progressCallback);
+      });
+    else if (typeof password === "string" && typeof salt === "string")
+      _hash(password, salt, callback2, progressCallback);
+    else
+      nextTick(
+        callback2.bind(
+          this,
+          Error("Illegal arguments: " + typeof password + ", " + typeof salt)
+        )
+      );
+  }
+  if (callback) {
+    if (typeof callback !== "function")
+      throw Error("Illegal callback: " + typeof callback);
+    _async(callback);
+  } else
+    return new Promise(function(resolve, reject) {
+      _async(function(err, res) {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(res);
+      });
+    });
+}
+function safeStringCompare(known, unknown) {
+  var diff = known.length ^ unknown.length;
+  for (var i = 0; i < known.length; ++i) {
+    diff |= known.charCodeAt(i) ^ unknown.charCodeAt(i);
+  }
+  return diff === 0;
+}
+function compareSync(password, hash3) {
+  if (typeof password !== "string" || typeof hash3 !== "string")
+    throw Error("Illegal arguments: " + typeof password + ", " + typeof hash3);
+  if (hash3.length !== 60) return false;
+  return safeStringCompare(
+    hashSync(password, hash3.substring(0, hash3.length - 31)),
+    hash3
+  );
+}
+function compare(password, hashValue, callback, progressCallback) {
+  function _async(callback2) {
+    if (typeof password !== "string" || typeof hashValue !== "string") {
+      nextTick(
+        callback2.bind(
+          this,
+          Error(
+            "Illegal arguments: " + typeof password + ", " + typeof hashValue
+          )
+        )
+      );
+      return;
+    }
+    if (hashValue.length !== 60) {
+      nextTick(callback2.bind(this, null, false));
+      return;
+    }
+    hash2(
+      password,
+      hashValue.substring(0, 29),
+      function(err, comp) {
+        if (err) callback2(err);
+        else callback2(null, safeStringCompare(comp, hashValue));
+      },
+      progressCallback
+    );
+  }
+  if (callback) {
+    if (typeof callback !== "function")
+      throw Error("Illegal callback: " + typeof callback);
+    _async(callback);
+  } else
+    return new Promise(function(resolve, reject) {
+      _async(function(err, res) {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(res);
+      });
+    });
+}
+function getRounds(hash3) {
+  if (typeof hash3 !== "string")
+    throw Error("Illegal arguments: " + typeof hash3);
+  return parseInt(hash3.split("$")[2], 10);
+}
+function getSalt(hash3) {
+  if (typeof hash3 !== "string")
+    throw Error("Illegal arguments: " + typeof hash3);
+  if (hash3.length !== 60)
+    throw Error("Illegal hash length: " + hash3.length + " != 60");
+  return hash3.substring(0, 29);
+}
+function truncates(password) {
+  if (typeof password !== "string")
+    throw Error("Illegal arguments: " + typeof password);
+  return utf8Length(password) > 72;
+}
+var nextTick = typeof setImmediate === "function" ? setImmediate : typeof scheduler === "object" && typeof scheduler.postTask === "function" ? scheduler.postTask.bind(scheduler) : setTimeout;
+function utf8Length(string) {
+  var len = 0, c = 0;
+  for (var i = 0; i < string.length; ++i) {
+    c = string.charCodeAt(i);
+    if (c < 128) len += 1;
+    else if (c < 2048) len += 2;
+    else if ((c & 64512) === 55296 && (string.charCodeAt(i + 1) & 64512) === 56320) {
+      ++i;
+      len += 4;
+    } else len += 3;
+  }
+  return len;
+}
+function utf8Array(string) {
+  var offset = 0, c1, c2;
+  var buffer2 = new Array(utf8Length(string));
+  for (var i = 0, k = string.length; i < k; ++i) {
+    c1 = string.charCodeAt(i);
+    if (c1 < 128) {
+      buffer2[offset++] = c1;
+    } else if (c1 < 2048) {
+      buffer2[offset++] = c1 >> 6 | 192;
+      buffer2[offset++] = c1 & 63 | 128;
+    } else if ((c1 & 64512) === 55296 && ((c2 = string.charCodeAt(i + 1)) & 64512) === 56320) {
+      c1 = 65536 + ((c1 & 1023) << 10) + (c2 & 1023);
+      ++i;
+      buffer2[offset++] = c1 >> 18 | 240;
+      buffer2[offset++] = c1 >> 12 & 63 | 128;
+      buffer2[offset++] = c1 >> 6 & 63 | 128;
+      buffer2[offset++] = c1 & 63 | 128;
+    } else {
+      buffer2[offset++] = c1 >> 12 | 224;
+      buffer2[offset++] = c1 >> 6 & 63 | 128;
+      buffer2[offset++] = c1 & 63 | 128;
+    }
+  }
+  return buffer2;
+}
+var BASE64_CODE = "./ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789".split("");
+var BASE64_INDEX = [
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  0,
+  1,
+  54,
+  55,
+  56,
+  57,
+  58,
+  59,
+  60,
+  61,
+  62,
+  63,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20,
+  21,
+  22,
+  23,
+  24,
+  25,
+  26,
+  27,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1,
+  28,
+  29,
+  30,
+  31,
+  32,
+  33,
+  34,
+  35,
+  36,
+  37,
+  38,
+  39,
+  40,
+  41,
+  42,
+  43,
+  44,
+  45,
+  46,
+  47,
+  48,
+  49,
+  50,
+  51,
+  52,
+  53,
+  -1,
+  -1,
+  -1,
+  -1,
+  -1
+];
+function base64_encode(b2, len) {
+  var off = 0, rs = [], c1, c2;
+  if (len <= 0 || len > b2.length) throw Error("Illegal len: " + len);
+  while (off < len) {
+    c1 = b2[off++] & 255;
+    rs.push(BASE64_CODE[c1 >> 2 & 63]);
+    c1 = (c1 & 3) << 4;
+    if (off >= len) {
+      rs.push(BASE64_CODE[c1 & 63]);
+      break;
+    }
+    c2 = b2[off++] & 255;
+    c1 |= c2 >> 4 & 15;
+    rs.push(BASE64_CODE[c1 & 63]);
+    c1 = (c2 & 15) << 2;
+    if (off >= len) {
+      rs.push(BASE64_CODE[c1 & 63]);
+      break;
+    }
+    c2 = b2[off++] & 255;
+    c1 |= c2 >> 6 & 3;
+    rs.push(BASE64_CODE[c1 & 63]);
+    rs.push(BASE64_CODE[c2 & 63]);
+  }
+  return rs.join("");
+}
+function base64_decode(s, len) {
+  var off = 0, slen = s.length, olen = 0, rs = [], c1, c2, c3, c4, o, code;
+  if (len <= 0) throw Error("Illegal len: " + len);
+  while (off < slen - 1 && olen < len) {
+    code = s.charCodeAt(off++);
+    c1 = code < BASE64_INDEX.length ? BASE64_INDEX[code] : -1;
+    code = s.charCodeAt(off++);
+    c2 = code < BASE64_INDEX.length ? BASE64_INDEX[code] : -1;
+    if (c1 == -1 || c2 == -1) break;
+    o = c1 << 2 >>> 0;
+    o |= (c2 & 48) >> 4;
+    rs.push(String.fromCharCode(o));
+    if (++olen >= len || off >= slen) break;
+    code = s.charCodeAt(off++);
+    c3 = code < BASE64_INDEX.length ? BASE64_INDEX[code] : -1;
+    if (c3 == -1) break;
+    o = (c2 & 15) << 4 >>> 0;
+    o |= (c3 & 60) >> 2;
+    rs.push(String.fromCharCode(o));
+    if (++olen >= len || off >= slen) break;
+    code = s.charCodeAt(off++);
+    c4 = code < BASE64_INDEX.length ? BASE64_INDEX[code] : -1;
+    o = (c3 & 3) << 6 >>> 0;
+    o |= c4;
+    rs.push(String.fromCharCode(o));
+    ++olen;
+  }
+  var res = [];
+  for (off = 0; off < olen; off++) res.push(rs[off].charCodeAt(0));
+  return res;
+}
+var BCRYPT_SALT_LEN = 16;
+var GENSALT_DEFAULT_LOG2_ROUNDS = 10;
+var BLOWFISH_NUM_ROUNDS = 16;
+var MAX_EXECUTION_TIME = 100;
+var P_ORIG = [
+  608135816,
+  2242054355,
+  320440878,
+  57701188,
+  2752067618,
+  698298832,
+  137296536,
+  3964562569,
+  1160258022,
+  953160567,
+  3193202383,
+  887688300,
+  3232508343,
+  3380367581,
+  1065670069,
+  3041331479,
+  2450970073,
+  2306472731
+];
+var S_ORIG = [
+  3509652390,
+  2564797868,
+  805139163,
+  3491422135,
+  3101798381,
+  1780907670,
+  3128725573,
+  4046225305,
+  614570311,
+  3012652279,
+  134345442,
+  2240740374,
+  1667834072,
+  1901547113,
+  2757295779,
+  4103290238,
+  227898511,
+  1921955416,
+  1904987480,
+  2182433518,
+  2069144605,
+  3260701109,
+  2620446009,
+  720527379,
+  3318853667,
+  677414384,
+  3393288472,
+  3101374703,
+  2390351024,
+  1614419982,
+  1822297739,
+  2954791486,
+  3608508353,
+  3174124327,
+  2024746970,
+  1432378464,
+  3864339955,
+  2857741204,
+  1464375394,
+  1676153920,
+  1439316330,
+  715854006,
+  3033291828,
+  289532110,
+  2706671279,
+  2087905683,
+  3018724369,
+  1668267050,
+  732546397,
+  1947742710,
+  3462151702,
+  2609353502,
+  2950085171,
+  1814351708,
+  2050118529,
+  680887927,
+  999245976,
+  1800124847,
+  3300911131,
+  1713906067,
+  1641548236,
+  4213287313,
+  1216130144,
+  1575780402,
+  4018429277,
+  3917837745,
+  3693486850,
+  3949271944,
+  596196993,
+  3549867205,
+  258830323,
+  2213823033,
+  772490370,
+  2760122372,
+  1774776394,
+  2652871518,
+  566650946,
+  4142492826,
+  1728879713,
+  2882767088,
+  1783734482,
+  3629395816,
+  2517608232,
+  2874225571,
+  1861159788,
+  326777828,
+  3124490320,
+  2130389656,
+  2716951837,
+  967770486,
+  1724537150,
+  2185432712,
+  2364442137,
+  1164943284,
+  2105845187,
+  998989502,
+  3765401048,
+  2244026483,
+  1075463327,
+  1455516326,
+  1322494562,
+  910128902,
+  469688178,
+  1117454909,
+  936433444,
+  3490320968,
+  3675253459,
+  1240580251,
+  122909385,
+  2157517691,
+  634681816,
+  4142456567,
+  3825094682,
+  3061402683,
+  2540495037,
+  79693498,
+  3249098678,
+  1084186820,
+  1583128258,
+  426386531,
+  1761308591,
+  1047286709,
+  322548459,
+  995290223,
+  1845252383,
+  2603652396,
+  3431023940,
+  2942221577,
+  3202600964,
+  3727903485,
+  1712269319,
+  422464435,
+  3234572375,
+  1170764815,
+  3523960633,
+  3117677531,
+  1434042557,
+  442511882,
+  3600875718,
+  1076654713,
+  1738483198,
+  4213154764,
+  2393238008,
+  3677496056,
+  1014306527,
+  4251020053,
+  793779912,
+  2902807211,
+  842905082,
+  4246964064,
+  1395751752,
+  1040244610,
+  2656851899,
+  3396308128,
+  445077038,
+  3742853595,
+  3577915638,
+  679411651,
+  2892444358,
+  2354009459,
+  1767581616,
+  3150600392,
+  3791627101,
+  3102740896,
+  284835224,
+  4246832056,
+  1258075500,
+  768725851,
+  2589189241,
+  3069724005,
+  3532540348,
+  1274779536,
+  3789419226,
+  2764799539,
+  1660621633,
+  3471099624,
+  4011903706,
+  913787905,
+  3497959166,
+  737222580,
+  2514213453,
+  2928710040,
+  3937242737,
+  1804850592,
+  3499020752,
+  2949064160,
+  2386320175,
+  2390070455,
+  2415321851,
+  4061277028,
+  2290661394,
+  2416832540,
+  1336762016,
+  1754252060,
+  3520065937,
+  3014181293,
+  791618072,
+  3188594551,
+  3933548030,
+  2332172193,
+  3852520463,
+  3043980520,
+  413987798,
+  3465142937,
+  3030929376,
+  4245938359,
+  2093235073,
+  3534596313,
+  375366246,
+  2157278981,
+  2479649556,
+  555357303,
+  3870105701,
+  2008414854,
+  3344188149,
+  4221384143,
+  3956125452,
+  2067696032,
+  3594591187,
+  2921233993,
+  2428461,
+  544322398,
+  577241275,
+  1471733935,
+  610547355,
+  4027169054,
+  1432588573,
+  1507829418,
+  2025931657,
+  3646575487,
+  545086370,
+  48609733,
+  2200306550,
+  1653985193,
+  298326376,
+  1316178497,
+  3007786442,
+  2064951626,
+  458293330,
+  2589141269,
+  3591329599,
+  3164325604,
+  727753846,
+  2179363840,
+  146436021,
+  1461446943,
+  4069977195,
+  705550613,
+  3059967265,
+  3887724982,
+  4281599278,
+  3313849956,
+  1404054877,
+  2845806497,
+  146425753,
+  1854211946,
+  1266315497,
+  3048417604,
+  3681880366,
+  3289982499,
+  290971e4,
+  1235738493,
+  2632868024,
+  2414719590,
+  3970600049,
+  1771706367,
+  1449415276,
+  3266420449,
+  422970021,
+  1963543593,
+  2690192192,
+  3826793022,
+  1062508698,
+  1531092325,
+  1804592342,
+  2583117782,
+  2714934279,
+  4024971509,
+  1294809318,
+  4028980673,
+  1289560198,
+  2221992742,
+  1669523910,
+  35572830,
+  157838143,
+  1052438473,
+  1016535060,
+  1802137761,
+  1753167236,
+  1386275462,
+  3080475397,
+  2857371447,
+  1040679964,
+  2145300060,
+  2390574316,
+  1461121720,
+  2956646967,
+  4031777805,
+  4028374788,
+  33600511,
+  2920084762,
+  1018524850,
+  629373528,
+  3691585981,
+  3515945977,
+  2091462646,
+  2486323059,
+  586499841,
+  988145025,
+  935516892,
+  3367335476,
+  2599673255,
+  2839830854,
+  265290510,
+  3972581182,
+  2759138881,
+  3795373465,
+  1005194799,
+  847297441,
+  406762289,
+  1314163512,
+  1332590856,
+  1866599683,
+  4127851711,
+  750260880,
+  613907577,
+  1450815602,
+  3165620655,
+  3734664991,
+  3650291728,
+  3012275730,
+  3704569646,
+  1427272223,
+  778793252,
+  1343938022,
+  2676280711,
+  2052605720,
+  1946737175,
+  3164576444,
+  3914038668,
+  3967478842,
+  3682934266,
+  1661551462,
+  3294938066,
+  4011595847,
+  840292616,
+  3712170807,
+  616741398,
+  312560963,
+  711312465,
+  1351876610,
+  322626781,
+  1910503582,
+  271666773,
+  2175563734,
+  1594956187,
+  70604529,
+  3617834859,
+  1007753275,
+  1495573769,
+  4069517037,
+  2549218298,
+  2663038764,
+  504708206,
+  2263041392,
+  3941167025,
+  2249088522,
+  1514023603,
+  1998579484,
+  1312622330,
+  694541497,
+  2582060303,
+  2151582166,
+  1382467621,
+  776784248,
+  2618340202,
+  3323268794,
+  2497899128,
+  2784771155,
+  503983604,
+  4076293799,
+  907881277,
+  423175695,
+  432175456,
+  1378068232,
+  4145222326,
+  3954048622,
+  3938656102,
+  3820766613,
+  2793130115,
+  2977904593,
+  26017576,
+  3274890735,
+  3194772133,
+  1700274565,
+  1756076034,
+  4006520079,
+  3677328699,
+  720338349,
+  1533947780,
+  354530856,
+  688349552,
+  3973924725,
+  1637815568,
+  332179504,
+  3949051286,
+  53804574,
+  2852348879,
+  3044236432,
+  1282449977,
+  3583942155,
+  3416972820,
+  4006381244,
+  1617046695,
+  2628476075,
+  3002303598,
+  1686838959,
+  431878346,
+  2686675385,
+  1700445008,
+  1080580658,
+  1009431731,
+  832498133,
+  3223435511,
+  2605976345,
+  2271191193,
+  2516031870,
+  1648197032,
+  4164389018,
+  2548247927,
+  300782431,
+  375919233,
+  238389289,
+  3353747414,
+  2531188641,
+  2019080857,
+  1475708069,
+  455242339,
+  2609103871,
+  448939670,
+  3451063019,
+  1395535956,
+  2413381860,
+  1841049896,
+  1491858159,
+  885456874,
+  4264095073,
+  4001119347,
+  1565136089,
+  3898914787,
+  1108368660,
+  540939232,
+  1173283510,
+  2745871338,
+  3681308437,
+  4207628240,
+  3343053890,
+  4016749493,
+  1699691293,
+  1103962373,
+  3625875870,
+  2256883143,
+  3830138730,
+  1031889488,
+  3479347698,
+  1535977030,
+  4236805024,
+  3251091107,
+  2132092099,
+  1774941330,
+  1199868427,
+  1452454533,
+  157007616,
+  2904115357,
+  342012276,
+  595725824,
+  1480756522,
+  206960106,
+  497939518,
+  591360097,
+  863170706,
+  2375253569,
+  3596610801,
+  1814182875,
+  2094937945,
+  3421402208,
+  1082520231,
+  3463918190,
+  2785509508,
+  435703966,
+  3908032597,
+  1641649973,
+  2842273706,
+  3305899714,
+  1510255612,
+  2148256476,
+  2655287854,
+  3276092548,
+  4258621189,
+  236887753,
+  3681803219,
+  274041037,
+  1734335097,
+  3815195456,
+  3317970021,
+  1899903192,
+  1026095262,
+  4050517792,
+  356393447,
+  2410691914,
+  3873677099,
+  3682840055,
+  3913112168,
+  2491498743,
+  4132185628,
+  2489919796,
+  1091903735,
+  1979897079,
+  3170134830,
+  3567386728,
+  3557303409,
+  857797738,
+  1136121015,
+  1342202287,
+  507115054,
+  2535736646,
+  337727348,
+  3213592640,
+  1301675037,
+  2528481711,
+  1895095763,
+  1721773893,
+  3216771564,
+  62756741,
+  2142006736,
+  835421444,
+  2531993523,
+  1442658625,
+  3659876326,
+  2882144922,
+  676362277,
+  1392781812,
+  170690266,
+  3921047035,
+  1759253602,
+  3611846912,
+  1745797284,
+  664899054,
+  1329594018,
+  3901205900,
+  3045908486,
+  2062866102,
+  2865634940,
+  3543621612,
+  3464012697,
+  1080764994,
+  553557557,
+  3656615353,
+  3996768171,
+  991055499,
+  499776247,
+  1265440854,
+  648242737,
+  3940784050,
+  980351604,
+  3713745714,
+  1749149687,
+  3396870395,
+  4211799374,
+  3640570775,
+  1161844396,
+  3125318951,
+  1431517754,
+  545492359,
+  4268468663,
+  3499529547,
+  1437099964,
+  2702547544,
+  3433638243,
+  2581715763,
+  2787789398,
+  1060185593,
+  1593081372,
+  2418618748,
+  4260947970,
+  69676912,
+  2159744348,
+  86519011,
+  2512459080,
+  3838209314,
+  1220612927,
+  3339683548,
+  133810670,
+  1090789135,
+  1078426020,
+  1569222167,
+  845107691,
+  3583754449,
+  4072456591,
+  1091646820,
+  628848692,
+  1613405280,
+  3757631651,
+  526609435,
+  236106946,
+  48312990,
+  2942717905,
+  3402727701,
+  1797494240,
+  859738849,
+  992217954,
+  4005476642,
+  2243076622,
+  3870952857,
+  3732016268,
+  765654824,
+  3490871365,
+  2511836413,
+  1685915746,
+  3888969200,
+  1414112111,
+  2273134842,
+  3281911079,
+  4080962846,
+  172450625,
+  2569994100,
+  980381355,
+  4109958455,
+  2819808352,
+  2716589560,
+  2568741196,
+  3681446669,
+  3329971472,
+  1835478071,
+  660984891,
+  3704678404,
+  4045999559,
+  3422617507,
+  3040415634,
+  1762651403,
+  1719377915,
+  3470491036,
+  2693910283,
+  3642056355,
+  3138596744,
+  1364962596,
+  2073328063,
+  1983633131,
+  926494387,
+  3423689081,
+  2150032023,
+  4096667949,
+  1749200295,
+  3328846651,
+  309677260,
+  2016342300,
+  1779581495,
+  3079819751,
+  111262694,
+  1274766160,
+  443224088,
+  298511866,
+  1025883608,
+  3806446537,
+  1145181785,
+  168956806,
+  3641502830,
+  3584813610,
+  1689216846,
+  3666258015,
+  3200248200,
+  1692713982,
+  2646376535,
+  4042768518,
+  1618508792,
+  1610833997,
+  3523052358,
+  4130873264,
+  2001055236,
+  3610705100,
+  2202168115,
+  4028541809,
+  2961195399,
+  1006657119,
+  2006996926,
+  3186142756,
+  1430667929,
+  3210227297,
+  1314452623,
+  4074634658,
+  4101304120,
+  2273951170,
+  1399257539,
+  3367210612,
+  3027628629,
+  1190975929,
+  2062231137,
+  2333990788,
+  2221543033,
+  2438960610,
+  1181637006,
+  548689776,
+  2362791313,
+  3372408396,
+  3104550113,
+  3145860560,
+  296247880,
+  1970579870,
+  3078560182,
+  3769228297,
+  1714227617,
+  3291629107,
+  3898220290,
+  166772364,
+  1251581989,
+  493813264,
+  448347421,
+  195405023,
+  2709975567,
+  677966185,
+  3703036547,
+  1463355134,
+  2715995803,
+  1338867538,
+  1343315457,
+  2802222074,
+  2684532164,
+  233230375,
+  2599980071,
+  2000651841,
+  3277868038,
+  1638401717,
+  4028070440,
+  3237316320,
+  6314154,
+  819756386,
+  300326615,
+  590932579,
+  1405279636,
+  3267499572,
+  3150704214,
+  2428286686,
+  3959192993,
+  3461946742,
+  1862657033,
+  1266418056,
+  963775037,
+  2089974820,
+  2263052895,
+  1917689273,
+  448879540,
+  3550394620,
+  3981727096,
+  150775221,
+  3627908307,
+  1303187396,
+  508620638,
+  2975983352,
+  2726630617,
+  1817252668,
+  1876281319,
+  1457606340,
+  908771278,
+  3720792119,
+  3617206836,
+  2455994898,
+  1729034894,
+  1080033504,
+  976866871,
+  3556439503,
+  2881648439,
+  1522871579,
+  1555064734,
+  1336096578,
+  3548522304,
+  2579274686,
+  3574697629,
+  3205460757,
+  3593280638,
+  3338716283,
+  3079412587,
+  564236357,
+  2993598910,
+  1781952180,
+  1464380207,
+  3163844217,
+  3332601554,
+  1699332808,
+  1393555694,
+  1183702653,
+  3581086237,
+  1288719814,
+  691649499,
+  2847557200,
+  2895455976,
+  3193889540,
+  2717570544,
+  1781354906,
+  1676643554,
+  2592534050,
+  3230253752,
+  1126444790,
+  2770207658,
+  2633158820,
+  2210423226,
+  2615765581,
+  2414155088,
+  3127139286,
+  673620729,
+  2805611233,
+  1269405062,
+  4015350505,
+  3341807571,
+  4149409754,
+  1057255273,
+  2012875353,
+  2162469141,
+  2276492801,
+  2601117357,
+  993977747,
+  3918593370,
+  2654263191,
+  753973209,
+  36408145,
+  2530585658,
+  25011837,
+  3520020182,
+  2088578344,
+  530523599,
+  2918365339,
+  1524020338,
+  1518925132,
+  3760827505,
+  3759777254,
+  1202760957,
+  3985898139,
+  3906192525,
+  674977740,
+  4174734889,
+  2031300136,
+  2019492241,
+  3983892565,
+  4153806404,
+  3822280332,
+  352677332,
+  2297720250,
+  60907813,
+  90501309,
+  3286998549,
+  1016092578,
+  2535922412,
+  2839152426,
+  457141659,
+  509813237,
+  4120667899,
+  652014361,
+  1966332200,
+  2975202805,
+  55981186,
+  2327461051,
+  676427537,
+  3255491064,
+  2882294119,
+  3433927263,
+  1307055953,
+  942726286,
+  933058658,
+  2468411793,
+  3933900994,
+  4215176142,
+  1361170020,
+  2001714738,
+  2830558078,
+  3274259782,
+  1222529897,
+  1679025792,
+  2729314320,
+  3714953764,
+  1770335741,
+  151462246,
+  3013232138,
+  1682292957,
+  1483529935,
+  471910574,
+  1539241949,
+  458788160,
+  3436315007,
+  1807016891,
+  3718408830,
+  978976581,
+  1043663428,
+  3165965781,
+  1927990952,
+  4200891579,
+  2372276910,
+  3208408903,
+  3533431907,
+  1412390302,
+  2931980059,
+  4132332400,
+  1947078029,
+  3881505623,
+  4168226417,
+  2941484381,
+  1077988104,
+  1320477388,
+  886195818,
+  18198404,
+  3786409e3,
+  2509781533,
+  112762804,
+  3463356488,
+  1866414978,
+  891333506,
+  18488651,
+  661792760,
+  1628790961,
+  3885187036,
+  3141171499,
+  876946877,
+  2693282273,
+  1372485963,
+  791857591,
+  2686433993,
+  3759982718,
+  3167212022,
+  3472953795,
+  2716379847,
+  445679433,
+  3561995674,
+  3504004811,
+  3574258232,
+  54117162,
+  3331405415,
+  2381918588,
+  3769707343,
+  4154350007,
+  1140177722,
+  4074052095,
+  668550556,
+  3214352940,
+  367459370,
+  261225585,
+  2610173221,
+  4209349473,
+  3468074219,
+  3265815641,
+  314222801,
+  3066103646,
+  3808782860,
+  282218597,
+  3406013506,
+  3773591054,
+  379116347,
+  1285071038,
+  846784868,
+  2669647154,
+  3771962079,
+  3550491691,
+  2305946142,
+  453669953,
+  1268987020,
+  3317592352,
+  3279303384,
+  3744833421,
+  2610507566,
+  3859509063,
+  266596637,
+  3847019092,
+  517658769,
+  3462560207,
+  3443424879,
+  370717030,
+  4247526661,
+  2224018117,
+  4143653529,
+  4112773975,
+  2788324899,
+  2477274417,
+  1456262402,
+  2901442914,
+  1517677493,
+  1846949527,
+  2295493580,
+  3734397586,
+  2176403920,
+  1280348187,
+  1908823572,
+  3871786941,
+  846861322,
+  1172426758,
+  3287448474,
+  3383383037,
+  1655181056,
+  3139813346,
+  901632758,
+  1897031941,
+  2986607138,
+  3066810236,
+  3447102507,
+  1393639104,
+  373351379,
+  950779232,
+  625454576,
+  3124240540,
+  4148612726,
+  2007998917,
+  544563296,
+  2244738638,
+  2330496472,
+  2058025392,
+  1291430526,
+  424198748,
+  50039436,
+  29584100,
+  3605783033,
+  2429876329,
+  2791104160,
+  1057563949,
+  3255363231,
+  3075367218,
+  3463963227,
+  1469046755,
+  985887462
+];
+var C_ORIG = [
+  1332899944,
+  1700884034,
+  1701343084,
+  1684370003,
+  1668446532,
+  1869963892
+];
+function _encipher(lr, off, P, S) {
+  var n, l = lr[off], r = lr[off + 1];
+  l ^= P[0];
+  n = S[l >>> 24];
+  n += S[256 | l >> 16 & 255];
+  n ^= S[512 | l >> 8 & 255];
+  n += S[768 | l & 255];
+  r ^= n ^ P[1];
+  n = S[r >>> 24];
+  n += S[256 | r >> 16 & 255];
+  n ^= S[512 | r >> 8 & 255];
+  n += S[768 | r & 255];
+  l ^= n ^ P[2];
+  n = S[l >>> 24];
+  n += S[256 | l >> 16 & 255];
+  n ^= S[512 | l >> 8 & 255];
+  n += S[768 | l & 255];
+  r ^= n ^ P[3];
+  n = S[r >>> 24];
+  n += S[256 | r >> 16 & 255];
+  n ^= S[512 | r >> 8 & 255];
+  n += S[768 | r & 255];
+  l ^= n ^ P[4];
+  n = S[l >>> 24];
+  n += S[256 | l >> 16 & 255];
+  n ^= S[512 | l >> 8 & 255];
+  n += S[768 | l & 255];
+  r ^= n ^ P[5];
+  n = S[r >>> 24];
+  n += S[256 | r >> 16 & 255];
+  n ^= S[512 | r >> 8 & 255];
+  n += S[768 | r & 255];
+  l ^= n ^ P[6];
+  n = S[l >>> 24];
+  n += S[256 | l >> 16 & 255];
+  n ^= S[512 | l >> 8 & 255];
+  n += S[768 | l & 255];
+  r ^= n ^ P[7];
+  n = S[r >>> 24];
+  n += S[256 | r >> 16 & 255];
+  n ^= S[512 | r >> 8 & 255];
+  n += S[768 | r & 255];
+  l ^= n ^ P[8];
+  n = S[l >>> 24];
+  n += S[256 | l >> 16 & 255];
+  n ^= S[512 | l >> 8 & 255];
+  n += S[768 | l & 255];
+  r ^= n ^ P[9];
+  n = S[r >>> 24];
+  n += S[256 | r >> 16 & 255];
+  n ^= S[512 | r >> 8 & 255];
+  n += S[768 | r & 255];
+  l ^= n ^ P[10];
+  n = S[l >>> 24];
+  n += S[256 | l >> 16 & 255];
+  n ^= S[512 | l >> 8 & 255];
+  n += S[768 | l & 255];
+  r ^= n ^ P[11];
+  n = S[r >>> 24];
+  n += S[256 | r >> 16 & 255];
+  n ^= S[512 | r >> 8 & 255];
+  n += S[768 | r & 255];
+  l ^= n ^ P[12];
+  n = S[l >>> 24];
+  n += S[256 | l >> 16 & 255];
+  n ^= S[512 | l >> 8 & 255];
+  n += S[768 | l & 255];
+  r ^= n ^ P[13];
+  n = S[r >>> 24];
+  n += S[256 | r >> 16 & 255];
+  n ^= S[512 | r >> 8 & 255];
+  n += S[768 | r & 255];
+  l ^= n ^ P[14];
+  n = S[l >>> 24];
+  n += S[256 | l >> 16 & 255];
+  n ^= S[512 | l >> 8 & 255];
+  n += S[768 | l & 255];
+  r ^= n ^ P[15];
+  n = S[r >>> 24];
+  n += S[256 | r >> 16 & 255];
+  n ^= S[512 | r >> 8 & 255];
+  n += S[768 | r & 255];
+  l ^= n ^ P[16];
+  lr[off] = r ^ P[BLOWFISH_NUM_ROUNDS + 1];
+  lr[off + 1] = l;
+  return lr;
+}
+function _streamtoword(data, offp) {
+  for (var i = 0, word = 0; i < 4; ++i)
+    word = word << 8 | data[offp] & 255, offp = (offp + 1) % data.length;
+  return { key: word, offp };
+}
+function _key(key, P, S) {
+  var offset = 0, lr = [0, 0], plen = P.length, slen = S.length, sw;
+  for (var i = 0; i < plen; i++)
+    sw = _streamtoword(key, offset), offset = sw.offp, P[i] = P[i] ^ sw.key;
+  for (i = 0; i < plen; i += 2)
+    lr = _encipher(lr, 0, P, S), P[i] = lr[0], P[i + 1] = lr[1];
+  for (i = 0; i < slen; i += 2)
+    lr = _encipher(lr, 0, P, S), S[i] = lr[0], S[i + 1] = lr[1];
+}
+function _ekskey(data, key, P, S) {
+  var offp = 0, lr = [0, 0], plen = P.length, slen = S.length, sw;
+  for (var i = 0; i < plen; i++)
+    sw = _streamtoword(key, offp), offp = sw.offp, P[i] = P[i] ^ sw.key;
+  offp = 0;
+  for (i = 0; i < plen; i += 2)
+    sw = _streamtoword(data, offp), offp = sw.offp, lr[0] ^= sw.key, sw = _streamtoword(data, offp), offp = sw.offp, lr[1] ^= sw.key, lr = _encipher(lr, 0, P, S), P[i] = lr[0], P[i + 1] = lr[1];
+  for (i = 0; i < slen; i += 2)
+    sw = _streamtoword(data, offp), offp = sw.offp, lr[0] ^= sw.key, sw = _streamtoword(data, offp), offp = sw.offp, lr[1] ^= sw.key, lr = _encipher(lr, 0, P, S), S[i] = lr[0], S[i + 1] = lr[1];
+}
+function _crypt(b2, salt, rounds, callback, progressCallback) {
+  var cdata = C_ORIG.slice(), clen = cdata.length, err;
+  if (rounds < 4 || rounds > 31) {
+    err = Error("Illegal number of rounds (4-31): " + rounds);
+    if (callback) {
+      nextTick(callback.bind(this, err));
+      return;
+    } else throw err;
+  }
+  if (salt.length !== BCRYPT_SALT_LEN) {
+    err = Error(
+      "Illegal salt length: " + salt.length + " != " + BCRYPT_SALT_LEN
+    );
+    if (callback) {
+      nextTick(callback.bind(this, err));
+      return;
+    } else throw err;
+  }
+  rounds = 1 << rounds >>> 0;
+  var P, S, i = 0, j;
+  if (typeof Int32Array === "function") {
+    P = new Int32Array(P_ORIG);
+    S = new Int32Array(S_ORIG);
+  } else {
+    P = P_ORIG.slice();
+    S = S_ORIG.slice();
+  }
+  _ekskey(salt, b2, P, S);
+  function next() {
+    if (progressCallback) progressCallback(i / rounds);
+    if (i < rounds) {
+      var start = Date.now();
+      for (; i < rounds; ) {
+        i = i + 1;
+        _key(b2, P, S);
+        _key(salt, P, S);
+        if (Date.now() - start > MAX_EXECUTION_TIME) break;
+      }
+    } else {
+      for (i = 0; i < 64; i++)
+        for (j = 0; j < clen >> 1; j++) _encipher(cdata, j << 1, P, S);
+      var ret = [];
+      for (i = 0; i < clen; i++)
+        ret.push((cdata[i] >> 24 & 255) >>> 0), ret.push((cdata[i] >> 16 & 255) >>> 0), ret.push((cdata[i] >> 8 & 255) >>> 0), ret.push((cdata[i] & 255) >>> 0);
+      if (callback) {
+        callback(null, ret);
+        return;
+      } else return ret;
+    }
+    if (callback) nextTick(next);
+  }
+  if (typeof callback !== "undefined") {
+    next();
+  } else {
+    var res;
+    while (true) if (typeof (res = next()) !== "undefined") return res || [];
+  }
+}
+function _hash(password, salt, callback, progressCallback) {
+  var err;
+  if (typeof password !== "string" || typeof salt !== "string") {
+    err = Error("Invalid string / salt: Not a string");
+    if (callback) {
+      nextTick(callback.bind(this, err));
+      return;
+    } else throw err;
+  }
+  var minor, offset;
+  if (salt.charAt(0) !== "$" || salt.charAt(1) !== "2") {
+    err = Error("Invalid salt version: " + salt.substring(0, 2));
+    if (callback) {
+      nextTick(callback.bind(this, err));
+      return;
+    } else throw err;
+  }
+  if (salt.charAt(2) === "$") minor = String.fromCharCode(0), offset = 3;
+  else {
+    minor = salt.charAt(2);
+    if (minor !== "a" && minor !== "b" && minor !== "y" || salt.charAt(3) !== "$") {
+      err = Error("Invalid salt revision: " + salt.substring(2, 4));
+      if (callback) {
+        nextTick(callback.bind(this, err));
+        return;
+      } else throw err;
+    }
+    offset = 4;
+  }
+  if (salt.charAt(offset + 2) > "$") {
+    err = Error("Missing salt rounds");
+    if (callback) {
+      nextTick(callback.bind(this, err));
+      return;
+    } else throw err;
+  }
+  var r1 = parseInt(salt.substring(offset, offset + 1), 10) * 10, r2 = parseInt(salt.substring(offset + 1, offset + 2), 10), rounds = r1 + r2, real_salt = salt.substring(offset + 3, offset + 25);
+  password += minor >= "a" ? "\0" : "";
+  var passwordb = utf8Array(password), saltb = base64_decode(real_salt, BCRYPT_SALT_LEN);
+  function finish(bytes) {
+    var res = [];
+    res.push("$2");
+    if (minor >= "a") res.push(minor);
+    res.push("$");
+    if (rounds < 10) res.push("0");
+    res.push(rounds.toString());
+    res.push("$");
+    res.push(base64_encode(saltb, saltb.length));
+    res.push(base64_encode(bytes, C_ORIG.length * 4 - 1));
+    return res.join("");
+  }
+  if (typeof callback == "undefined")
+    return finish(_crypt(passwordb, saltb, rounds));
+  else {
+    _crypt(
+      passwordb,
+      saltb,
+      rounds,
+      function(err2, bytes) {
+        if (err2) callback(err2, null);
+        else callback(null, finish(bytes));
+      },
+      progressCallback
+    );
+  }
+}
+function encodeBase64(bytes, length) {
+  return base64_encode(bytes, length);
+}
+function decodeBase64(string, length) {
+  return base64_decode(string, length);
+}
+var bcryptjs_default = {
+  setRandomFallback,
+  genSaltSync,
+  genSalt,
+  hashSync,
+  hash: hash2,
+  compareSync,
+  compare,
+  getRounds,
+  getSalt,
+  truncates,
+  encodeBase64,
+  decodeBase64
+};
+
+// ../node_modules/hono/dist/utils/cookie.js
+var validCookieNameRegEx = /^[\w!#$%&'*.^`|~+-]+$/;
+var validCookieValueRegEx = /^[ !#-:<-[\]-~]*$/;
+var trimCookieWhitespace = (value) => {
+  let start = 0;
+  let end = value.length;
+  while (start < end) {
+    const charCode = value.charCodeAt(start);
+    if (charCode !== 32 && charCode !== 9) {
+      break;
+    }
+    start++;
+  }
+  while (end > start) {
+    const charCode = value.charCodeAt(end - 1);
+    if (charCode !== 32 && charCode !== 9) {
+      break;
+    }
+    end--;
+  }
+  return start === 0 && end === value.length ? value : value.slice(start, end);
+};
+var parse3 = (cookie, name) => {
+  if (name && cookie.indexOf(name) === -1) {
+    return {};
+  }
+  const pairs = cookie.split(";");
+  const parsedCookie = /* @__PURE__ */ Object.create(null);
+  for (const pairStr of pairs) {
+    const valueStartPos = pairStr.indexOf("=");
+    if (valueStartPos === -1) {
+      continue;
+    }
+    const cookieName = trimCookieWhitespace(pairStr.substring(0, valueStartPos));
+    if (name && name !== cookieName || !validCookieNameRegEx.test(cookieName) || cookieName in parsedCookie) {
+      continue;
+    }
+    let cookieValue = trimCookieWhitespace(pairStr.substring(valueStartPos + 1));
+    if (cookieValue.startsWith('"') && cookieValue.endsWith('"')) {
+      cookieValue = cookieValue.slice(1, -1);
+    }
+    if (validCookieValueRegEx.test(cookieValue)) {
+      parsedCookie[cookieName] = cookieValue.indexOf("%") !== -1 ? tryDecode(cookieValue, decodeURIComponent_) : cookieValue;
+      if (name) {
+        break;
+      }
+    }
+  }
+  return parsedCookie;
+};
+var _serialize = (name, value, opt = {}) => {
+  if (!validCookieNameRegEx.test(name)) {
+    throw new Error("Invalid cookie name");
+  }
+  let cookie = `${name}=${value}`;
+  if (name.startsWith("__Secure-") && !opt.secure) {
+    throw new Error("__Secure- Cookie must have Secure attributes");
+  }
+  if (name.startsWith("__Host-")) {
+    if (!opt.secure) {
+      throw new Error("__Host- Cookie must have Secure attributes");
+    }
+    if (opt.path !== "/") {
+      throw new Error('__Host- Cookie must have Path attributes with "/"');
+    }
+    if (opt.domain) {
+      throw new Error("__Host- Cookie must not have Domain attributes");
+    }
+  }
+  for (const key of ["domain", "path", "sameSite", "priority"]) {
+    if (opt[key] && /[;\r\n]/.test(opt[key])) {
+      throw new Error(`${key} must not contain ";", "\\r", or "\\n"`);
+    }
+  }
+  if (opt && typeof opt.maxAge === "number" && opt.maxAge >= 0) {
+    if (opt.maxAge > 3456e4) {
+      throw new Error(
+        "Cookies Max-Age SHOULD NOT be greater than 400 days (34560000 seconds) in duration."
+      );
+    }
+    cookie += `; Max-Age=${opt.maxAge | 0}`;
+  }
+  if (opt.domain && opt.prefix !== "host") {
+    cookie += `; Domain=${opt.domain}`;
+  }
+  if (opt.path) {
+    cookie += `; Path=${opt.path}`;
+  }
+  if (opt.expires) {
+    if (opt.expires.getTime() - Date.now() > 3456e7) {
+      throw new Error(
+        "Cookies Expires SHOULD NOT be greater than 400 days (34560000 seconds) in the future."
+      );
+    }
+    cookie += `; Expires=${opt.expires.toUTCString()}`;
+  }
+  if (opt.httpOnly) {
+    cookie += "; HttpOnly";
+  }
+  if (opt.secure) {
+    cookie += "; Secure";
+  }
+  if (opt.sameSite) {
+    cookie += `; SameSite=${opt.sameSite.charAt(0).toUpperCase() + opt.sameSite.slice(1)}`;
+  }
+  if (opt.priority) {
+    cookie += `; Priority=${opt.priority.charAt(0).toUpperCase() + opt.priority.slice(1)}`;
+  }
+  if (opt.partitioned) {
+    if (!opt.secure) {
+      throw new Error("Partitioned Cookie must have Secure attributes");
+    }
+    cookie += "; Partitioned";
+  }
+  return cookie;
+};
+var serialize = (name, value, opt) => {
+  value = encodeURIComponent(value);
+  return _serialize(name, value, opt);
+};
+
+// ../node_modules/hono/dist/helper/cookie/index.js
+var getCookie = (c, key, prefix) => {
+  const cookie = c.req.raw.headers.get("Cookie");
+  if (typeof key === "string") {
+    if (!cookie) {
+      return void 0;
+    }
+    let finalKey = key;
+    if (prefix === "secure") {
+      finalKey = "__Secure-" + key;
+    } else if (prefix === "host") {
+      finalKey = "__Host-" + key;
+    }
+    const obj2 = parse3(cookie, finalKey);
+    return obj2[finalKey];
+  }
+  if (!cookie) {
+    return {};
+  }
+  const obj = parse3(cookie);
+  return obj;
+};
+var generateCookie = (name, value, opt) => {
+  let cookie;
+  if (opt?.prefix === "secure") {
+    cookie = serialize("__Secure-" + name, value, { path: "/", ...opt, secure: true });
+  } else if (opt?.prefix === "host") {
+    cookie = serialize("__Host-" + name, value, {
+      ...opt,
+      path: "/",
+      secure: true,
+      domain: void 0
+    });
+  } else {
+    cookie = serialize(name, value, { path: "/", ...opt });
+  }
+  return cookie;
+};
+var setCookie = (c, name, value, opt) => {
+  const cookie = generateCookie(name, value, opt);
+  c.header("Set-Cookie", cookie, { append: true });
+};
+var deleteCookie = (c, name, opt) => {
+  const deletedCookie = getCookie(c, name, opt?.prefix);
+  setCookie(c, name, "", { ...opt, maxAge: 0 });
+  return deletedCookie;
+};
+
+// ../backend/src/services/scorerTrust.ts
+init_client();
+import crypto4 from "crypto";
+var TOKEN_BYTES = 32;
+async function getTrustToken() {
+  const rows = await sql`
+    SELECT key, value FROM app_settings
+    WHERE key IN ('scorer_trust_token', 'scorer_trust_token_rotated_at')
+  `;
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  return {
+    token: map.scorer_trust_token || "",
+    rotatedAt: map.scorer_trust_token_rotated_at || null
+  };
+}
+async function rotateTrustToken() {
+  const token = crypto4.randomBytes(TOKEN_BYTES).toString("hex");
+  const rotatedAt = (/* @__PURE__ */ new Date()).toISOString();
+  await sql`
+    UPDATE app_settings SET value = ${token}, updated_at = now()
+    WHERE key = 'scorer_trust_token'
+  `;
+  await sql`
+    UPDATE app_settings SET value = ${rotatedAt}, updated_at = now()
+    WHERE key = 'scorer_trust_token_rotated_at'
+  `;
+  await sql`DELETE FROM scorer_sessions WHERE 1=1`;
+  return token;
+}
+async function validateAndIssueSession(trustToken, deviceLabel) {
+  if (!trustToken) {
+    throw Object.assign(new Error("Trust token is required."), { status: 400 });
+  }
+  const [row] = await sql`
+    SELECT value FROM app_settings WHERE key = 'scorer_trust_token'
+  `;
+  if (!row || row.value !== trustToken) {
+    throw Object.assign(
+      new Error("Trust token is invalid or has been rotated. Please rescan the QR code."),
+      { status: 401 }
+    );
+  }
+  const [match2] = await sql`SELECT id FROM matches WHERE is_current = true LIMIT 1`;
+  if (!match2) {
+    throw Object.assign(
+      new Error("No current match set. Ask the range master to set a current match."),
+      { status: 409 }
+    );
+  }
+  const sessionToken = crypto4.randomUUID();
+  await sql`
+    INSERT INTO scorer_sessions (match_id, trust_token, session_token, device_label)
+    VALUES (${match2.id}, ${trustToken}, ${sessionToken}, ${deviceLabel || null})
+  `;
+  return { sessionToken, matchId: match2.id };
+}
+async function revalidateSession(trustToken, sessionToken) {
+  const [session] = await sql`
+    SELECT id, match_id, trust_token
+    FROM scorer_sessions
+    WHERE session_token = ${sessionToken}
+  `;
+  if (!session) return null;
+  const [row] = await sql`
+    SELECT value FROM app_settings WHERE key = 'scorer_trust_token'
+  `;
+  if (!row || row.value !== trustToken) {
+    await sql`DELETE FROM scorer_sessions WHERE id = ${session.id}`;
+    return null;
+  }
+  await sql`
+    UPDATE scorer_sessions SET last_used_at = now(), trust_token = ${trustToken}
+    WHERE id = ${session.id}
+  `;
+  return { sessionToken, matchId: session.match_id };
+}
+async function destroySession(sessionToken) {
+  await sql`DELETE FROM scorer_sessions WHERE session_token = ${sessionToken}`;
+}
+async function listActiveSessions() {
+  return sql`
+    SELECT id, device_label, created_at, last_used_at
+    FROM scorer_sessions
+    ORDER BY last_used_at DESC
+  `;
+}
+
+// ../backend/src/routes/auth.ts
 var authRoutes = new Hono2();
 var DEFAULT_ADMIN_PASSWORD = "admin";
 var BCRYPT_COST = 12;
@@ -18421,14 +18918,6 @@ async function bumpSessionEpoch() {
     VALUES ('session_epoch', ${next}, now())
     ON CONFLICT (key) DO UPDATE SET value = ${next}, updated_at = now()
   `;
-}
-function getPublicOrigin(c) {
-  const headerOrigin = c.req.header("X-Public-Origin");
-  const fallback = `${c.req.url.split("/api")[0]}`;
-  const origin = headerOrigin || fallback;
-  const isHttps = !!(env.TLS_CERT_PATH && env.TLS_KEY_PATH && fs2.existsSync(env.TLS_CERT_PATH) && fs2.existsSync(env.TLS_KEY_PATH));
-  const scheme = isHttps ? "https" : "http";
-  return origin.replace(/^https?:\/\//, `${scheme}://`);
 }
 authRoutes.post("/admin-login", async (c) => {
   const { password } = await c.req.json();
@@ -18549,95 +19038,116 @@ authRoutes.get("/admin-password-status", async (c) => {
   const hasPassword = !!setting?.value;
   return c.json({ hasPassword });
 });
-authRoutes.post("/stage-login", async (c) => {
-  const { stageId, password } = await c.req.json();
-  if (!stageId || !password) {
-    return c.json({ error: "Stage ID and password are required." }, 400);
+authRoutes.post("/scorer-trust", async (c) => {
+  const { trustToken, deviceLabel } = await c.req.json();
+  if (!trustToken) {
+    return c.json({ error: "trustToken is required." }, 400);
   }
-  if (password.length < STAGE_PASSWORD_MIN_LENGTH) {
-    return c.json({ error: `Stage password must be at least ${STAGE_PASSWORD_MIN_LENGTH} characters.` }, 400);
+  try {
+    const result = await validateAndIssueSession(trustToken, deviceLabel || null);
+    setCookie(c, "scorer_trust_token", trustToken, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "Lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365
+    });
+    return c.json({
+      sessionToken: result.sessionToken,
+      matchId: result.matchId
+    });
+  } catch (err) {
+    return c.json({ error: err.message }, err.status || 500);
   }
-  const [stage] = await sql`
-    SELECT s.id, s.name, s.password_hash, s.match_id
-    FROM stages s
-    WHERE s.id = ${stageId}
-  `;
-  if (!stage) {
-    return c.json({ error: "Stage not found." }, 404);
-  }
-  if (!stage.password_hash) {
-    return c.json({ error: "This stage does not require authentication." }, 400);
-  }
-  const valid = await bcryptjs_default.compare(password, stage.password_hash);
-  if (!valid) {
-    return c.json({ error: "Incorrect password." }, 401);
-  }
-  await sql`
-    DELETE FROM stage_sessions
-    WHERE stage_id = ${stageId} AND expires_at < now()
-  `;
-  const token = crypto5.randomUUID();
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1e3);
-  await sql`
-    INSERT INTO stage_sessions (stage_id, token, expires_at, last_used_at)
-    VALUES (${stageId}, ${token}, ${expiresAt.toISOString()}, now())
-  `;
-  return c.json({
-    token,
-    stageId: stage.id,
-    stageName: stage.name,
-    matchId: stage.match_id
-  });
 });
-authRoutes.get("/stages", async (c) => {
-  let matchId = c.req.query("matchId");
-  if (!matchId) {
-    const [currentMatch] = await sql`
-      SELECT id FROM matches WHERE is_current = true LIMIT 1
-    `;
-    if (currentMatch) {
-      matchId = currentMatch.id;
-    }
+authRoutes.post("/scorer-revalidate", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Session token required." }, 401);
   }
-  let stages;
-  if (matchId) {
-    stages = await sql`
-      SELECT s.id, s.name, s.stage_number, s.match_id, m.name as match_name
-      FROM stages s
-      JOIN matches m ON m.id = s.match_id
-      WHERE s.match_id = ${matchId} AND s.password_hash IS NOT NULL
-      ORDER BY s.stage_number
-    `;
-  } else {
-    stages = await sql`
-      SELECT s.id, s.name, s.stage_number, s.match_id, m.name as match_name
-      FROM stages s
-      JOIN matches m ON m.id = s.match_id
-      WHERE s.password_hash IS NOT NULL
-      ORDER BY s.match_id, s.stage_number
-    `;
+  const sessionToken = authHeader.slice(7);
+  const body = await c.req.json().catch(() => ({}));
+  let trustToken = body.trustToken;
+  if (!trustToken) trustToken = getCookie(c, "scorer_trust_token");
+  if (!trustToken) {
+    return c.json({ error: "Trust token required." }, 401);
   }
-  return c.json(stages.map((s) => ({
-    id: s.id,
-    name: s.name,
-    stageNumber: s.stage_number,
-    matchId: s.match_id,
-    matchName: s.match_name
-  })));
+  const result = await revalidateSession(trustToken, sessionToken);
+  if (!result) {
+    deleteCookie(c, "scorer_trust_token", { path: "/" });
+    return c.json({ error: "Trust token has been rotated. Please rescan the QR code." }, 401);
+  }
+  return c.json({ matchId: result.matchId, sessionToken: result.sessionToken });
 });
-authRoutes.post("/stage-hash", async (c) => {
-  const { stageId, password } = await c.req.json();
-  if (!stageId || !password) {
-    return c.json({ error: "Stage ID and password are required." }, 400);
+authRoutes.post("/scorer-auto-login", async (c) => {
+  const trustToken = getCookie(c, "scorer_trust_token");
+  if (!trustToken) {
+    return c.json({ error: "No trust cookie found." }, 401);
   }
-  const [stage] = await sql`
-    SELECT id, password_hash FROM stages WHERE id = ${stageId}
+  try {
+    const result = await validateAndIssueSession(trustToken, null);
+    return c.json({
+      sessionToken: result.sessionToken,
+      matchId: result.matchId
+    });
+  } catch (err) {
+    deleteCookie(c, "scorer_trust_token", { path: "/" });
+    return c.json({ error: err.message }, err.status || 500);
+  }
+});
+authRoutes.post("/scorer-logout", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const sessionToken = authHeader.slice(7);
+    await destroySession(sessionToken);
+  }
+  deleteCookie(c, "scorer_trust_token", { path: "/" });
+  return c.json({ success: true });
+});
+authRoutes.get("/scorer-trust", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Authentication required." }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
   `;
-  if (!stage || !stage.password_hash) {
-    return c.json({ valid: false });
+  if (!adminSession) {
+    return c.json({ error: "Invalid or expired admin session." }, 401);
   }
-  const valid = await bcryptjs_default.compare(password, stage.password_hash);
-  return c.json({ valid });
+  const { token, rotatedAt } = await getTrustToken();
+  return c.json({ trustToken: token, rotatedAt });
+});
+authRoutes.post("/scorer-trust/rotate", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Authentication required." }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: "Invalid or expired admin session." }, 401);
+  }
+  const token = await rotateTrustToken();
+  return c.json({ trustToken: token, rotatedAt: (/* @__PURE__ */ new Date()).toISOString() });
+});
+authRoutes.get("/scorer-trust/sessions", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Authentication required." }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: "Invalid or expired admin session." }, 401);
+  }
+  const sessions = await listActiveSessions();
+  return c.json(sessions);
 });
 authRoutes.get("/me", async (c) => {
   const authHeader = c.req.header("Authorization");
@@ -18651,17 +19161,10 @@ authRoutes.get("/me", async (c) => {
       return c.json({ role: "admin", stageId: null, isLocalNetwork: true, domainMode });
     }
     const [scorerSession] = await sql`
-      SELECT ss.stage_id, ss.expires_at, s.name as stage_name, s.match_id
-      FROM stage_sessions ss
-      JOIN stages s ON s.id = ss.stage_id
-      WHERE ss.token = ${token}
+      SELECT match_id FROM scorer_sessions WHERE session_token = ${token}
     `;
     if (scorerSession) {
-      if (new Date(scorerSession.expires_at) < /* @__PURE__ */ new Date()) {
-        await sql`DELETE FROM stage_sessions WHERE token = ${token}`;
-        return c.json({ role: "anonymous", stageId: null, isLocalNetwork: false, domainMode });
-      }
-      return c.json({ role: "scorer", stageId: scorerSession.stage_id, stageName: scorerSession.stage_name, matchId: scorerSession.match_id, isLocalNetwork: false, domainMode });
+      return c.json({ role: "scorer", stageId: null, matchId: scorerSession.match_id, isLocalNetwork: false, domainMode });
     }
   }
   return c.json({ role: "anonymous", stageId: null, isLocalNetwork: false, domainMode });
@@ -18670,163 +19173,32 @@ authRoutes.post("/logout", async (c) => {
   const authHeader = c.req.header("Authorization");
   if (authHeader && authHeader.startsWith("Bearer ")) {
     const token = authHeader.slice(7);
-    await sql`DELETE FROM stage_sessions WHERE token = ${token}`;
     await sql`DELETE FROM admin_sessions WHERE token = ${token}`;
+    await sql`DELETE FROM scorer_sessions WHERE session_token = ${token}`;
   }
   return c.json({ success: true });
-});
-authRoutes.post("/stage-link-token", async (c) => {
-  const authHeader = c.req.header("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return c.json({ error: "Authentication required." }, 401);
-  }
-  const adminToken = authHeader.slice(7);
-  const [adminSession] = await sql`
-    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
-  `;
-  if (!adminSession) {
-    return c.json({ error: "Invalid or expired admin session." }, 401);
-  }
-  const { stageId, ttlSeconds } = await c.req.json();
-  if (!stageId) {
-    return c.json({ error: "stageId is required." }, 400);
-  }
-  try {
-    const result = await createStageLinkToken(stageId, ttlSeconds, adminToken);
-    return c.json({
-      token: result.token,
-      url: `${getPublicOrigin(c)}/hodnotenie?stageToken=${result.token}`,
-      stageId: result.stageId,
-      stageName: result.stageName,
-      matchId: result.matchId,
-      expiresAt: result.expiresAt.toISOString()
-    });
-  } catch (err) {
-    if (err.message === "Stage not found") {
-      return c.json({ error: "Stage not found." }, 404);
-    }
-    throw err;
-  }
-});
-authRoutes.post("/stage-link-redeem", async (c) => {
-  const { token } = await c.req.json();
-  if (!token) {
-    return c.json({ error: "token is required." }, 400);
-  }
-  const clientIp = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || null;
-  try {
-    const result = await redeemStageLinkToken(token, clientIp || void 0);
-    await sql`
-      DELETE FROM stage_sessions
-      WHERE stage_id = ${result.stageId} AND expires_at < now()
-    `;
-    const sessionToken = crypto5.randomUUID();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1e3);
-    await sql`
-      INSERT INTO stage_sessions (stage_id, token, expires_at, last_used_at)
-      VALUES (${result.stageId}, ${sessionToken}, ${expiresAt.toISOString()}, now())
-    `;
-    return c.json({
-      sessionToken,
-      stageId: result.stageId,
-      stageName: result.stageName,
-      matchId: result.matchId,
-      expiresAt: expiresAt.toISOString()
-    });
-  } catch (err) {
-    if (err instanceof TokenError) {
-      return c.json({ error: err.message }, err.status);
-    }
-    throw err;
-  }
-});
-authRoutes.delete("/stage-link-token", async (c) => {
-  const authHeader = c.req.header("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return c.json({ error: "Authentication required." }, 401);
-  }
-  const adminToken = authHeader.slice(7);
-  const [adminSession] = await sql`
-    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
-  `;
-  if (!adminSession) {
-    return c.json({ error: "Invalid or expired admin session." }, 401);
-  }
-  let matchId;
-  try {
-    const body = await c.req.json();
-    matchId = body.matchId;
-  } catch {
-  }
-  if (!matchId) {
-    const [currentMatch] = await sql`
-      SELECT id FROM matches WHERE is_current = true LIMIT 1
-    `;
-    if (currentMatch) matchId = currentMatch.id;
-  }
-  if (!matchId) {
-    return c.json({ error: "No current match set." }, 400);
-  }
-  const count = await revokeStageLinkTokens(matchId);
-  return c.json({ revoked: count });
-});
-authRoutes.get("/stage-link-token", async (c) => {
-  const authHeader = c.req.header("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return c.json({ error: "Authentication required." }, 401);
-  }
-  const adminToken = authHeader.slice(7);
-  const [adminSession] = await sql`
-    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
-  `;
-  if (!adminSession) {
-    return c.json({ error: "Invalid or expired admin session." }, 401);
-  }
-  let matchId = c.req.query("matchId");
-  if (!matchId) {
-    const [currentMatch] = await sql`
-      SELECT id FROM matches WHERE is_current = true LIMIT 1
-    `;
-    if (currentMatch) {
-      matchId = currentMatch.id;
-    }
-  }
-  if (!matchId) {
-    return c.json([]);
-  }
-  const tokens = await getActiveStageLinkTokens(matchId);
-  const publicOrigin = getPublicOrigin(c);
-  return c.json(tokens.map((t) => ({
-    id: t.id,
-    stageId: t.stage_id,
-    stageName: t.stage_name,
-    stageNumber: t.stage_number,
-    url: `${publicOrigin}/hodnotenie?stageToken=${t.id}`,
-    createdAt: t.created_at,
-    expiresAt: t.expires_at
-  })));
 });
 
 // ../backend/src/routes/backup.ts
 import { execFile } from "child_process";
 import { promisify } from "util";
-import fs4 from "fs/promises";
+import fs3 from "fs/promises";
 import os2 from "os";
-import path2 from "path";
+import path3 from "path";
 
 // ../backend/src/utils/pgBin.ts
-import path from "path";
-import fs3 from "fs";
+import path2 from "path";
+import fs2 from "fs";
 import { execSync } from "child_process";
 var cachedBinDir = null;
 function getPgBinDir() {
   if (cachedBinDir) return cachedBinDir;
   const resourcesPath = process.resourcesPath;
   if (resourcesPath) {
-    const bundledDir = path.join(resourcesPath, "pg", "bin");
+    const bundledDir = path2.join(resourcesPath, "pg", "bin");
     try {
       const ext = process.platform === "win32" ? ".exe" : "";
-      fs3.accessSync(path.join(bundledDir, `psql${ext}`));
+      fs2.accessSync(path2.join(bundledDir, `psql${ext}`));
       cachedBinDir = bundledDir;
       return cachedBinDir;
     } catch {
@@ -18837,7 +19209,7 @@ function getPgBinDir() {
       process.platform === "win32" ? "where psql" : "which psql",
       { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }
     ).trim();
-    const dir = path.dirname(result.split("\n")[0].trim());
+    const dir = path2.dirname(result.split("\n")[0].trim());
     cachedBinDir = dir;
     return dir;
   } catch {
@@ -18847,7 +19219,7 @@ function getPgBinDir() {
   for (const dir of fallbacks) {
     const ext = process.platform === "win32" ? ".exe" : "";
     try {
-      fs3.accessSync(path.join(dir, `psql${ext}`));
+      fs2.accessSync(path2.join(dir, `psql${ext}`));
       cachedBinDir = dir;
       return dir;
     } catch {
@@ -18858,11 +19230,11 @@ function getPgBinDir() {
 }
 function getPgDumpPath() {
   const ext = process.platform === "win32" ? ".exe" : "";
-  return path.join(getPgBinDir(), `pg_dump${ext}`);
+  return path2.join(getPgBinDir(), `pg_dump${ext}`);
 }
 function getPsqlPath() {
   const ext = process.platform === "win32" ? ".exe" : "";
-  return path.join(getPgBinDir(), `psql${ext}`);
+  return path2.join(getPgBinDir(), `psql${ext}`);
 }
 function parseDatabaseUrl(dbUrl) {
   const url = new URL(dbUrl);
@@ -18889,7 +19261,7 @@ backupRoutes.post("/backup", async (c) => {
     console.error("[Backup] Setup error:", err);
     return c.json({ error: `Backup setup failed: ${err.message}` }, 500);
   }
-  const tmpFile = path2.join(os2.tmpdir(), `ipscscore-backup-${Date.now()}.sql`);
+  const tmpFile = path3.join(os2.tmpdir(), `ipscscore-backup-${Date.now()}.sql`);
   try {
     await execFileAsync(pgDumpPath, [
       "--no-password",
@@ -18902,7 +19274,7 @@ backupRoutes.post("/backup", async (c) => {
       env: { ...process.env, ...dbParams },
       maxBuffer: 50 * 1024 * 1024
     });
-    const fileContent = await fs4.readFile(tmpFile);
+    const fileContent = await fs3.readFile(tmpFile);
     const date = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     await audit(c, "backup.export");
     c.header("Content-Disposition", `attachment; filename="ipscscore-backup-${date}.sql"`);
@@ -18913,7 +19285,7 @@ backupRoutes.post("/backup", async (c) => {
     return c.json({ error: `Backup failed: ${err.message}` }, 500);
   } finally {
     try {
-      await fs4.unlink(tmpFile);
+      await fs3.unlink(tmpFile);
     } catch {
     }
   }
@@ -18933,10 +19305,10 @@ backupRoutes.post("/restore", async (c) => {
     console.error("[Restore] Setup error:", err);
     return c.json({ error: `Restore setup failed: ${err.message}` }, 500);
   }
-  const tmpFile = path2.join(os2.tmpdir(), `ipscscore-restore-${Date.now()}.sql`);
+  const tmpFile = path3.join(os2.tmpdir(), `ipscscore-restore-${Date.now()}.sql`);
   try {
     const arrayBuffer = await file.arrayBuffer();
-    await fs4.writeFile(tmpFile, Buffer.from(arrayBuffer));
+    await fs3.writeFile(tmpFile, Buffer.from(arrayBuffer));
     const { stderr } = await execFileAsync(psqlPath, [
       "--no-password",
       "-f",
@@ -18953,9 +19325,113 @@ backupRoutes.post("/restore", async (c) => {
     return c.json({ error: `Restore failed: ${err.message}` }, 500);
   } finally {
     try {
-      await fs4.unlink(tmpFile);
+      await fs3.unlink(tmpFile);
     } catch {
     }
+  }
+});
+
+// ../backend/src/routes/localBackup.ts
+var localBackupRoutes = new Hono2();
+localBackupRoutes.get("/local-backup/export-full", async (c) => {
+  try {
+    const json = await exportFullDbAsJson();
+    const { gzipSync: gzipSync2 } = await import("node:zlib");
+    const compressed = gzipSync2(Buffer.from(json, "utf-8"));
+    const ts = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
+    c.header("Content-Type", "application/gzip");
+    c.header("Content-Disposition", `attachment; filename="ipscscore-full-${ts}.json.gz"`);
+    return c.body(compressed);
+  } catch (err) {
+    console.error("[LocalBackup] Export full error:", err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+localBackupRoutes.get("/local-backup/export-delta", async (c) => {
+  const matchId = c.req.query("matchId");
+  const stageId = c.req.query("stageId");
+  const registrationId = c.req.query("registrationId");
+  if (!matchId || !stageId || !registrationId) {
+    return c.json({ error: "Missing matchId, stageId, or registrationId" }, 400);
+  }
+  try {
+    const payload = await buildDeltaPayload(matchId, stageId, registrationId);
+    return c.json(payload);
+  } catch (err) {
+    console.error("[LocalBackup] Export delta error:", err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+localBackupRoutes.post("/local-backup/trigger", async (c) => {
+  try {
+    const result = await triggerFullBackup();
+    await audit(c, "backup.trigger", `local:${result.key}`);
+    return c.json(result);
+  } catch (err) {
+    console.error("[LocalBackup] Trigger error:", err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+localBackupRoutes.get("/local-backup/status", async (c) => {
+  try {
+    const status = await getStatus();
+    return c.json(status);
+  } catch (err) {
+    console.error("[LocalBackup] Status error:", err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+localBackupRoutes.post("/local-backup/config", async (c) => {
+  try {
+    let body;
+    try {
+      body = await c.req.json();
+    } catch {
+      const text = await c.req.text();
+      body = JSON.parse(text);
+    }
+    await saveConfig(body);
+    return c.json({ success: true });
+  } catch (err) {
+    console.error("[LocalBackup] Config save error:", err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+localBackupRoutes.post("/local-backup/preview-folder", async (c) => {
+  try {
+    let body = {};
+    try {
+      body = await c.req.json();
+    } catch {
+      const text = await c.req.text();
+      if (text) body = JSON.parse(text);
+    }
+    const folder = body.folder || await getBackupFolder();
+    if (!folder) return c.json({ error: "No backup folder configured or specified" }, 400);
+    const preview = await previewFolderBackup(folder);
+    return c.json(preview);
+  } catch (err) {
+    console.error("[LocalBackup] Preview error:", err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+localBackupRoutes.post("/local-backup/restore-folder", async (c) => {
+  try {
+    let body = {};
+    try {
+      body = await c.req.json();
+    } catch {
+      const text = await c.req.text();
+      if (text) body = JSON.parse(text);
+    }
+    const folder = body.folder || await getBackupFolder();
+    if (!folder) return c.json({ error: "No backup folder configured or specified" }, 400);
+    const result = await applyFolderBackup(folder);
+    await audit(c, "backup.restore-folder", `${folder}: ${result.deltasApplied} deltas, ${result.errors.length} errors`);
+    return c.json(result);
+  } catch (err) {
+    console.error("[LocalBackup] Restore folder error:", err);
+    return c.json({ error: err.message }, 500);
   }
 });
 
@@ -19220,21 +19696,36 @@ app.get("/api/lan-info", (c) => {
 });
 app.route("/api/auth", authRoutes);
 app.route("/api", resultsRoutes);
+app.get("/api/matches/:matchId/squads", async (c) => {
+  const matchId = c.req.param("matchId");
+  const { sql: sql2 } = await Promise.resolve().then(() => (init_client(), client_exports));
+  const squads = await sql2`
+    SELECT mr.squad, COUNT(*) as shooter_count
+    FROM match_registrations mr
+    WHERE mr.match_id = ${matchId} AND mr.squad IS NOT NULL
+    GROUP BY mr.squad
+    ORDER BY mr.squad
+  `;
+  const unassigned = await sql2`
+    SELECT COUNT(*) as count FROM match_registrations
+    WHERE match_id = ${matchId} AND squad IS NULL
+  `;
+  return c.json({
+    squads: squads.map((s) => ({ squad: s.squad, shooter_count: Number(s.shooter_count) })),
+    unassigned_count: Number(unassigned[0]?.count ?? 0)
+  });
+});
+app.use("/api/uploads", authMiddleware);
 app.route("/api", uploadRoutes);
 app.use("/api/matches", authMiddleware);
-app.use("/api/matches", methodGuard(["admin"]));
 app.route("/api/matches", matchRoutes);
 app.use("/api/matches/:matchId/stages", authMiddleware);
-app.use("/api/matches/:matchId/stages", methodGuard(["admin"]));
 app.use("/api/stages", authMiddleware);
-app.use("/api/stages", methodGuard(["admin"]));
 app.route("/api", stageRoutes);
 app.use("/api/shooters", authMiddleware);
 app.use("/api/shooters", requireAdmin);
 app.route("/api/shooters", shooterRoutes);
 app.use("/api/matches/:matchId/registrations", authMiddleware);
-app.use("/api/matches/:matchId/registrations", methodGuard(["admin"]));
-app.use("/api/matches/:matchId/squads", authMiddleware);
 app.route("/api", registrationRoutes);
 app.use("/api/matches/:matchId/stages/:stageId/scores/*", authMiddleware);
 app.use("/api/matches/:matchId/stages/:stageId/scores/*", stageAccessMiddleware);
@@ -19250,6 +19741,9 @@ app.use("/api/backup", requireAdmin);
 app.use("/api/restore", authMiddleware);
 app.use("/api/restore", requireAdmin);
 app.route("/api", backupRoutes);
+app.use("/api/local-backup", authMiddleware);
+app.use("/api/local-backup", requireAdmin);
+app.route("/api", localBackupRoutes);
 app.use("/api/import", authMiddleware);
 app.use("/api/import", requireAdmin);
 app.route("/api/import", importRoutes);
@@ -19277,6 +19771,12 @@ app.get("/manifest.json", async (c) => {
     } catch {
     }
   }
+  if (!mode) {
+    const host = (c.req.header("host") || "").toLowerCase();
+    if (host.startsWith("hodnotenie.")) mode = "scoring";
+    else if (host.startsWith("vysledky.")) mode = "results";
+    else if (host.startsWith("squads.")) mode = "squads";
+  }
   const frontendDistPath = process.env.FRONTEND_DIST_PATH;
   let manifest = {
     name: "IPSC Score",
@@ -19298,8 +19798,8 @@ app.get("/manifest.json", async (c) => {
   };
   if (frontendDistPath) {
     try {
-      const manifestPath = path3.join(frontendDistPath, "manifest.json");
-      const raw2 = fs5.readFileSync(manifestPath, "utf-8");
+      const manifestPath = path4.join(frontendDistPath, "manifest.json");
+      const raw2 = fs4.readFileSync(manifestPath, "utf-8");
       manifest = JSON.parse(raw2);
     } catch (err) {
       console.error("[Manifest] Failed to read static manifest, using default:", err);
@@ -19319,12 +19819,12 @@ app.get("/manifest.json", async (c) => {
 });
 function enableStaticServing(frontendDistPath) {
   console.log(`[Static] Setting up frontend serving from: ${frontendDistPath}`);
-  if (!fs5.existsSync(frontendDistPath)) {
+  if (!fs4.existsSync(frontendDistPath)) {
     console.error(`[Static] ERROR: Frontend dist path does not exist: ${frontendDistPath}`);
     return;
   }
-  const indexPath = path3.join(frontendDistPath, "index.html");
-  if (!fs5.existsSync(indexPath)) {
+  const indexPath = path4.join(frontendDistPath, "index.html");
+  if (!fs4.existsSync(indexPath)) {
     console.error(`[Static] ERROR: index.html not found at: ${indexPath}`);
     return;
   }
@@ -19334,13 +19834,9 @@ function enableStaticServing(frontendDistPath) {
     if (urlPath.startsWith("/api/")) return next();
     if (urlPath !== "/" && urlPath.includes(".")) return next();
     try {
-      let html = fs5.readFileSync(indexPath, "utf-8");
+      let html = fs4.readFileSync(indexPath, "utf-8");
       const domainMode = c.get("domainMode");
       if (domainMode && domainMode !== "admin") {
-        html = html.replace(
-          "<head>",
-          `<head><script>window.__DOMAIN_MODE__ = "${domainMode}";</script>`
-        );
         const manifestHref = domainMode === "results" ? "/manifest.json?mode=results" : domainMode === "squads" ? "/manifest.json?mode=squads" : "/manifest.json?mode=scoring";
         html = html.replace(
           /<link[^>]*rel=["']manifest["'][^>]*>/i,
@@ -19422,26 +19918,18 @@ async function hashExistingPlainPasswords() {
 async function main() {
   console.log("Running migrations...");
   await runMigrations();
-  try {
-    const { cleanupExpiredTokens: cleanupExpiredTokens2 } = await Promise.resolve().then(() => (init_stageLinkTokens(), stageLinkTokens_exports));
-    const deleted = await cleanupExpiredTokens2();
-    if (deleted > 0) {
-      console.log(`Cleaned up ${deleted} expired stage link token(s).`);
-    }
-  } catch (err) {
-    console.warn("[Startup] Token cleanup failed:", err.message);
-  }
+  startFullBackupTimer();
   const frontendDistPath = process.env.FRONTEND_DIST_PATH;
   if (frontendDistPath) {
     await enableStaticServing(frontendDistPath);
     console.log(`Serving frontend from ${frontendDistPath}`);
   }
   if (env.TLS_CERT_PATH && env.TLS_KEY_PATH) {
-    const certExists = fs6.existsSync(env.TLS_CERT_PATH);
-    const keyExists = fs6.existsSync(env.TLS_KEY_PATH);
+    const certExists = fs5.existsSync(env.TLS_CERT_PATH);
+    const keyExists = fs5.existsSync(env.TLS_KEY_PATH);
     if (certExists && keyExists) {
-      const cert = fs6.readFileSync(env.TLS_CERT_PATH);
-      const key = fs6.readFileSync(env.TLS_KEY_PATH);
+      const cert = fs5.readFileSync(env.TLS_CERT_PATH);
+      const key = fs5.readFileSync(env.TLS_KEY_PATH);
       serve(
         {
           fetch: app.fetch,

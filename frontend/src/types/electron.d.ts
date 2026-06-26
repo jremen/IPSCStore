@@ -18,6 +18,8 @@ declare global {
       onMenuAction: (callback: (action: string, payload?: any) => void) => () => void;
       /** Report renderer state to the main process so menu items can be enabled/disabled. */
       setMenuState: (state: Record<string, any>) => void;
+      /** Open a native folder picker dialog. Returns the selected path or null. */
+      pickBackupFolder: () => Promise<string | null>;
     };
   }
 }

@@ -366,6 +366,8 @@ export const api = {
   },
   exportRegistrationCSV: (matchId: string) => requestText(`/api/matches/${matchId}/registrations/export/csv`),
 
+  exportShootersCSV: () => requestText('/api/shooters/export/csv'),
+
   // Import
   importShooters: (file: File, options?: { hasHeader?: boolean; columnMapping?: Record<string, string> }) => {
     const form = new FormData();
@@ -447,4 +449,36 @@ export const api = {
     }
     return res.json();
   },
+
+  // Local Folder Backup (Electron only)
+  getLocalBackupStatus: (): Promise<{
+    folder: string;
+    enabled: boolean;
+    lastFullBackupAt: string | null;
+    deltasSinceFull: number;
+    diskUsage: number;
+    folderAccessible: boolean;
+  }> => request('/api/local-backup/status'),
+
+  saveLocalBackupConfig: (config: { folder?: string; enabled?: boolean }): Promise<{ success: boolean }> =>
+    request('/api/local-backup/config', { method: 'POST', body: JSON.stringify(config) }),
+
+  triggerLocalBackup: (): Promise<{ success: boolean; key: string; size: number }> =>
+    request('/api/local-backup/trigger', { method: 'POST' }),
+
+  previewLocalBackupFolder: (folder: string): Promise<{
+    fullFile: string;
+    fullSize: number;
+    fullDate: string;
+    deltasCount: number;
+    deltaDates: { earliest: string | null; latest: string | null };
+  }> => request('/api/local-backup/preview-folder', { method: 'POST', body: JSON.stringify({ folder }) }),
+
+  restoreLocalBackupFromFolder: (folder: string): Promise<{
+    fullFile: string;
+    deltasApplied: number;
+    errors: string[];
+  }> => request('/api/local-backup/restore-folder', { method: 'POST', body: JSON.stringify({ folder }) }),
+
+  exportLocalFullBackup: (): Promise<Blob> => requestBlob('/api/local-backup/export-full'),
 };

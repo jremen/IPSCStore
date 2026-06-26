@@ -5,10 +5,12 @@ import { app, enableStaticServing } from './app.js';
 import { env } from './env.js';
 import { closeDb } from './db/client.js';
 import { runMigrations } from './db/migrate.js';
+import { startFullBackupTimer } from './services/localBackup.js';
 
 async function main() {
   console.log('Running migrations...');
   await runMigrations();
+  startFullBackupTimer();
 
   // In production (Electron), enable static file serving for the frontend
   const frontendDistPath = process.env.FRONTEND_DIST_PATH;

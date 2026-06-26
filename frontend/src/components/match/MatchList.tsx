@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { Button, Badge, TextInput, Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell, Checkbox, Select, Label } from 'flowbite-react';
+import { Button, Badge, TextInput, Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell, Checkbox, Select, Label, Datepicker } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useMatchStore } from '../../stores/matchStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -122,20 +122,36 @@ export default function MatchList() {
           </div>
           <div className="flex flex-col">
             <Label className="text-sm text-gray-500 whitespace-nowrap">{t('matches.filterDateFrom')}</Label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="rounded-lg mt-0.5 border border-gray-300 bg-gray-50 text-sm p-2.5 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            <Datepicker
+              value={dateFrom ? new Date(dateFrom) : null}
+              onChange={(date: Date | null) => {
+                if (date) {
+                  const yyyy = date.getFullYear();
+                  const mm = String(date.getMonth() + 1).padStart(2, '0');
+                  const dd = String(date.getDate()).padStart(2, '0');
+                  setDateFrom(`${yyyy}-${mm}-${dd}`);
+                } else {
+                  setDateFrom('');
+                }
+              }}
+              placeholder={t('matches.filterDateFrom')}
             />
           </div>
           <div className="flex flex-col">
             <Label className="text-sm text-gray-500 whitespace-nowrap">{t('matches.filterDateTo')}</Label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="rounded-lg mt-0.5 border border-gray-300 bg-gray-50 text-sm p-2.5 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            <Datepicker
+              value={dateTo ? new Date(dateTo) : null}
+              onChange={(date: Date | null) => {
+                if (date) {
+                  const yyyy = date.getFullYear();
+                  const mm = String(date.getMonth() + 1).padStart(2, '0');
+                  const dd = String(date.getDate()).padStart(2, '0');
+                  setDateTo(`${yyyy}-${mm}-${dd}`);
+                } else {
+                  setDateTo('');
+                }
+              }}
+              placeholder={t('matches.filterDateTo')}
             />
           </div>
         </div>

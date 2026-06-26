@@ -30,6 +30,25 @@ export default function CSVImportExport({ type, matchId, onImportComplete }: Pro
     });
   }, [type, matchId]);
 
+  const handleExportShooters = async () => {
+    setExporting(true);
+    try {
+      const csv = await api.exportShootersCSV();
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'shooters.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast(t('import.csvExported'), 'success');
+    } catch (err: any) {
+      addToast(err.message, 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleExportRegistrations = async () => {
     if (!matchId) return;
     setExporting(true);
@@ -53,6 +72,12 @@ export default function CSVImportExport({ type, matchId, onImportComplete }: Pro
   return (
     <>
       <Button size="sm" color="light" onClick={() => setShow(true)}><TbFileImport className="mr-2 size-4" />{label}</Button>
+      {type === 'shooters' && (
+        <Button size="sm" color="light" onClick={handleExportShooters} disabled={exporting}>
+          <TbFileExport className="mr-2 size-4" />
+          {exporting ? t('import.exporting') : t('common.export')}
+        </Button>
+      )}
       {type === 'registrations' && matchId && (
         <Button size="sm" color="light" onClick={handleExportRegistrations} disabled={exporting}>
           <TbFileExport className="mr-2 size-4" />

@@ -683,5 +683,28 @@
     "unassigned": "Unassigned",
     "noShooters": "No shooters assigned.",
     "offline": "Offline — showing cached data"
+  },
+  "localBackup": {
+    "title": "Automatic Backup",
+    "description": "Backs up your data to a folder on this computer. Use Google Drive, iCloud, Dropbox, or any sync service to copy the folder elsewhere automatically.",
+    "pickFolder": "Choose backup folder",
+    "changeFolder": "Change folder",
+    "folderSet": "Backup folder set. Automatic backup is now enabled.",
+    "enabled": "Automatic backup is running",
+    "disabled": "Automatic backup is paused",
+    "lastFull": "Last full backup",
+    "deltas": "Pending delta updates",
+    "diskUsage": "Disk usage",
+    "never": "Never",
+    "backupNow": "Backup now",
+    "backupDone": "Full backup created: {{key}}",
+    "folderNotAccessible": "Backup folder is not accessible. If using a removable drive, check that it is connected.",
+    "restore": "Restore from folder",
+    "restoreConfirm": "Replace All Data?",
+    "restoreWarning": "This replaces ALL data with the latest full backup + all delta updates since then. This cannot be undone.",
+    "restoreDone": "Restored. {{deltas}} delta updates applied. Reloading...",
+    "restoreFrom": "Restoring from:",
+    "restoring": "Restoring data in progres…",
+    "restoreSummary": "Full: {{file}} ({{size}}) + {{deltas}} deltas ({{earliest}} → {{latest}})"
   }
 }

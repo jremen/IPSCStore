@@ -8,7 +8,7 @@ import type { RegistrationWithShooter, ScoringProgress } from '../types/scoring'
 import type { Stage } from '../types/stage';
 
 const DB_NAME = 'ipscscore-offline';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -25,6 +25,16 @@ export interface PendingSave {
   createdAt: number;
   retryCount: number;
   lastError?: string;
+}
+
+export interface AuthSession {
+  key: string; // always 'scorer'
+  sessionToken: string;
+  trustToken: string;
+  matchId: string;
+  role: 'scorer' | 'admin';
+  adminToken?: string;
+  savedAt: number;
 }
 
 // ── Database ───────────────────────────────────────────────────────────────
@@ -129,6 +139,11 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('matches')) {
         const matchesStore = db.createObjectStore('matches', { keyPath: 'id' });
         matchesStore.createIndex('by_current', 'is_current');
+      }
+
+      // Auth session cache (survives iOS PWA localStorage wipes)
+      if (!db.objectStoreNames.contains('authSession')) {
+        db.createObjectStore('authSession', { keyPath: 'key' });
       }
     };
 
@@ -243,6 +258,18 @@ export async function cacheScoringProgress(matchId: string, progress: ScoringPro
       squad: entry.squad,
     });
   }
+  await txComplete(tx);
+}
+
+/** Efficiently add a single scored entry to the IDB scoring progress store */
+export async function addScoredEntryToIDB(
+  matchId: string,
+  stageId: string,
+  registrationId: string,
+  squad: number | null,
+): Promise<void> {
+  const { store, tx } = await getStore('scoringProgress', 'readwrite');
+  store.put({ matchId, stageId, registrationId, squad });
   await txComplete(tx);
 }
 
@@ -428,6 +455,46 @@ export async function clearAllOfflinePasswords(): Promise<void> {
   const { store, tx } = await getStore('offlineSessions', 'readwrite');
   store.clear();
   await txComplete(tx);
+}
+
+// ── Auth Session Cache ─────────────────────────────────────────────────────
+
+/**
+ * Persist scorer/admin auth session to IndexedDB.
+ * iOS PWAs may wipe localStorage under storage pressure; IndexedDB is
+ * significantly more durable on the same platform.
+ */
+export async function saveAuthSession(session: Omit<AuthSession, 'key' | 'savedAt'>): Promise<void> {
+  const { store, tx } = await getStore('authSession', 'readwrite');
+  store.put({ ...session, key: 'scorer', savedAt: Date.now() });
+  await txComplete(tx);
+}
+
+/**
+ * Retrieve the last cached auth session from IndexedDB.
+ * Returns null if no session was ever persisted.
+ */
+export async function getAuthSession(): Promise<AuthSession | null> {
+  try {
+    const { store } = await getStore('authSession');
+    const result = await promisify<AuthSession | undefined>(store.get('scorer'));
+    return result ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Clear the cached auth session from IndexedDB (e.g. on logout or trust revoked).
+ */
+export async function clearAuthSession(): Promise<void> {
+  try {
+    const { store, tx } = await getStore('authSession', 'readwrite');
+    store.delete('scorer');
+    await txComplete(tx);
+  } catch {
+    // Non-critical — best-effort cleanup
+  }
 }
 
 // ── Meta ───────────────────────────────────────────────────────────────────

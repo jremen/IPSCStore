@@ -1,5 +1,5 @@
 import type { ScoringProgress } from '../types/scoring';
-import { FETCH_TIMEOUT_MS } from './connectivity';
+import { FETCH_TIMEOUT_MS, REFRESH_TIMEOUT_MS } from './connectivity';
 
 // Use empty string so all API calls go to same origin — Vite dev proxy forwards /api/* to backend
 // In production, serve frontend from backend or set VITE_API_URL to the backend URL
@@ -44,8 +44,20 @@ function authHeaders(): Record<string, string> {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  return requestWithTimeout<T>(path, FETCH_TIMEOUT_MS, options);
+}
+
+/**
+ * Same as `request` but with a shorter timeout (REFRESH_TIMEOUT_MS).
+ * Used for background data refreshes where stale cache is acceptable.
+ */
+async function requestRefresh<T>(path: string, options?: RequestInit): Promise<T> {
+  return requestWithTimeout<T>(path, REFRESH_TIMEOUT_MS, options);
+}
+
+async function requestWithTimeout<T>(path: string, timeoutMs: number, options?: RequestInit): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       headers: authHeaders(),
@@ -254,9 +266,9 @@ export const api = {
   },
 
   // Matches
-  getMatches: () => request<any[]>('/api/matches'),
-  getMatch: (id: string) => request<any>(`/api/matches/${id}`),
-  getCurrentMatch: () => request<any | null>('/api/matches/current'),
+  getMatches: () => requestRefresh<any[]>('/api/matches'),
+  getMatch: (id: string) => requestRefresh<any>(`/api/matches/${id}`),
+  getCurrentMatch: () => requestRefresh<any | null>('/api/matches/current'),
   setCurrentMatch: (id: string) => request<any>(`/api/matches/${id}/set-current`, { method: 'PUT' }),
   unsetCurrentMatch: () => request<any>('/api/matches/unset-current', { method: 'PUT' }),
   createMatch: (data: any) => request<any>('/api/matches', { method: 'POST', body: JSON.stringify(data) }),
@@ -282,7 +294,7 @@ export const api = {
   },
 
   // Stages
-  getStages: (matchId: string) => request<any[]>(`/api/matches/${matchId}/stages`),
+  getStages: (matchId: string) => requestRefresh<any[]>(`/api/matches/${matchId}/stages`),
   getStage: (id: string) => request<any>(`/api/stages/${id}`),
   createStage: (matchId: string, data: any) => request<any>(`/api/matches/${matchId}/stages`, { method: 'POST', body: JSON.stringify(data) }),
   updateStage: (id: string, data: any) => request<any>(`/api/stages/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -298,9 +310,9 @@ export const api = {
     if (params?.offset) qs.set('offset', String(params.offset));
     if (params?.include_deleted) qs.set('include_deleted', 'true');
     if (params?.deleted_only) qs.set('deleted_only', 'true');
-    return request<any>(`/api/shooters?${qs.toString()}`);
+    return requestRefresh<any>(`/api/shooters?${qs.toString()}`);
   },
-  getShooter: (id: string) => request<any>(`/api/shooters/${id}`),
+  getShooter: (id: string) => requestRefresh<any>(`/api/shooters/${id}`),
   getShooterMatches: (id: string) => request<any[]>(`/api/shooters/${id}/matches`),
   createShooter: (data: any) => request<any>('/api/shooters', { method: 'POST', body: JSON.stringify(data) }),
   updateShooter: (id: string, data: any) => request<any>(`/api/shooters/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -331,20 +343,20 @@ export const api = {
   getTags: () => request<string[]>('/api/shooters/tags'),
 
   // Registrations
-  getRegistrations: (matchId: string) => request<any[]>(`/api/matches/${matchId}/registrations`),
+  getRegistrations: (matchId: string) => requestRefresh<any[]>(`/api/matches/${matchId}/registrations`),
   registerShooters: (matchId: string, data: any) => request<any[]>(`/api/matches/${matchId}/registrations`, { method: 'POST', body: JSON.stringify(data) }),
   createAndAddShooter: (matchId: string, data: any) => request<any>(`/api/matches/${matchId}/registrations/create-and-add`, { method: 'POST', body: JSON.stringify(data) }),
   updateRegistration: (matchId: string, id: string, data: any) => request<any>(`/api/matches/${matchId}/registrations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   removeRegistration: (matchId: string, id: string) => request<any>(`/api/matches/${matchId}/registrations/${id}`, { method: 'DELETE' }),
-  getSquads: (matchId: string) => request<any>(`/api/matches/${matchId}/squads`),
+  getSquads: (matchId: string) => requestRefresh<any>(`/api/matches/${matchId}/squads`),
   dqShooter: (matchId: string, id: string, reason: string) => request<any>(`/api/matches/${matchId}/registrations/${id}/dq`, { method: 'PUT', body: JSON.stringify({ dq_reason: reason }) }),
   undqShooter: (matchId: string, id: string) => request<any>(`/api/matches/${matchId}/registrations/${id}/undq`, { method: 'PUT' }),
 
   // Scoring
-  getScoringProgress: (matchId: string) => request<ScoringProgress>(`/api/matches/${matchId}/scoring-progress`),
-  getStageScores: (matchId: string, stageId: string) => request<any[]>(`/api/matches/${matchId}/stages/${stageId}/scores`),
+  getScoringProgress: (matchId: string) => requestRefresh<ScoringProgress>(`/api/matches/${matchId}/scoring-progress`),
+  getStageScores: (matchId: string, stageId: string) => requestRefresh<any[]>(`/api/matches/${matchId}/stages/${stageId}/scores`),
   getShooterScore: (matchId: string, stageId: string, registrationId: string) =>
-    request<any>(`/api/matches/${matchId}/stages/${stageId}/scores/${registrationId}`),
+    requestRefresh<any>(`/api/matches/${matchId}/stages/${stageId}/scores/${registrationId}`),
   saveScore: (matchId: string, stageId: string, registrationId: string, data: any) =>
     request<any>(`/api/matches/${matchId}/stages/${stageId}/scores/${registrationId}`, { method: 'PUT', body: JSON.stringify(data) }),
   recalculateStage: (matchId: string, stageId: string) =>
@@ -353,12 +365,12 @@ export const api = {
     request<any>(`/api/matches/${matchId}/recalculate`, { method: 'POST' }),
 
   // Results
-  getOverallResults: (matchId: string) => request<any>(`/api/matches/${matchId}/results/overall`),
-  getDivisionResults: (matchId: string) => request<any>(`/api/matches/${matchId}/results/divisions`),
-  getStageResults: (matchId: string) => request<any>(`/api/matches/${matchId}/results/stages`),
-  getSingleStageResults: (matchId: string, stageId: string) => request<any>(`/api/matches/${matchId}/results/stages/${stageId}`),
-  getCategoryResults: (matchId: string) => request<any>(`/api/matches/${matchId}/results/categories`),
-  getTagResults: (matchId: string) => request<any>(`/api/matches/${matchId}/results/tags`),
+  getOverallResults: (matchId: string) => requestRefresh<any>(`/api/matches/${matchId}/results/overall`),
+  getDivisionResults: (matchId: string) => requestRefresh<any>(`/api/matches/${matchId}/results/divisions`),
+  getStageResults: (matchId: string) => requestRefresh<any>(`/api/matches/${matchId}/results/stages`),
+  getSingleStageResults: (matchId: string, stageId: string) => requestRefresh<any>(`/api/matches/${matchId}/results/stages/${stageId}`),
+  getCategoryResults: (matchId: string) => requestRefresh<any>(`/api/matches/${matchId}/results/categories`),
+  getTagResults: (matchId: string) => requestRefresh<any>(`/api/matches/${matchId}/results/tags`),
   getShooterStageSummaries: async (matchId: string, registrationId: string): Promise<any> => {
     const res = await fetch(`${API_BASE}/api/matches/${matchId}/shooters/${registrationId}/stage-summaries`, { headers: authHeaders() });
     if (!res.ok) throw new Error(`Failed to fetch stage summaries: ${res.statusText}`);

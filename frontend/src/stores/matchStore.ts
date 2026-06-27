@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
 import * as offlineDB from '../services/offlineDB';
-import { isBackendReachable } from '../services/connectivity';
+import { shouldAttemptApiCall } from '../services/connectivity';
 import type { Match, MatchDetail, CreateMatchInput } from '../types/match';
 
 interface MatchState {
@@ -34,41 +34,34 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
   fetchMatches: async () => {
     set({ loading: true, error: null });
 
-    // When offline or backend unreachable, try cached matches first
-    if (!navigator.onLine || !(await isBackendReachable())) {
-      try {
-        const cached = await offlineDB.getCachedMatches();
-        if (cached.length > 0) {
-          const runningMatch = cached.find((m: any) => m.is_current) ?? null;
-          set({ matches: cached, runningMatch, loading: false });
-        } else {
-          set({ matches: [], error: 'No cached matches available', loading: false });
-        }
-      } catch {
-        set({ matches: [], error: 'Failed to load cached matches', loading: false });
-      }
-      return;
+    // Cache-first: try IndexedDB immediately — no network probe, instant render
+    let cachedData: Match[] | null = null;
+    try {
+      const cached = await offlineDB.getCachedMatches();
+      if (cached.length > 0) cachedData = cached;
+    } catch { /* IDB error — proceed to network path */ }
+
+    if (cachedData) {
+      const runningMatch = cachedData.find((m: any) => m.is_current) ?? null;
+      set({ matches: cachedData, runningMatch, loading: false });
     }
 
-    try {
-      const matches = await api.getMatches();
-      const runningMatch = matches.find(m => m.is_current);
-      set({ matches, runningMatch, loading: false });
-      // Pre-cache to IndexedDB when online
-      offlineDB.cacheMatches(matches).catch(() => {});
-    } catch (err: any) {
-      // Network failed — try cached matches
+    // If online and reachable, try API in background to refresh with fresh data
+    if (shouldAttemptApiCall()) {
       try {
-        const cached = await offlineDB.getCachedMatches();
-        if (cached.length > 0) {
-          const runningMatch = cached.find((m: any) => m.is_current) ?? null;
-          set({ matches: cached, runningMatch, loading: false });
-        } else {
-          set({ matches: [], error: err.message, loading: false });
-        }
+        const matches = await api.getMatches();
+        const runningMatch = matches.find(m => m.is_current);
+        set({ matches, runningMatch, loading: false });
+        offlineDB.cacheMatches(matches).catch(() => {});
       } catch {
-        set({ matches: [], error: err.message, loading: false });
+        // API failed — keep cached data if available, otherwise show error
+        if (!cachedData) {
+          set({ matches: [], error: 'Could not load matches', loading: false });
+        }
       }
+    } else if (!cachedData) {
+      // Offline + no cache — show empty state immediately
+      set({ matches: [], error: 'No cached matches available', loading: false });
     }
   },
 

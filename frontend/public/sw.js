@@ -7,7 +7,10 @@
  * - Background Sync trigger for pending score saves
  */
 
-const CACHE_NAME = 'ipscscore-shell-v2';
+const CACHE_NAME = 'ipscscore-shell-v3';
+
+/** How long to wait for a network fetch before falling back to cache (ms) */
+const NETWORK_TIMEOUT_MS = 3_000;
 
 // App shell assets to pre-cache on install
 const APP_SHELL = [];
@@ -56,16 +59,11 @@ self.addEventListener('fetch', (event) => {
   // Only handle same-origin requests
   if (url.origin !== self.location.origin) return;
 
-  // API requests: network-first (main app handles offline queuing via IndexedDB)
+  // API requests: skip SW interception entirely.
+  // The main app handles offline fallback via IndexedDB.
+  // By NOT calling event.respondWith(), the fetch goes directly to the
+  // browser's network stack and the page's own AbortController manages it.
   if (url.pathname.startsWith('/api/')) {
-    // Don't cache API responses — let them pass through.
-    // The main app handles offline fallback via IndexedDB.
-    // We only need to ensure the fetch doesn't stall when offline.
-    if (!navigator.onLine) {
-      // If offline, the request will fail — the main app's offlineDB handles it.
-      // Return a synthetic Response so the fetch doesn't throw in the SW.
-      // Actually, we just let it fail naturally — the main app catches the error.
-    }
     return;
   }
 
@@ -76,9 +74,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML navigation: network-first, cache fallback
+  // HTML navigation: stale-while-revalidate — return cached immediately,
+  // then refresh in background. Avoids the old network-first hang on
+  // cold-start when offline.
   if (event.request.mode === 'navigate') {
-    event.respondWith(networkFirst(event.request));
+    event.respondWith(staleWhileRevalidate(event.request));
     return;
   }
 
@@ -88,7 +88,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Everything else: try network, fall back to cache
+  // Everything else: network-first with timeout
   event.respondWith(networkFirst(event.request));
 });
 
@@ -123,12 +123,16 @@ self.addEventListener('message', (event) => {
 
 // ── Caching Strategies ──────────────────────────────────────────────────────
 
+/**
+ * Cache-first: return from cache immediately; if not in cache, fetch from
+ * the network with a short timeout.
+ */
 async function cacheFirst(request) {
   const cached = await caches.match(request);
   if (cached) return cached;
 
   try {
-    const response = await fetch(request);
+    const response = await fetchWithTimeout(request, NETWORK_TIMEOUT_MS);
     if (response.ok) {
       const cache = await caches.open(CACHE_NAME);
       cache.put(request, response.clone());
@@ -139,9 +143,56 @@ async function cacheFirst(request) {
   }
 }
 
-async function networkFirst(request) {
+/**
+ * Stale-while-revalidate: return cached immediately (if available), then
+ * fetch from the network in the background to refresh the cache.
+ *
+ * If not cached, falls back to the network (with short timeout).
+ * If offline, returns the cached response or a 503.
+ */
+async function staleWhileRevalidate(request) {
+  const cached = await caches.match(request);
+  if (cached) {
+    // Background refresh — non-blocking
+    fetchWithTimeout(request, NETWORK_TIMEOUT_MS)
+      .then((response) => {
+        if (response.ok) {
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, response));
+        }
+      })
+      .catch(() => {});
+    return cached;
+  }
+
+  // Not cached at all — try the network
   try {
-    const response = await fetch(request);
+    const response = await fetchWithTimeout(request, NETWORK_TIMEOUT_MS);
+    if (response.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+  }
+}
+
+/**
+ * Network-first with timeout: try the network within NETWORK_TIMEOUT_MS;
+ * on failure or timeout, fall back to cache.
+ *
+ * When the device is known-offline, skip the network attempt entirely
+ * to avoid the 30s+ hang Safari exhibits on failed fetches.
+ */
+async function networkFirst(request) {
+  if (!navigator.onLine) {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+  }
+
+  try {
+    const response = await fetchWithTimeout(request, NETWORK_TIMEOUT_MS);
     if (response.ok) {
       const cache = await caches.open(CACHE_NAME);
       cache.put(request, response.clone());
@@ -150,7 +201,20 @@ async function networkFirst(request) {
   } catch {
     const cached = await caches.match(request);
     if (cached) return cached;
-
     return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+  }
+}
+
+/**
+ * Fetch with an AbortController timeout. Rejects if the response does not
+ * arrive within `timeoutMs`.
+ */
+async function fetchWithTimeout(request, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(request, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
   }
 }

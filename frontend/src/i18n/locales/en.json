@@ -2,6 +2,8 @@
   "common": {
     "add": "Add",
     "loading": "Loading...",
+    "saving": "Saving…",
+    "queued": "Queued – will sync when online",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
@@ -110,7 +112,11 @@
     "trustRotateConfirm": "Rotating the token invalidates all current scorer sessions. Scorers will need to rescan the QR code. Continue?",
     "trustActiveSessions": "Active Sessions",
     "trustNoSessions": "No active sessions",
-    "trustUnknownDevice": "Unknown device"
+    "trustUnknownDevice": "Unknown device",
+    "loginUnavailableOffline": "Login is not available offline. Please reconnect to log in for the first time.",
+    "offlineContinueHint": "Session restored from offline storage.",
+    "offlineNoDataTitle": "No offline data available",
+    "offlineNoDataHint": "You are offline and there is no cached data. Open the IPSC Score app from your home screen, or reconnect to the internet to log in."
   },
   "tabs": {
     "matches": "Matches",

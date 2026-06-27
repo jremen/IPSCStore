@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { api, getAuthToken } from '../services/api';
 import * as offlineDB from '../services/offlineDB';
-import { isBackendReachable, isNetworkError } from '../services/connectivity';
+import { isNetworkError, shouldAttemptApiCall } from '../services/connectivity';
 import type { ScoringAlert, TargetScore, ScoreInput, RegistrationWithShooter, ScoringProgress } from '../types/scoring';
 import type { Stage } from '../types/stage';
 import { buildEmptyScore } from '../utils/buildEmptyScore';
@@ -115,38 +115,32 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   fetchRegistrations: async (matchId) => {
     set({ loading: true, error: null });
 
-    // When offline or backend unreachable, skip the API call entirely and go straight to IndexedDB
-    if (!navigator.onLine || !(await isBackendReachable())) {
-      try {
-        const cached = await offlineDB.getCachedRegistrations(matchId);
-        if (cached.length > 0) {
-          set({ registrations: cached, loading: false, isOfflineMode: true });
-        } else {
-          set({ registrations: [], error: 'No cached registrations available', loading: false, isOfflineMode: true });
-        }
-      } catch {
-        set({ registrations: [], error: 'Failed to load cached registrations', loading: false, isOfflineMode: true });
-      }
-      return;
+    // Cache-first: try IndexedDB immediately — no network probe, instant render
+    let cachedData: RegistrationWithShooter[] | null = null;
+    try {
+      const cached = await offlineDB.getCachedRegistrations(matchId);
+      if (cached.length > 0) cachedData = cached;
+    } catch { /* IDB error — proceed to network path */ }
+
+    if (cachedData) {
+      set({ registrations: cachedData, loading: false, isOfflineMode: true });
     }
 
-    try {
-      const regs = await api.getRegistrations(matchId);
-      set({ registrations: regs, loading: false, isOfflineMode: false });
-      // Pre-cache to IndexedDB in background when online
-      offlineDB.cacheRegistrations(matchId, regs).catch(() => {});
-    } catch (err: any) {
-      // Network failed mid-request — try IndexedDB fallback
+    // If online and reachable, try API in background to refresh with fresh data
+    if (shouldAttemptApiCall()) {
       try {
-        const cached = await offlineDB.getCachedRegistrations(matchId);
-        if (cached.length > 0) {
-          set({ registrations: cached, loading: false, isOfflineMode: true });
-        } else {
-          set({ registrations: [], error: err.message, loading: false });
-        }
+        const regs = await api.getRegistrations(matchId);
+        set({ registrations: regs, loading: false, isOfflineMode: false });
+        offlineDB.cacheRegistrations(matchId, regs).catch(() => {});
       } catch {
-        set({ registrations: [], error: err.message, loading: false });
+        // API failed — keep cached data if available, otherwise show error
+        if (!cachedData) {
+          set({ registrations: [], error: 'Could not load registrations', loading: false });
+        }
       }
+    } else if (!cachedData) {
+      // Offline + no cache — show empty state immediately
+      set({ registrations: [], error: 'No cached registrations available', loading: false, isOfflineMode: true });
     }
   },
 
@@ -196,38 +190,43 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
       };
     };
 
-    // When offline or backend unreachable, skip the API call entirely and go straight to IndexedDB
-    if (!navigator.onLine || !(await isBackendReachable())) {
-      try {
-        const cached = await offlineDB.getCachedScore(matchId, stageId, registrationId);
-        if (cached) {
-          set({ currentScore: parseScore(cached), isExistingScore: true, isOfflineMode: true });
-        } else {
-          set({ currentScore: buildEmptyScore(stage), isExistingScore: false, isOfflineMode: true });
-        }
-      } catch {
-        set({ currentScore: buildEmptyScore(stage), isExistingScore: false, isOfflineMode: true });
-      }
-      return;
+    // Cache-first: try IndexedDB immediately — no network probe, instant render
+    let cachedData: any = null;
+    try {
+      cachedData = await offlineDB.getCachedScore(matchId, stageId, registrationId);
+    } catch { /* IDB error — proceed to network path */ }
+
+    if (cachedData) {
+      set({ currentScore: parseScore(cachedData), isExistingScore: true, isOfflineMode: true });
     }
 
-    try {
-      const result = await api.getShooterScore(matchId, stageId, registrationId);
-      set({ currentScore: parseScore(result), isExistingScore: true, isOfflineMode: false });
-      // Pre-cache when online
-      offlineDB.cacheScore(matchId, stageId, registrationId, result).catch(() => {});
-    } catch {
-      // Network failed mid-request — try IndexedDB fallback
-      try {
-        const cached = await offlineDB.getCachedScore(matchId, stageId, registrationId);
-        if (cached) {
-          set({ currentScore: parseScore(cached), isExistingScore: true, isOfflineMode: true });
-        } else {
-          set({ currentScore: buildEmptyScore(stage), isExistingScore: false, isOfflineMode: true });
+    // If online and reachable, try API in background to refresh with fresh data.
+    // Skip the API call for shooters with no score per scoringProgress and no
+    // cached score — avoids the 5s timeout when switching to a fresh shooter.
+    if (shouldAttemptApiCall()) {
+      const sp = get().scoringProgress;
+      const hasScoredEntry = sp != null && sp.scored.some(
+        (e) => e.stage_id === stageId && e.registration_id === registrationId,
+      );
+
+      if (hasScoredEntry || cachedData || sp == null) {
+        try {
+          const result = await api.getShooterScore(matchId, stageId, registrationId);
+          set({ currentScore: parseScore(result), isExistingScore: true, isOfflineMode: false });
+          offlineDB.cacheScore(matchId, stageId, registrationId, result).catch(() => {});
+        } catch {
+          // API failed — keep cached data if available, otherwise show empty
+          if (!cachedData) {
+            set({ currentScore: buildEmptyScore(stage), isExistingScore: false, isOfflineMode: true });
+          }
         }
-      } catch {
+      } else {
+        // No cached score and scoringProgress confirms no score exists
         set({ currentScore: buildEmptyScore(stage), isExistingScore: false, isOfflineMode: true });
       }
+    } else if (!cachedData) {
+      // Offline + no cache — show empty score immediately
+      set({ currentScore: buildEmptyScore(stage), isExistingScore: false, isOfflineMode: true });
     }
   },
 
@@ -237,7 +236,7 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
     const registrations = get().registrations;
     const currentShooter = registrations.find(r => r.id === registrationId);
 
-    if (!navigator.onLine) {
+    if (!shouldAttemptApiCall()) {
       // OFFLINE: queue the save for later sync
       const token = getAuthToken() || '';
       await offlineDB.addPendingSave({
@@ -264,10 +263,14 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
           currentShooter?.squad ?? null,
         ),
       }));
+      // Persist the new scored entry to IDB so the checkmark survives
+      // a fetchScoringProgress() reload and an app restart.
+      await offlineDB.addScoredEntryToIDB(matchId, stageId, registrationId, currentShooter?.squad ?? null);
       get().refreshPendingCount();
       // Register Background Sync so the score flushes as soon as the device
       // is back online, even if the browser/tab was in the background.
-      triggerSync();
+      // Defer to setTimeout so it never blocks the user's critical path.
+      setTimeout(() => { triggerSync().catch(() => {}); }, 0);
       return;
     }
 
@@ -315,10 +318,11 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
             currentShooter?.squad ?? null,
           ),
         }));
+        await offlineDB.addScoredEntryToIDB(matchId, stageId, registrationId, currentShooter?.squad ?? null);
         get().refreshPendingCount();
         // Register Background Sync so the queued score flushes automatically
         // when connectivity returns.
-        triggerSync();
+        setTimeout(() => { triggerSync().catch(() => {}); }, 0);
       } else {
         set({ error: err.message, saving: false });
         throw err;
@@ -462,36 +466,23 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   },
 
   fetchScoringProgress: async (matchId) => {
+    // Cache-first: try IndexedDB immediately — no network probe, instant render
     // Don't clear existing progress before trying — avoid UI flash
-
-    // When offline or backend unreachable, skip the API call entirely and go straight to IndexedDB
-    if (!navigator.onLine || !(await isBackendReachable())) {
-      try {
-        const cached = await offlineDB.getCachedScoringProgress(matchId);
-        if (cached) {
-          set({ scoringProgress: cached, isOfflineMode: true });
-        }
-        // If no cached data, keep existing progress (don't null it out)
-      } catch {
-        // IndexedDB failed — keep whatever progress we have
-      }
-      return;
-    }
-
     try {
-      const progress = await api.getScoringProgress(matchId);
-      set({ scoringProgress: progress, isOfflineMode: false });
-      // Pre-cache when online
-      offlineDB.cacheScoringProgress(matchId, progress).catch(() => {});
-    } catch {
-      // Network failed mid-request — try IndexedDB fallback
+      const cached = await offlineDB.getCachedScoringProgress(matchId);
+      if (cached) {
+        set({ scoringProgress: cached, isOfflineMode: true });
+      }
+    } catch { /* IDB error — proceed to network path */ }
+
+    // If online and reachable, try API in background to refresh with fresh data
+    if (shouldAttemptApiCall()) {
       try {
-        const cached = await offlineDB.getCachedScoringProgress(matchId);
-        if (cached) {
-          set({ scoringProgress: cached, isOfflineMode: true });
-        }
+        const progress = await api.getScoringProgress(matchId);
+        set({ scoringProgress: progress, isOfflineMode: false });
+        offlineDB.cacheScoringProgress(matchId, progress).catch(() => {});
       } catch {
-        // IndexedDB failed — keep whatever progress we have
+        // API failed — keep cached data if available
       }
     }
   },

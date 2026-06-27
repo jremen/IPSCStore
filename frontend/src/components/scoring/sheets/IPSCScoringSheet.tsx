@@ -51,9 +51,22 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
 
   return (
     <div className="p-2 sm:p-4 max-w-7xl mx-auto lg:grid grid-cols-2 gap-6">
+
+      <div className="lg:my-3 my-6 max-lg:p-3 max-lg:dark:bg-gray-800 max-lg:rounded-lg max-lg:border max-lg:border-gray-200 max-lg:dark:border-gray-700">
+        <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
+        <TimeInput
+          value={score.time}
+          onChange={handleTimeChange}
+          disabled={isReadOnly || stage.scoring_type === 'fixed_time'}
+          className="py-1!"
+        />
+        {stage.scoring_type === 'fixed_time' && stage.par_time && (
+          <p className="text-xs text-gray-500 dark:text-gray-300 mt-1 text-center">{i18n.t('scoring.parTime')} {stage.par_time}s</p>
+        )}
+      </div>
       
       {/* SCORING SHEET — two-column on desktop when sidebar exists */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 max-lg:mb-3 shadow-sm overflow-hidden -order-1">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 max-lg:mb-3 shadow-sm -order-1">
         <ScoringSheetHeader
           subtitle={subtitle}
           onReset={isReadOnly ? undefined : handleResetAll}
@@ -184,20 +197,7 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
       )}
 
       {/* DNF + DQ toggles */}
-      <div className="lg:flex flex-col gap-6">
-        <div className="lg:my-3 my-6 max-lg:p-3 max-lg:dark:bg-gray-800 max-lg:rounded-lg max-lg:border max-lg:border-gray-200 max-lg:dark:border-gray-700">
-          <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
-          <TimeInput
-            value={score.time}
-            onChange={handleTimeChange}
-            disabled={isReadOnly || stage.scoring_type === 'fixed_time'}
-            className="py-1!"
-          />
-          {stage.scoring_type === 'fixed_time' && stage.par_time && (
-            <p className="text-xs text-gray-500 dark:text-gray-300 mt-1 text-center">{i18n.t('scoring.parTime')} {stage.par_time}s</p>
-          )}
-        </div>
-
+      <div className="lg:flex flex-col gap-6 mb-16">
         <div className="flex items-center gap-4 mb-3 flex-wrap">
           <DnfToggle isDnf={score.is_dnf} onToggle={handleDnfToggle} disabled={isReadOnly} />
           <DqSection shooter={shooter} disabled={isReadOnly} />

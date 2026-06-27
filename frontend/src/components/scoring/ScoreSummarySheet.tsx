@@ -1,6 +1,7 @@
 import { useMemo, Fragment } from 'react';
-import { Button, Badge } from 'flowbite-react';
+import { Button, Badge, Spinner } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
+import { useScoringStore } from '../../stores/scoringStore';
 import type { Stage } from '../../types/stage';
 import type { ScoreInput } from '../../types/scoring';
 import { divisionLabel } from '../../utils/constants';
@@ -27,6 +28,25 @@ interface ScoreSummarySheetProps {
   };
   onBack: () => void;
   onApprove: () => void;
+}
+
+function SavingApproveButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
+  const saving = useScoringStore((s) => s.saving);
+  return (
+    <Button color="blue" onClick={onClick} disabled={saving} className="min-h-11">
+      {saving && <Spinner size="sm" className="mr-2" />}
+      {saving ? t('common.saving') : t('scoring.approve')}
+    </Button>
+  );
+}
+
+function BackButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
+  const saving = useScoringStore((s) => s.saving);
+  return (
+    <Button color="gray" onClick={onClick} disabled={saving} className="min-h-11">{t('common.back')}</Button>
+  );
 }
 
 /** IPSC/Comstock/Virginia/FixedTime/Hit Factor summary */
@@ -199,8 +219,8 @@ function IPSCSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
 
       {/* Bottom bar — pinned */}
       <div className="bg-white max-md:pb-8 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
-        <Button color="gray" onClick={onBack} className="min-h-11">{t('common.back')}</Button>
-        <Button color="blue" onClick={onApprove} className="min-h-11">{t('scoring.approve')}</Button>
+        <BackButton onClick={onBack} />
+        <SavingApproveButton onClick={onApprove} />
       </div>
     </div>
   );
@@ -286,8 +306,8 @@ function IDPASummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
       </div>
 
       <div className="bg-white max-md:pb-8 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
-        <Button color="gray" onClick={onBack} className="min-h-11">{t('common.back')}</Button>
-        <Button color="blue" onClick={onApprove} className="min-h-11">{t('scoring.approve')}</Button>
+        <BackButton onClick={onBack} />
+        <SavingApproveButton onClick={onApprove} />
       </div>
     </div>
   );
@@ -344,8 +364,8 @@ function ActionSteelSummary({ stage, score, shooterName, shooterDetails, onBack,
       </div>
 
       <div className="bg-white max-md:pb-8  dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
-        <Button color="gray" onClick={onBack} className="min-h-11">{t('common.back')}</Button>
-        <Button color="blue" onClick={onApprove} className="min-h-11">{t('scoring.approve')}</Button>
+        <BackButton onClick={onBack} />
+        <SavingApproveButton onClick={onApprove} />
       </div>
     </div>
   );
@@ -403,8 +423,8 @@ function MultiGunSummary({ stage, score, shooterName, shooterDetails, onBack, on
       </div>
 
       <div className="bg-white max-md:pb-8 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
-        <Button color="gray" onClick={onBack} className="min-h-11">{t('common.back')}</Button>
-        <Button color="blue" onClick={onApprove} className="min-h-11">{t('scoring.approve')}</Button>
+        <BackButton onClick={onBack} />
+        <SavingApproveButton onClick={onApprove} />
       </div>
     </div>
   );
@@ -444,8 +464,8 @@ function RingSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
       </div>
 
       <div className="bg-white max-md:pb-8 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
-        <Button color="gray" onClick={onBack} className="min-h-11">{t('common.back')}</Button>
-        <Button color="blue" onClick={onApprove} className="min-h-11">{t('scoring.approve')}</Button>
+        <BackButton onClick={onBack} />
+        <SavingApproveButton onClick={onApprove} />
       </div>
     </div>
   );
@@ -488,8 +508,8 @@ function HitCountSummary({ stage, score, shooterName, shooterDetails, onBack, on
       </div>
 
       <div className="bg-white max-md:pb-8 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center scoring-nav-pinned">
-        <Button color="gray" onClick={onBack} className="min-h-11">{t('common.back')}</Button>
-        <Button color="blue" onClick={onApprove} className="min-h-11">{t('scoring.approve')}</Button>
+        <BackButton onClick={onBack} />
+        <SavingApproveButton onClick={onApprove} />
       </div>
     </div>
   );

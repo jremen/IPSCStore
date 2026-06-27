@@ -352,7 +352,7 @@
     "noShootersFound": "Žiadni strelci nenájdení",
     "shooterList": "Zoznam strelcov",
     "order": "Poradie",
-    "sortNone": "Žiadne",
+    "sortOrig": "Pôvodné",
     "sortRandom": "Náhodné",
     "randomizeOrder": "Zamiešať poradie",
     "stage": "Situácia {{number}}",

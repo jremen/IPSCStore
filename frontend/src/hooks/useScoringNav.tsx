@@ -39,7 +39,7 @@ export function useScoringNav() {
       setActiveStageId(null);
       setScore(null);
       setSquadFilter(null);
-      setShooterListSort('none');
+      setShooterListSort('orig');
       reshuffleRandomOrder();
     }
   }, [effectiveMatchId, selectShooter, setActiveStageId, setScore, setSquadFilter, setShooterListSort, reshuffleRandomOrder]);
@@ -107,15 +107,6 @@ export function useScoringNav() {
     try {
       await saveScore(effectiveMatchId, activeStageId, currentRegistrationId, currentScore);
       addToast(t('scoring.saved'), 'success');
-
-      // Refresh scoring progress after save.
-      // When offline, saveScore already updated scoringProgress via addScoredEntry
-      // (and persisted it to IDB), so skip the API call.
-      // Use shouldAttemptApiCall() instead of navigator.onLine to avoid
-      // false positives on iOS WiFi where navigator.onLine=true but server unreachable.
-      if (effectiveMatchId && shouldAttemptApiCall()) {
-        await fetchScoringProgress(effectiveMatchId);
-      }
 
       // Auto-advance to next unscored shooter in current squad
       const scored = useScoringStore.getState().scoredIds();

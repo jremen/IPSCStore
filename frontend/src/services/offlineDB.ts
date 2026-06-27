@@ -261,6 +261,72 @@ export async function cacheScoringProgress(matchId: string, progress: ScoringPro
   await txComplete(tx);
 }
 
+/**
+ * Atomically persist an offline score across 3 stores in a single transaction:
+ *  - queue it in pendingSaves (deduped by entity+endpoint)
+ *  - write the score blob to scores
+ *  - record the scored entry in scoringProgress
+ *
+ * All-or-nothing: if any write fails, the transaction rolls back all three.
+ */
+export async function saveOfflineScore(args: {
+  matchId: string;
+  stageId: string;
+  registrationId: string;
+  squad: number | null;
+  score: any;
+  pendingSave: Omit<PendingSave, 'id'>;
+}): Promise<void> {
+  const db = await openDB();
+  const tx = db.transaction(
+    ['pendingSaves', 'scores', 'scoringProgress'],
+    'readwrite',
+  );
+  const pendingStore = tx.objectStore('pendingSaves');
+  const scoresStore = tx.objectStore('scores');
+  const progressStore = tx.objectStore('scoringProgress');
+
+  // Dedup: reuse an existing pendingSaves id for the same entity+endpoint
+  const entityIndex = pendingStore.index('by_entity');
+  const entityKey: IDBValidKey[] = [
+    args.pendingSave.matchId,
+    args.pendingSave.stageId,
+    args.pendingSave.registrationId,
+    args.pendingSave.endpoint,
+  ];
+  const existing = await promisify<PendingSave | undefined>(
+    entityIndex.get(entityKey),
+  );
+  if (existing) {
+    pendingStore.put({
+      ...existing,
+      payload: args.pendingSave.payload,
+      authToken: args.pendingSave.authToken,
+      createdAt: args.pendingSave.createdAt,
+      status: 'pending',
+      retryCount: 0,
+      lastError: undefined,
+    });
+  } else {
+    pendingStore.add(args.pendingSave);
+  }
+
+  scoresStore.put({
+    ...args.score,
+    matchId: args.matchId,
+    stageId: args.stageId,
+    registrationId: args.registrationId,
+  });
+  progressStore.put({
+    matchId: args.matchId,
+    stageId: args.stageId,
+    registrationId: args.registrationId,
+    squad: args.squad,
+  });
+
+  await txComplete(tx);
+}
+
 /** Efficiently add a single scored entry to the IDB scoring progress store */
 export async function addScoredEntryToIDB(
   matchId: string,

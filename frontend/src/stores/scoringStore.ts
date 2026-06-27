@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { api, getAuthToken } from '../services/api';
 import * as offlineDB from '../services/offlineDB';
 import { isNetworkError, shouldAttemptApiCall } from '../services/connectivity';
+import { useUIStore } from './uiStore';
 import type { ScoringAlert, TargetScore, ScoreInput, RegistrationWithShooter, ScoringProgress } from '../types/scoring';
 import type { Stage } from '../types/stage';
 import { buildEmptyScore } from '../utils/buildEmptyScore';
@@ -36,7 +37,7 @@ interface ScoringState {
   activeStageId: string | null;
   scoringProgress: ScoringProgress | null;
   /** Sort order for the shooter list and prev/next navigation */
-  shooterListSort: 'none' | 'random';
+  shooterListSort: 'orig' | 'random';
   /** Seed used for the random sort. Bump to reshuffle. */
   randomSeed: number;
   /** Whether the summary confirmation view is showing (remote scorers only) */
@@ -59,7 +60,7 @@ interface ScoringActions {
   prevShooter: () => void;
   setSquadFilter: (squad: number | null) => void;
   setActiveStageId: (stageId: string | null) => void;
-  setShooterListSort: (sort: 'none' | 'random') => void;
+  setShooterListSort: (sort: 'orig' | 'random') => void;
   reshuffleRandomOrder: () => void;
   /** Returns registrations filtered by squad and sorted by the current sort mode. */
   orderedRegistrations: () => RegistrationWithShooter[];
@@ -106,7 +107,7 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   squadFilter: null,
   activeStageId: null,
   scoringProgress: null,
-  shooterListSort: 'none',
+  shooterListSort: 'orig',
   randomSeed: Math.floor(Math.random() * 0xffffffff),
   showSummary: false,
   isOfflineMode: false,
@@ -235,99 +236,75 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
     const payload = buildScorePayload(data);
     const registrations = get().registrations;
     const currentShooter = registrations.find(r => r.id === registrationId);
+    const squad = currentShooter?.squad ?? null;
+    const token = getAuthToken() || '';
 
-    if (!shouldAttemptApiCall()) {
-      // OFFLINE: queue the save for later sync
-      const token = getAuthToken() || '';
-      await offlineDB.addPendingSave({
-        matchId,
-        stageId,
-        registrationId,
-        endpoint: 'saveScore',
+    // ALWAYS mark scored in-memory immediately — UI flips to "scored" instantly
+    set((state) => ({
+      saving: false,
+      isExistingScore: true,
+      scoringProgress: addScoredEntry(state.scoringProgress, stageId, registrationId, squad),
+    }));
+
+    /** Rollback the optimistic scored entry */
+    const rollback = () => {
+      set((state) => ({
+        scoringProgress: state.scoringProgress
+          ? {
+              scored: state.scoringProgress.scored.filter(
+                (e) => !(e.stage_id === stageId && e.registration_id === registrationId),
+              ),
+            }
+          : null,
+        isExistingScore: false,
+      }));
+    };
+
+    /** Persist to IDB in the background (offline queue) */
+    const persistToIDB = () => {
+      const pendingSave = {
+        matchId, stageId, registrationId,
+        endpoint: 'saveScore' as const,
         payload,
         authToken: token,
-        status: 'pending',
+        status: 'pending' as const,
         createdAt: Date.now(),
         retryCount: 0,
-      });
-      // Update local cached score immediately so the UI is consistent
-      await offlineDB.cacheScore(matchId, stageId, registrationId, { ...payload, targets: (payload as any).targets });
-      // Update scoring progress locally so scoredIds and squad status reflect the save
-      set((state) => ({
-        saving: false,
-        isExistingScore: true,
-        scoringProgress: addScoredEntry(
-          state.scoringProgress,
-          stageId,
-          registrationId,
-          currentShooter?.squad ?? null,
-        ),
-      }));
-      // Persist the new scored entry to IDB so the checkmark survives
-      // a fetchScoringProgress() reload and an app restart.
-      await offlineDB.addScoredEntryToIDB(matchId, stageId, registrationId, currentShooter?.squad ?? null);
-      get().refreshPendingCount();
-      // Register Background Sync so the score flushes as soon as the device
-      // is back online, even if the browser/tab was in the background.
-      // Defer to setTimeout so it never blocks the user's critical path.
-      setTimeout(() => { triggerSync().catch(() => {}); }, 0);
+      };
+
+      offlineDB.saveOfflineScore({
+        matchId, stageId, registrationId, squad,
+        score: { ...payload, targets: (payload as any).targets },
+        pendingSave,
+      })
+        .then(() => {
+          get().refreshPendingCount();
+          setTimeout(() => { triggerSync().catch(() => {}); }, 0);
+        })
+        .catch(() => {
+          rollback();
+          useUIStore.getState().addToast('Save failed — please try again', 'error');
+        });
+    };
+
+    if (!shouldAttemptApiCall()) {
+      persistToIDB();
       return;
     }
 
-    // ONLINE: normal flow
-    try {
-      const result = await api.saveScore(matchId, stageId, registrationId, payload);
-      set((state) => ({
-        saving: false,
-        isExistingScore: true,
-        // Update scoring progress locally so the same client's UI reflects the
-        // save immediately, even before the SSE event arrives.
-        scoringProgress: addScoredEntry(
-          state.scoringProgress,
-          stageId,
-          registrationId,
-          currentShooter?.squad ?? null,
-        ),
-      }));
-      // Update cache with server response
-      offlineDB.cacheScore(matchId, stageId, registrationId, result).catch(() => {});
-    } catch (err: any) {
-      // Network failed mid-request — queue as pending
-      if (isNetworkError(err)) {
-        const token = getAuthToken() || '';
-        await offlineDB.addPendingSave({
-          matchId,
-          stageId,
-          registrationId,
-          endpoint: 'saveScore',
-          payload,
-          authToken: token,
-          status: 'pending',
-          createdAt: Date.now(),
-          retryCount: 0,
-        });
-        await offlineDB.cacheScore(matchId, stageId, registrationId, { ...payload, targets: (payload as any).targets });
-        // Update scoring progress locally
-        set((state) => ({
-          saving: false,
-          isExistingScore: true,
-          scoringProgress: addScoredEntry(
-            state.scoringProgress,
-            stageId,
-            registrationId,
-            currentShooter?.squad ?? null,
-          ),
-        }));
-        await offlineDB.addScoredEntryToIDB(matchId, stageId, registrationId, currentShooter?.squad ?? null);
-        get().refreshPendingCount();
-        // Register Background Sync so the queued score flushes automatically
-        // when connectivity returns.
-        setTimeout(() => { triggerSync().catch(() => {}); }, 0);
-      } else {
-        set({ error: err.message, saving: false });
-        throw err;
-      }
-    }
+    // ONLINE: try API in the background — don't block the caller
+    api.saveScore(matchId, stageId, registrationId, payload)
+      .then((result) => {
+        offlineDB.cacheScore(matchId, stageId, registrationId, result).catch(() => {});
+      })
+      .catch((err: any) => {
+        if (isNetworkError(err)) {
+          persistToIDB();
+        } else {
+          rollback();
+          useUIStore.getState().addToast(err?.message ?? 'Save failed', 'error');
+        }
+      });
   },
 
   validateScore: (stage, score) => {
@@ -466,12 +443,24 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   },
 
   fetchScoringProgress: async (matchId) => {
+    // Merge helper: union of fetched entries + in-memory optimistic entries
+    // This prevents optimistic checkmarks from being erased by stale IDB/API data.
+    const merge = (fetched: ScoringProgress): ScoringProgress => {
+      const current = get().scoringProgress;
+      if (!current) return fetched;
+      const fetchedKeys = new Set(fetched.scored.map(e => `${e.stage_id}:${e.registration_id}`));
+      const optimistic = current.scored.filter(
+        e => !fetchedKeys.has(`${e.stage_id}:${e.registration_id}`),
+      );
+      return { scored: [...fetched.scored, ...optimistic] };
+    };
+
     // Cache-first: try IndexedDB immediately — no network probe, instant render
     // Don't clear existing progress before trying — avoid UI flash
     try {
       const cached = await offlineDB.getCachedScoringProgress(matchId);
       if (cached) {
-        set({ scoringProgress: cached, isOfflineMode: true });
+        set({ scoringProgress: merge(cached), isOfflineMode: true });
       }
     } catch { /* IDB error — proceed to network path */ }
 
@@ -479,7 +468,7 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
     if (shouldAttemptApiCall()) {
       try {
         const progress = await api.getScoringProgress(matchId);
-        set({ scoringProgress: progress, isOfflineMode: false });
+        set({ scoringProgress: merge(progress), isOfflineMode: false });
         offlineDB.cacheScoringProgress(matchId, progress).catch(() => {});
       } catch {
         // API failed — keep cached data if available

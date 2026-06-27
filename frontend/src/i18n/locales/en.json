@@ -340,7 +340,7 @@
     "noShootersFound": "No shooters found",
     "shooterList": "Shooter list",
     "order": "Order",
-    "sortNone": "None",
+    "sortOrig": "Original",
     "sortRandom": "Random",
     "randomizeOrder": "Randomize order",
     "stage": "Stage {{number}}",

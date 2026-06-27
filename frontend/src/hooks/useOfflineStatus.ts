@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useUIStore } from '../stores/uiStore';
 import { useScoringStore } from '../stores/scoringStore';
-import { isBackendReachable, reprobe } from '../services/connectivity';
+import { isBackendReachable, reprobe, shouldAttemptApiCall } from '../services/connectivity';
 
 /**
  * Hook that detects online/offline transitions and:
@@ -52,15 +52,21 @@ export function useOfflineStatus() {
       setOfflineMode(true);
     };
 
-    // Set initial state: probe the backend rather than trusting navigator.onLine
-    (async () => {
-      const reachable = await isBackendReachable();
-      setOfflineMode(!reachable);
-      wasOffline.current = !reachable;
-    })();
+    // Set initial state: if we already know the backend is unreachable, skip
+    // the probe and go offline immediately (avoids 4s hang on cold-start).
+    if (shouldAttemptApiCall()) {
+      (async () => {
+        const reachable = await isBackendReachable();
+        setOfflineMode(!reachable);
+        wasOffline.current = !reachable;
+      })();
+    } else {
+      setOfflineMode(true);
+      wasOffline.current = true;
+    }
 
     // If we started online but have pending saves, flush them now (fresh load)
-    if (navigator.onLine) {
+    if (shouldAttemptApiCall()) {
       import('../services/syncManager').then(({ flushPendingSaves }) => {
         flushPendingSaves().catch(() => {});
       });

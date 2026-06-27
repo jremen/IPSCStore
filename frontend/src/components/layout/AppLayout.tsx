@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Header from './Header';
 import TabBar from './TabBar';
 import { useUIStore } from '../../stores/uiStore';
@@ -16,6 +16,7 @@ import AdminLoginPage from '../auth/AdminLoginPage';
 import StageLoginPage from '../auth/StageLoginPage';
 import PublicResultsView from '../results/PublicResultsView';
 import PublicSquadsView from '../squads/PublicSquadsView';
+import { shouldAttemptApiCall } from '../../services/connectivity';
 import { useOfflineStatus } from '../../hooks/useOfflineStatus';
 import { useOfflineSync } from '../../hooks/useOfflineSync';
 import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
@@ -26,6 +27,7 @@ export default function AppLayout() {
   const { fetchMatches } = useMatchStore();
   const { isAuthenticated, isAdmin, isLocalNetwork, domainMode, authenticatedMatchId, restoreSession, logout } = useAuthStore();
   const sessionValidated = useRef(false);
+  const [sessionRestoring, setSessionRestoring] = useState(true);
 
   // Offline support hooks — always active
   useOfflineStatus();
@@ -35,6 +37,13 @@ export default function AppLayout() {
   // Native menu action bridge (Electron only)
   const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron?.();
   const menuListener = isElectron ? <MenuActionListener /> : null;
+
+  // Request persistent storage so iOS is less likely to evict our data
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+  }, []);
 
   // PWA fix: if opened at root (/) in standalone mode, redirect to /hodnotenie
   // This handles existing PWA installations with start_url: '/' (installed from /)
@@ -49,7 +58,14 @@ export default function AppLayout() {
       window.location.replace('/hodnotenie');
       return;
     }
-    restoreSession();
+    (async () => {
+      await restoreSession();
+      setSessionRestoring(false);
+    })();
+    // Safety timeout: if restoreSession hangs (e.g., Safari with no data), stop
+    // showing the spinner after 5 seconds so the user sees the login page.
+    const timeout = setTimeout(() => setSessionRestoring(false), 5000);
+    return () => clearTimeout(timeout);
   }, [restoreSession]);
 
   // Eagerly load matches list so tabs like Registration have match data
@@ -80,10 +96,19 @@ export default function AppLayout() {
 
       (async () => {
         let currentMatch: any = null;
-        try {
-          currentMatch = await api.getCurrentMatch();
-        } catch {
-          // Backend unreachable — try cached running match from IndexedDB
+
+        // When offline, go straight to IDB — skip the network call entirely
+        // (avoids 30s hang on iOS when the server is unreachable).
+        if (shouldAttemptApiCall()) {
+          try {
+            currentMatch = await api.getCurrentMatch();
+          } catch {
+            // Network fetch timed out or failed — fall through to IDB below
+          }
+        }
+
+        // If network failed or offline, try the cached running match
+        if (!currentMatch?.id) {
           try {
             currentMatch = await offlineDB.getCachedCurrentMatch();
           } catch {
@@ -105,15 +130,23 @@ export default function AppLayout() {
       // Admin: auto-select the running match when entering scoring/results tabs with no match selected
       (async () => {
         let currentMatch: any = null;
-        try {
-          currentMatch = await api.getCurrentMatch();
-        } catch {
+
+        if (shouldAttemptApiCall()) {
+          try {
+            currentMatch = await api.getCurrentMatch();
+          } catch {
+            // Network fetch failed — fall through to IDB below
+          }
+        }
+
+        if (!currentMatch?.id) {
           try {
             currentMatch = await offlineDB.getCachedCurrentMatch();
           } catch {
             // leave as-is
           }
         }
+
         if (currentMatch?.id) setActiveMatch(currentMatch.id);
       })();
     }
@@ -131,6 +164,15 @@ export default function AppLayout() {
 
   // Not authenticated → show login page
   if (!isAuthenticated) {
+    // Session restoration still in progress (IDB async hydration) — show
+    // a minimal loader instead of flashing the login page.
+    if (sessionRestoring) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+          <div className="text-sm text-gray-500 dark:text-gray-400">Restoring session…</div>
+        </div>
+      );
+    }
     // Domain mode: hodnotenie.local → always show stage login (never admin)
     if (domainMode === 'scoring') {
       return <StageLoginPage />;

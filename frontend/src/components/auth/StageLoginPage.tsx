@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, TextInput, Button, Alert } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
+import { isOnlineSync } from '../../services/connectivity';
 import LanguageSelector from '../settings/LanguageSelector';
 
 export default function StageLoginPage() {
@@ -18,6 +19,8 @@ export default function StageLoginPage() {
       // @ts-ignore — iOS Safari standalone
       (window.navigator.standalone === true);
   }, []);
+
+  const isOffline = !isOnlineSync();
 
   // Auto-redeem ?trustToken=... from URL query string
   useEffect(() => {
@@ -87,6 +90,18 @@ export default function StageLoginPage() {
           <Alert color="failure" className="mb-4">
             {error}
           </Alert>
+        )}
+
+        {/* Offline + not PWA → guide user to open the installed app */}
+        {isOffline && !isStandalone && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-1">
+              {t('auth.offlineNoDataTitle')}
+            </p>
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              {t('auth.offlineNoDataHint')}
+            </p>
+          </div>
         )}
 
         {/* iOS-specific instructions */}

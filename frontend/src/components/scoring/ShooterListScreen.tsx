@@ -40,6 +40,8 @@ export default function ShooterListScreen({ show, onClose, onSelect }: ShooterLi
     onClose();
   };
 
+  console.log(shooterListSort)
+
   const stageLabel = currentStage
     ? `${t('scoring.stage', { number: currentStage.stage_number })}: ${currentStage.name}`
     : t('scoring.shooterList');
@@ -70,19 +72,19 @@ export default function ShooterListScreen({ show, onClose, onSelect }: ShooterLi
           <div className="inline-flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 flex-1">
             <button
               type="button"
-              onClick={() => setShooterListSort('none')}
-              className={`flex-1 px-3 py-2 text-sm font-medium transition-colors min-h-11 ${
-                shooterListSort === 'none'
+              onClick={() => setShooterListSort('orig')}
+              className={`flex-1 px-3 py-2 font-medium transition-colors min-h-11 ${
+                shooterListSort === 'orig'
                   ? 'bg-blue-600 text-white'
                   : 'bg-white dark:bg-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600'
               }`}
             >
-              {t('scoring.sortNone')}
+              {t('scoring.sortOrig')}
             </button>
             <button
               type="button"
               onClick={() => setShooterListSort('random')}
-              className={`flex-1 px-3 py-2 text-sm font-medium transition-colors min-h-11 ${
+              className={`flex-1 px-3 py-2 font-medium transition-colors min-h-11 ${
                 shooterListSort === 'random'
                   ? 'bg-blue-600 text-white'
                   : 'bg-white dark:bg-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600'

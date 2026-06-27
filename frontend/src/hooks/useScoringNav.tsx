@@ -7,6 +7,7 @@ import { useAuthStore } from '../stores/authStore';
 import { isScoreComplete } from '../utils/scoringValidation';
 import { useScoringReadOnly } from './useScoringReadOnly';
 import { precacheScoringData, precacheStageScores } from '../services/precache';
+import { shouldAttemptApiCall } from '../services/connectivity';
 
 
 export function useScoringNav() {
@@ -38,7 +39,7 @@ export function useScoringNav() {
       setActiveStageId(null);
       setScore(null);
       setSquadFilter(null);
-      setShooterListSort('none');
+      setShooterListSort('orig');
       reshuffleRandomOrder();
     }
   }, [effectiveMatchId, selectShooter, setActiveStageId, setScore, setSquadFilter, setShooterListSort, reshuffleRandomOrder]);
@@ -48,8 +49,11 @@ export function useScoringNav() {
       fetchRegistrations(effectiveMatchId);
       fetchStages(effectiveMatchId);
       fetchScoringProgress(effectiveMatchId);
-      // Pre-cache scoring data for offline use (non-blocking)
-      precacheScoringData(effectiveMatchId);
+      // Pre-cache scoring data for offline use (non-blocking).
+      // Only run when we're confident the backend is reachable.
+      if (shouldAttemptApiCall()) {
+        precacheScoringData(effectiveMatchId);
+      }
     }
   }, [effectiveMatchId, fetchRegistrations, fetchStages, fetchScoringProgress]);
 
@@ -62,7 +66,7 @@ export function useScoringNav() {
 
   // Pre-cache all scores for the current stage when it changes (non-blocking)
   useEffect(() => {
-    if (effectiveMatchId && activeStageId && registrations.length > 0 && navigator.onLine) {
+    if (effectiveMatchId && activeStageId && registrations.length > 0 && shouldAttemptApiCall()) {
       const regIds = registrations.map((r) => r.id);
       precacheStageScores(effectiveMatchId, activeStageId, regIds);
     }
@@ -95,18 +99,14 @@ export function useScoringNav() {
       return;
     }
 
+    // Optimistic UI: mark saving and close the summary sheet synchronously
+    // so the user sees immediate feedback before any async work begins.
+    useScoringStore.setState({ saving: true });
+    setShowSummary(false);
+
     try {
       await saveScore(effectiveMatchId, activeStageId, currentRegistrationId, currentScore);
       addToast(t('scoring.saved'), 'success');
-      // Hide summary if it was showing
-      setShowSummary(false);
-
-      // Refresh scoring progress after save.
-      // When offline, saveScore already updated scoringProgress via addScoredEntry,
-      // so skip the API call (fetchScoringProgress would try the API first and hang).
-      if (effectiveMatchId && navigator.onLine) {
-        await fetchScoringProgress(effectiveMatchId);
-      }
 
       // Auto-advance to next unscored shooter in current squad
       const scored = useScoringStore.getState().scoredIds();
@@ -131,6 +131,7 @@ export function useScoringNav() {
       }
     } catch (err: any) {
       addToast(err.message, 'error');
+      useScoringStore.setState({ saving: false });
     }
   };
 

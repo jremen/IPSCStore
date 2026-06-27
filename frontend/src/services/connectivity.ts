@@ -89,6 +89,21 @@ export function isOnlineSync(): boolean {
   return lastProbeResult ?? navigator.onLine;
 }
 
+/**
+ * Fast guard for "should we bother hitting the API right now?"
+ *
+ * Returns true only when we have positive recent evidence the backend is
+ * reachable, OR (on first call) when the OS says we're online.
+ *
+ * All store "background refresh" branches must use this instead of bare
+ * `navigator.onLine` to avoid 30s hangs on iOS when the network interface
+ * is flaky (WiFi with no route to server).
+ */
+export function shouldAttemptApiCall(): boolean {
+  if (lastProbeResult !== null) return lastProbeResult;
+  return navigator.onLine;
+}
+
 // ── Network error detection ────────────────────────────────────────────────
 
 /**
@@ -97,6 +112,12 @@ export function isOnlineSync(): boolean {
  * blackhole) and the caller should queue the mutation offline.
  */
 export const FETCH_TIMEOUT_MS = 30_000;
+
+/**
+ * Shorter timeout used for background / refresh queries (not mutations).
+ * If the server doesn't respond inside 5s the caller renders cached data.
+ */
+export const REFRESH_TIMEOUT_MS = 5_000;
 
 /**
  * Determine whether a thrown error represents a network-level failure

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
 import * as offlineDB from '../services/offlineDB';
-import { isBackendReachable } from '../services/connectivity';
+import { shouldAttemptApiCall } from '../services/connectivity';
 import type { Stage, CreateStageInput } from '../types/stage';
 
 /** Parse stage.config if it came back as a JSON string from postgres driver */
@@ -44,41 +44,33 @@ export const useStageStore = create<StageState & StageActions>((set) => ({
   fetchStages: async (matchId) => {
     set({ loading: true, error: null });
 
-    // When offline or backend unreachable, skip the API call and go straight to IndexedDB
-    if (!navigator.onLine || !(await isBackendReachable())) {
-      try {
-        const cached = await offlineDB.getCachedStages(matchId);
-        if (cached.length > 0) {
-          const parsed = cached.map(parseStageConfig).sort(byStageNumber);
-          set({ stages: parsed, loading: false });
-        } else {
-          set({ stages: [], error: 'No cached stages available', loading: false });
-        }
-      } catch {
-        set({ stages: [], error: 'Failed to load cached stages', loading: false });
-      }
-      return;
+    // Cache-first: try IndexedDB immediately — no network probe, instant render
+    let cachedData: Stage[] | null = null;
+    try {
+      const cached = await offlineDB.getCachedStages(matchId);
+      if (cached.length > 0) cachedData = cached.map(parseStageConfig).sort(byStageNumber);
+    } catch { /* IDB error — proceed to network path */ }
+
+    if (cachedData) {
+      set({ stages: cachedData, loading: false });
     }
 
-    try {
-      const stages = await api.getStages(matchId);
-      const parsed = stages.map(parseStageConfig).sort(byStageNumber);
-      set({ stages: parsed, loading: false });
-      // Pre-cache to IndexedDB when online
-      offlineDB.cacheStages(matchId, parsed).catch(() => {});
-    } catch (err: any) {
-      // Network failed mid-request — try IndexedDB fallback
+    // If online and reachable, try API in background to refresh with fresh data
+    if (shouldAttemptApiCall()) {
       try {
-        const cached = await offlineDB.getCachedStages(matchId);
-        if (cached.length > 0) {
-          const parsed = cached.map(parseStageConfig).sort(byStageNumber);
-          set({ stages: parsed, loading: false });
-        } else {
-          set({ stages: [], error: err.message, loading: false });
-        }
+        const stages = await api.getStages(matchId);
+        const parsed = stages.map(parseStageConfig).sort(byStageNumber);
+        set({ stages: parsed, loading: false });
+        offlineDB.cacheStages(matchId, parsed).catch(() => {});
       } catch {
-        set({ stages: [], error: err.message, loading: false });
+        // API failed — keep cached data if available, otherwise show error
+        if (!cachedData) {
+          set({ stages: [], error: 'Could not load stages', loading: false });
+        }
       }
+    } else if (!cachedData) {
+      // Offline + no cache — show empty state immediately
+      set({ stages: [], error: 'No cached stages available', loading: false });
     }
   },
 

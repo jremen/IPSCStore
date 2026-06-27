@@ -2,6 +2,8 @@
   "common": {
     "add": "Pridať",
     "loading": "Načítavam...",
+    "saving": "Ukladám…",
+    "queued": "Vo fronte – odošle sa po pripojení",
     "save": "Uložiť",
     "cancel": "Zrušiť",
     "delete": "Odstrániť",
@@ -116,7 +118,11 @@
     "trustRotateConfirm": "Rotácia tokenu zruší všetky aktívne relácie hodnotiteľov. Budú musieť naskenovať QR kód znova. Pokračovať?",
     "trustActiveSessions": "Aktívne relácie",
     "trustNoSessions": "Žiadne aktívne relácie",
-    "trustUnknownDevice": "Neznáme zariadenie"
+    "trustUnknownDevice": "Neznáme zariadenie",
+    "loginUnavailableOffline": "Prihlásenie nie je dostupné offline. Prosím, pripojte sa k internetu pre prvé prihlásenie.",
+    "offlineContinueHint": "Relácia obnovená z offline úložiska.",
+    "offlineNoDataTitle": "Nie sú dostupné offline údaje",
+    "offlineNoDataHint": "Ste offline a nemáte uložené žiadne údaje. Otvorte aplikáciu IPSC Score z plochy, alebo sa pripojte k internetu pre prihlásenie."
   },
   "tabs": {
     "matches": "Súťaže",
@@ -346,7 +352,7 @@
     "noShootersFound": "Žiadni strelci nenájdení",
     "shooterList": "Zoznam strelcov",
     "order": "Poradie",
-    "sortNone": "Žiadne",
+    "sortOrig": "Pôvodné",
     "sortRandom": "Náhodné",
     "randomizeOrder": "Zamiešať poradie",
     "stage": "Situácia {{number}}",

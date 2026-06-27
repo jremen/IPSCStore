@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
-import { isBackendReachable } from '../services/connectivity';
+import { isBackendReachable, isNetworkError } from '../services/connectivity';
+import { saveAuthSession, getAuthSession, clearAuthSession } from '../services/offlineDB';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -22,6 +23,7 @@ interface AuthState {
   logout: () => void;
   canEditStage: (_stageId: string) => boolean;
   restoreSession: () => Promise<void>;
+  restoreFromIDB: () => Promise<boolean>;
   checkLocalNetwork: () => void;
 }
 
@@ -36,6 +38,7 @@ function clearScorerLocalStorage() {
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(MATCH_KEY);
   localStorage.removeItem(ROLE_KEY);
+  clearAuthSession().catch(() => {});
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -70,6 +73,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       localStorage.setItem(ADMIN_KEY, token);
       localStorage.setItem(ROLE_KEY, 'admin');
+
+      saveAuthSession({ sessionToken: token, trustToken: '', matchId: '', role: 'admin', adminToken: token }).catch(() => {});
 
       return true;
     } catch (err: any) {
@@ -121,6 +126,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.setItem(MATCH_KEY, matchId);
       localStorage.setItem(ROLE_KEY, 'scorer');
 
+      saveAuthSession({ sessionToken, trustToken, matchId, role: 'scorer' }).catch(() => {});
+
       return true;
     } catch (err: any) {
       set({ loading: false, error: err.message || 'Trust token redemption failed' });
@@ -132,11 +139,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const trustToken = localStorage.getItem(TRUST_KEY);
     const sessionToken = localStorage.getItem(SESSION_KEY);
 
-    if (!sessionToken || !trustToken) return false;
+    if (!sessionToken || !trustToken) {
+      // localStorage empty — try IDB fallback
+      const idbSession = await getAuthSession().catch(() => null);
+      if (idbSession && idbSession.role === 'scorer' && idbSession.sessionToken && idbSession.trustToken) {
+        // Hydrate from IDB
+        localStorage.setItem(TRUST_KEY, idbSession.trustToken);
+        localStorage.setItem(SESSION_KEY, idbSession.sessionToken);
+        localStorage.setItem(MATCH_KEY, idbSession.matchId);
+        localStorage.setItem(ROLE_KEY, 'scorer');
+        set({
+          isAuthenticated: true,
+          scorerSessionToken: idbSession.sessionToken,
+          authenticatedMatchId: idbSession.matchId,
+          trustToken: idbSession.trustToken,
+          loading: false,
+          error: null,
+        });
+        return true;
+      }
+      return false;
+    }
 
     set({ loading: true, error: null });
 
-    // If offline, trust localStorage
+    // If offline, trust localStorage (or IDB-mirrored state)
     if (!navigator.onLine || !(await isBackendReachable())) {
       const matchId = localStorage.getItem(MATCH_KEY);
       set({
@@ -159,9 +186,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return false;
       }
 
+      const newSessionToken = result.sessionToken || sessionToken;
       set({
         isAuthenticated: true,
-        scorerSessionToken: result.sessionToken || sessionToken,
+        scorerSessionToken: newSessionToken,
         authenticatedMatchId: result.matchId,
         trustToken,
         loading: false,
@@ -172,8 +200,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         localStorage.setItem(SESSION_KEY, result.sessionToken);
       }
 
+      // Mirror to IDB
+      saveAuthSession({ sessionToken: newSessionToken, trustToken, matchId: result.matchId, role: 'scorer' }).catch(() => {});
+
       return true;
-    } catch {
+    } catch (err: any) {
+      // Network error: trust local state, don't destroy session
+      if (isNetworkError(err) || !navigator.onLine) {
+        const matchId = localStorage.getItem(MATCH_KEY);
+        set({
+          isAuthenticated: true,
+          scorerSessionToken: sessionToken,
+          authenticatedMatchId: matchId,
+          trustToken,
+          loading: false,
+          error: null,
+        });
+        return true;
+      }
+      // Real server error (e.g. 401): clear session
       clearScorerLocalStorage();
       set({ loading: false, error: 'Trust revoked. Please rescan the QR code.', trustToken: null, scorerSessionToken: null, authenticatedMatchId: null, isAuthenticated: false });
       return false;
@@ -203,6 +248,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.setItem(SESSION_KEY, result.sessionToken);
       localStorage.setItem(MATCH_KEY, result.matchId);
       localStorage.setItem(ROLE_KEY, 'scorer');
+
+      saveAuthSession({ sessionToken: result.sessionToken, trustToken: '', matchId: result.matchId, role: 'scorer' }).catch(() => {});
+
       return true;
     } catch {
       set({ loading: false, error: 'Could not reach the server. Please check your connection and try again.' });
@@ -229,6 +277,42 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   canEditStage: (_stageId: string) => {
     const { isAdmin } = get();
     return isAdmin;
+  },
+
+  restoreFromIDB: async () => {
+    const idbSession = await getAuthSession().catch(() => null);
+    if (!idbSession) return false;
+
+    const { sessionToken, trustToken, matchId, role, adminToken } = idbSession;
+
+    if (role === 'admin' && adminToken) {
+      localStorage.setItem(ADMIN_KEY, adminToken);
+      localStorage.setItem(ROLE_KEY, 'admin');
+      set({
+        isAuthenticated: true,
+        isAdmin: true,
+        adminToken,
+      });
+      get().checkLocalNetwork();
+      return true;
+    }
+
+    if (role === 'scorer' && sessionToken) {
+      localStorage.setItem(TRUST_KEY, trustToken);
+      localStorage.setItem(SESSION_KEY, sessionToken);
+      localStorage.setItem(MATCH_KEY, matchId);
+      localStorage.setItem(ROLE_KEY, 'scorer');
+      set({
+        isAuthenticated: true,
+        scorerSessionToken: sessionToken,
+        authenticatedMatchId: matchId,
+        trustToken,
+      });
+      get().checkLocalNetwork();
+      return true;
+    }
+
+    return false;
   },
 
   restoreSession: async () => {
@@ -267,6 +351,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     }
 
+    // localStorage empty — try IDB fallback (iOS PWA may have wiped localStorage)
+    const idbOk = await get().restoreFromIDB();
+    if (idbOk) {
+      get().checkLocalNetwork();
+      return;
+    }
+
+    // Last resort: cookie-based autoLogin (requires network)
     const ok = await get().autoLogin();
     get().checkLocalNetwork();
     if (ok) return;

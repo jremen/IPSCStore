@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useStageStore } from '../../stores/stageStore';
 import { useMatchStore } from '../../stores/matchStore';
 import { useUIStore } from '../../stores/uiStore';
-import { SCORING_TYPES } from '../../utils/constants';
+import { SCORING_TYPES, ISSF_COURSE_TYPES, translateItem } from '../../utils/constants';
 import TimeInput from '../scoring/shared/TimeInput';
 import { InputField } from '../shared/InputField';
 import type { ScoringType, StageConfig } from '../../types/stage';
@@ -50,6 +50,8 @@ function getVisibleFields(type: ScoringType) {
     case 'archery':
       return { paperTargets: false, steelTargets: false, noShootTargets: false, npmTargets: false, hitsPerPaper: false, parTime: false, config: true };
     case 'nrl22':
+      return { paperTargets: false, steelTargets: false, noShootTargets: false, npmTargets: false, hitsPerPaper: false, parTime: false, config: true };
+    case 'issf':
       return { paperTargets: false, steelTargets: false, noShootTargets: false, npmTargets: false, hitsPerPaper: false, parTime: false, config: true };
     default:
       return { paperTargets: true, steelTargets: true, noShootTargets: true, npmTargets: true, hitsPerPaper: true, parTime: false, config: false };
@@ -132,7 +134,7 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
           <div>
             <Label>{t('stages.scoringType')}</Label>
             <Select value={form.scoring_type} onChange={(e) => setForm({ ...form, scoring_type: e.target.value as ScoringType, config: {} })}>
-              {SCORING_TYPES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              {SCORING_TYPES.map((s) => <option key={s.value} value={s.value}>{translateItem(t, s)}</option>)}
             </Select>
           </div>
 
@@ -144,8 +146,8 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
                 <InputField label={t('stages.npmTargets')} type="number" step="1" min="0" value={form.npm_targets} onChange={(v) => setForm({ ...form, npm_targets: parseInt(v) || 0 })} />
               </div>
               <div className="flex items-center gap-2">
-                <Checkbox id="no-shoot" checked={form.no_shoot_targets > 0} onChange={(e) => setForm({ ...form, no_shoot_targets: e.target.checked ? 1 : 0 })} />
-                <Label htmlFor="no-shoot">{t('stages.hasNoShootTargets')}</Label>
+                <Checkbox className="size-5 cursor-pointer" id="no-shoot" checked={form.no_shoot_targets > 0} onChange={(e) => setForm({ ...form, no_shoot_targets: e.target.checked ? 1 : 0 })} />
+                <Label className="cursor-pointer" htmlFor="no-shoot">{t('stages.hasNoShootTargets')}</Label>
               </div>
             </div>
           )}
@@ -231,6 +233,24 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
             <div className="grid grid-cols-2 gap-3">
               <InputField label={t('stages.configNumTargets')} type="number" step="1" min="1" value={form.config.num_targets ?? 10} onChange={(v) => setForm({ ...form, config: { ...form.config, num_targets: parseInt(v) || 10 } })} />
               <InputField label={t('stages.configPointValue')} type="number" step="1" min="1" value={form.config.point_value ?? 10} onChange={(v) => setForm({ ...form, config: { ...form.config, point_value: parseInt(v) || 10 } })} />
+            </div>
+          )}
+
+          {visibleFields.config && form.scoring_type === 'issf' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>{t('stages.configCourseType')}</Label>
+                <Select
+                  value={form.config.course_type || 'custom'}
+                  onChange={(e) => {
+                    const course = ISSF_COURSE_TYPES.find(c => c.value === e.target.value);
+                    setForm({ ...form, config: { ...form.config, course_type: e.target.value, shots_per_course: course?.shots || 60 } });
+                  }}
+                >
+                  {ISSF_COURSE_TYPES.map(c => <option key={c.value} value={c.value}>{translateItem(t, c)}</option>)}
+                </Select>
+              </div>
+              <InputField label={t('stages.configShotsPerCourse')} type="number" step="1" min="1" value={form.config.shots_per_course ?? 60} onChange={(v) => setForm({ ...form, config: { ...form.config, shots_per_course: parseInt(v) || 60 } })} />
             </div>
           )}
 

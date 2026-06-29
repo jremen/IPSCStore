@@ -31,6 +31,10 @@ export default function RingScoringSheet({ stage, score }: Props) {
     ringValues = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
     shotsCount = (config.arrows_per_end as number) || 6;
     label = t('scoring.archery');
+  } else if (scoringType === 'issf') {
+    ringValues = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+    shotsCount = (config.shots_per_course as number) || 60;
+    label = 'Shot';
   } else if (scoringType === 'long_range' && config.variant === 'f_class') {
     ringValues = [11, 10, 9, 8, 7, 6, 5];
     shotsCount = (config.shots_per_string as number) || 20;
@@ -79,9 +83,9 @@ export default function RingScoringSheet({ stage, score }: Props) {
   const preview = calculateRingPreview(currentRings);
   const totalShots = currentRings.filter(v => v > 0).length;
 
-  const typeLabelKey = scoringType === 'archery' ? 'scoring.archery' : scoringType === 'bullseye' ? 'scoring.bullseye' : 'scoring.fclass';
+  const typeLabelKey = scoringType === 'archery' ? 'scoring.archery' : scoringType === 'bullseye' ? 'scoring.bullseye' : scoringType === 'issf' ? 'scoring.issf' : 'scoring.fclass';
   const typeLabel = t(typeLabelKey);
-  const typeIcon = scoringType === 'archery' ? '🏹' : scoringType === 'bullseye' ? '🎯' : '🔭';
+  const typeIcon = scoringType === 'archery' ? '🏹' : scoringType === 'bullseye' || scoringType === 'issf' ? '🎯' : '🔭';
 
   return (
     <div className="p-2 sm:p-4 max-w-xl mx-auto">

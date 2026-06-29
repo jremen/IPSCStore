@@ -252,6 +252,8 @@
     "configRapidFire": "Rýchla streľba",
     "configArrowsPerEnd": "Šípy na sadu",
     "configPointValue": "Bodová hodnota za zásah",
+    "configCourseType": "Typ kurzu",
+    "configShotsPerCourse": "Výstrelov na kurz",
     "printScoreSheets": "Tlač bodovacích hárkov",
     "printSheetsDescription_one": "Vygenerovať prázdny bodovací hárok pre 1 situáciu. Počet kópií nastavte v tlačovom dialógu.",
     "printSheetsDescription_few": "Vygenerovať prázdne bodovacie hárky pre {{count}} situácie. Počet kópií nastavte v tlačovom dialógu.",
@@ -474,6 +476,8 @@
     "archery": "Lukostreľba",
     "bullseye": "Bullseye",
     "fclass": "F-Class",
+    "issf": "ISSF Malokalibrovka",
+    "issfScoring": "🎯 ISSF Malokalibrovka",
     "clickToReset": "Kliknutím vynulujete riadok",
     "ptsPerHit": "{{value}} bodov za zásah",
     "nsPenalty": "NS (−{{points}})",
@@ -495,6 +499,33 @@
     "unprintedPrompt_one": "{{count}} nový výsledok — vytlačiť súhrn?",
     "unprintedPrompt_few": "{{count}} nové výsledky — vytlačiť súhrn?",
     "unprintedPrompt_many": "{{count}} nových výsledkov — vytlačiť súhrn?"
+  },
+  "scoringTypes": {
+    "comstock": "Comstock",
+    "virginia": "Virginia Count",
+    "fixedTime": "Fixed Time",
+    "chrono": "Chrono",
+    "hitFactor": "Hit Factor",
+    "idpa": "IDPA (Vickers Count)",
+    "actionSteel": "Action Steel",
+    "multiGun": "Multi-Gun (3-Gun)",
+    "longRange": "Ďalekonosná puška",
+    "bullseye": "Mierenka",
+    "archery": "Lukostreľba",
+    "nrl22": "NRL22",
+    "issf": "ISSF Malokalibrovka"
+  },
+  "issfCourses": {
+    "10mAirRifle": "10 m vzduchová puška",
+    "10mAirPistol": "10 m vzduchová pištoľ",
+    "50mRifleProne": "50 m puška ľah",
+    "50mRifle3p": "50 m puška 3 polohy",
+    "50mPistol": "50 m pištoľ (voľná pištoľ)",
+    "25mSportPistol": "25 m športová pištoľ",
+    "25mStandardPistol": "25 m štandardná pištoľ",
+    "25mCenterfirePistol": "25 m pištoľ s centrálnym zápalom",
+    "300mRifle": "300 m puška",
+    "custom": "Vlastné (zadajte výstrely)"
   },
   "results": {
     "title": "Výsledky",
@@ -675,7 +706,8 @@
     "nrl22": "Malorážka",
     "prs": "PRS",
     "nra": "NRA (mierenka 10 bodov)",
-    "usaArchery": "Luk"
+    "usaArchery": "Luk",
+    "issf": "ISSF"
   },
   "categories": {
     "regular": "Regular",

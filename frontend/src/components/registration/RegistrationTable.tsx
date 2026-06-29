@@ -71,7 +71,7 @@ function RegistrationRow({
     >
       {/* Checkbox */}
       <TableCell className="w-4! pr-0">
-        <Checkbox checked={selection.isSelected(r.id)} onChange={() => selection.toggle(r.id)} />
+        <Checkbox className="size-5 cursor-pointer" checked={selection.isSelected(r.id)} onChange={() => selection.toggle(r.id)} />
       </TableCell>
 
       <TableCell className="font-mono text-gray-500">{idx + 1}</TableCell>

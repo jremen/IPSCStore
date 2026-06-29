@@ -222,13 +222,13 @@ export default function CSVImportModal({ show, onClose, type, matchId, onImportC
             </div>
 
             <div className="mb-4">
-              <Checkbox checked={hasHeader} onChange={(e) => setHasHeader(e.target.checked)} />
+              <Checkbox className="size-5 cursor-pointer" checked={hasHeader} onChange={(e) => setHasHeader(e.target.checked)} />
               <Label className="ml-2 text-sm">{t('import.firstRowHeader')}</Label>
             </div>
 
             {type === 'shooters' && (
               <div className="mb-4">
-                <Checkbox checked={updateExisting} onChange={(e) => setUpdateExisting(e.target.checked)} />
+                <Checkbox className="size-5 cursor-pointer" checked={updateExisting} onChange={(e) => setUpdateExisting(e.target.checked)} />
                 <Label className="ml-2 text-sm">{t('import.updateExisting')}</Label>
               </div>
             )}

@@ -67,6 +67,7 @@ export const ORGANIZATION_DIVISIONS: Record<string, string[]> = {
   NRL22: ['any', 'irons', 'open_22'],
   NRA: ['conventional', 'international'],
   USA_ARCHERY: [],
+  ISSF: [],
 };
 
 /** Map firearm type to its applicable division values.
@@ -136,6 +137,7 @@ export const ORGANIZATIONS = [
   { value: 'PRS', i18nKey: 'organizations.prs' },
   { value: 'NRA', i18nKey: 'organizations.nra' },
   { value: 'USA_ARCHERY', i18nKey: 'organizations.usaArchery' },
+  { value: 'ISSF', i18nKey: 'organizations.issf' },
 ] as const;
 
 export const FIREARM_TYPES = [
@@ -171,25 +173,27 @@ export const DQ_REASONS = [
 
 export const SCORING_TYPES = [
   // IPSC/USPSA
-  { value: 'comstock', label: 'Comstock', group: 'IPSC/USPSA' },
-  { value: 'virginia', label: 'Virginia Count', group: 'IPSC/USPSA' },
-  { value: 'fixed_time', label: 'Fixed Time', group: 'IPSC/USPSA' },
-  { value: 'chrono', label: 'Chrono', group: 'IPSC/USPSA' },
+  { value: 'comstock', label: 'Comstock', group: 'IPSC/USPSA', i18nKey: 'scoringTypes.comstock' },
+  { value: 'virginia', label: 'Virginia Count', group: 'IPSC/USPSA', i18nKey: 'scoringTypes.virginia' },
+  { value: 'fixed_time', label: 'Fixed Time', group: 'IPSC/USPSA', i18nKey: 'scoringTypes.fixedTime' },
+  { value: 'chrono', label: 'Chrono', group: 'IPSC/USPSA', i18nKey: 'scoringTypes.chrono' },
   // General
-  { value: 'hit_factor', label: 'Hit Factor', group: 'General' },
+  { value: 'hit_factor', label: 'Hit Factor', group: 'General', i18nKey: 'scoringTypes.hitFactor' },
   // IDPA
-  { value: 'idpa', label: 'IDPA (Vickers Count)', group: 'IDPA' },
+  { value: 'idpa', label: 'IDPA (Vickers Count)', group: 'IDPA', i18nKey: 'scoringTypes.idpa' },
   // Steel Challenge
-  { value: 'action_steel', label: 'Action Steel', group: 'Steel' },
+  { value: 'action_steel', label: 'Action Steel', group: 'Steel', i18nKey: 'scoringTypes.actionSteel' },
   // Multi-Gun
-  { value: 'multi_gun', label: 'Multi-Gun (3-Gun)', group: 'Multi-Gun' },
+  { value: 'multi_gun', label: 'Multi-Gun (3-Gun)', group: 'Multi-Gun', i18nKey: 'scoringTypes.multiGun' },
   // Precision
-  { value: 'long_range', label: 'Long Range Rifle', group: 'Precision' },
-  { value: 'bullseye', label: 'Bullseye', group: 'Precision' },
+  { value: 'long_range', label: 'Long Range Rifle', group: 'Precision', i18nKey: 'scoringTypes.longRange' },
+  { value: 'bullseye', label: 'Bullseye', group: 'Precision', i18nKey: 'scoringTypes.bullseye' },
   // Archery
-  { value: 'archery', label: 'Archery', group: 'Archery' },
+  { value: 'archery', label: 'Archery', group: 'Archery', i18nKey: 'scoringTypes.archery' },
   // Rimfire
-  { value: 'nrl22', label: 'NRL22', group: 'Rimfire' },
+  { value: 'nrl22', label: 'NRL22', group: 'Rimfire', i18nKey: 'scoringTypes.nrl22' },
+  // ISSF (Olympic-style)
+  { value: 'issf', label: 'ISSF Smallbore', group: 'ISSF', i18nKey: 'scoringTypes.issf' },
 ] as const;
 
 // Scoring category helpers
@@ -209,6 +213,7 @@ export function getScoringCategory(type: string): ScoringCategory {
       return 'time_plus';
     case 'bullseye':
     case 'archery':
+    case 'issf':
       return 'ring_per_shot';
     case 'long_range':
       return 'ring_per_shot'; // f_class variant; prs variant is hit_count
@@ -282,7 +287,9 @@ export function getScoringCategoryConfig(type: string) {
   if (category === 'ring_per_shot') {
     const ringValues = type === 'archery'
       ? [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
-      : [10, 9, 8, 7, 6, 5]; // bullseye, f_class
+      : type === 'issf'
+        ? [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+        : [10, 9, 8, 7, 6, 5]; // bullseye, f_class
     const hasX = type !== 'archery'; // archery uses 10-ring, not X
     return {
       category: 'ring_per_shot' as const,
@@ -319,6 +326,25 @@ export const ARCHERY_RING_VALUES = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1] as const;
 
 /** Ring values for F-Class (includes X=11) */
 export const FCLASS_RING_VALUES = [11, 10, 9, 8, 7, 6, 5] as const;
+
+/** Ring values for ISSF smallbore (includes X=11, ten rings 10-1) */
+export const ISSF_RING_VALUES = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1] as const;
+
+/** ISSF course types (event → default shot count). 25m Rapid Fire excluded — uses 5 zones */
+export const ISSF_COURSE_TYPES = [
+  { value: '10m_air_rifle', label: '10m Air Rifle', shots: 60, i18nKey: 'issfCourses.10mAirRifle' },
+  { value: '10m_air_pistol', label: '10m Air Pistol', shots: 60, i18nKey: 'issfCourses.10mAirPistol' },
+  { value: '50m_rifle_prone', label: '50m Rifle Prone', shots: 60, i18nKey: 'issfCourses.50mRifleProne' },
+  { value: '50m_rifle_3p', label: '50m Rifle 3-Position', shots: 120, i18nKey: 'issfCourses.50mRifle3p' },
+  { value: '50m_pistol', label: '50m Pistol (Free Pistol)', shots: 60, i18nKey: 'issfCourses.50mPistol' },
+  { value: '25m_sport_pistol', label: '25m Sport Pistol', shots: 60, i18nKey: 'issfCourses.25mSportPistol' },
+  { value: '25m_standard_pistol', label: '25m Standard Pistol', shots: 60, i18nKey: 'issfCourses.25mStandardPistol' },
+  { value: '25m_centerfire_pistol', label: '25m Center-Fire Pistol', shots: 60, i18nKey: 'issfCourses.25mCenterfirePistol' },
+  { value: '300m_rifle', label: '300m Rifle', shots: 60, i18nKey: 'issfCourses.300mRifle' },
+  { value: 'custom', label: 'Custom (specify shots)', shots: 60, i18nKey: 'issfCourses.custom' },
+] as const;
+
+export type ISSFCourseType = typeof ISSF_COURSE_TYPES[number]['value'];
 
 /** Ring value display labels */
 export function ringValueLabel(value: number): string {

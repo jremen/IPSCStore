@@ -31,8 +31,9 @@ export function buildEmptyScore(stage: Stage): ScoreInput {
     }
 
     case 'bullseye':
-    case 'archery': {
-      const shots = config.shots_per_string || config.arrows_per_end || 10;
+    case 'archery':
+    case 'issf': {
+      const shots = config.shots_per_course || config.shots_per_string || config.arrows_per_end || 10;
       scoreData = { ring_values: new Array(shots).fill(0) };
       return { time: null, targets: [], procedural_count: 0, ftsa_count: 0, extra_shot_count: 0, extra_hit_count: 0, stacking_count: 0, overtime_shot_count: 0, is_dnf: false, score_data: scoreData };
     }

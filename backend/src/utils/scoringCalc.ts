@@ -3,7 +3,7 @@
 export type PowerFactor = 'minor' | 'major';
 export type ScoringType = 'comstock' | 'virginia' | 'fixed_time' | 'chrono'
   | 'hit_factor' | 'idpa' | 'action_steel' | 'multi_gun'
-  | 'long_range' | 'bullseye' | 'archery' | 'nrl22';
+  | 'long_range' | 'bullseye' | 'archery' | 'nrl22' | 'issf';
 export type Organization = 'IPSC' | 'USPSA' | 'IDPA' | '3GUN' | 'NRL22' | 'PRS' | 'NRA' | 'USA_ARCHERY';
 
 interface PointValues {

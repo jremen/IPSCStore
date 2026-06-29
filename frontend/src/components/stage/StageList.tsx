@@ -3,16 +3,17 @@ import { Button, Card, Badge, Alert } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useStageStore } from '../../stores/stageStore';
 import { useUIStore } from '../../stores/uiStore';
-import { SCORING_TYPES } from '../../utils/constants';
+import { SCORING_TYPES, translateItem } from '../../utils/constants';
 import StageImageUpload from './StageImageUpload';
 import StageFormModal from './StageFormModal';
 import PrintScoreSheetButton from './PrintScoreSheetButton';
 import type { Stage } from '../../types/stage';
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
-function getScoringTypeLabel(type: string): string {
+function getScoringTypeLabel(type: string, t: (key: string) => string): string {
   const found = SCORING_TYPES.find(s => s.value === type);
-  return found ? found.label : type;
+  if (!found) return type;
+  return translateItem(t, found);
 }
 
 export default function StageList() {
@@ -74,7 +75,7 @@ export default function StageList() {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-mono text-blue-600 text-lg">#{stage.stage_number}</span>
                   <span className="font-semibold dark:text-white">{stage.name}</span>
-                  <Badge color="indigo">{getScoringTypeLabel(stage.scoring_type)}</Badge>
+                  <Badge color="indigo">{getScoringTypeLabel(stage.scoring_type, t)}</Badge>
                   {stage.par_time && <Badge color="yellow">Par {stage.par_time}s</Badge>}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-200 space-x-3">

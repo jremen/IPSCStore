@@ -207,7 +207,7 @@ export default function MatchList() {
                   onClick={() => setActiveMatch(m.id)}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox checked={selection.isSelected(m.id)} onChange={() => selection.toggle(m.id)} />
+                    <Checkbox className="size-5 cursor-pointer" checked={selection.isSelected(m.id)} onChange={() => selection.toggle(m.id)} />
                   </TableCell>
                   <TableCell className="font-medium dark:text-white whitespace-nowrap">{m.name}</TableCell>
                   <TableCell className="">{formatDate(m.date)}</TableCell>

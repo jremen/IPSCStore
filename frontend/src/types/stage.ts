@@ -1,7 +1,8 @@
 export type ScoringType =
   | 'comstock' | 'virginia' | 'fixed_time' | 'chrono'
   | 'hit_factor' | 'idpa' | 'action_steel' | 'multi_gun'
-  | 'long_range' | 'bullseye' | 'archery' | 'nrl22';
+  | 'long_range' | 'bullseye' | 'archery' | 'nrl22'
+  | 'issf';
 
 export type StageConfig = {
   // Action Steel
@@ -20,6 +21,9 @@ export type StageConfig = {
   has_no_shoot?: boolean;
   // Archery
   arrows_per_end?: number;        // default 6
+  // ISSF
+  course_type?: string;
+  shots_per_course?: number;      // default 60
 };
 
 export interface Stage {

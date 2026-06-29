@@ -11,13 +11,6 @@ export const customTheme: DeepPartial<FlowbiteTheme> = createTheme({
       orange: "border-orange-500 bg-orange-500 text-white",
     },
   },
-  checkbox: {
-    color: {
-      default:
-        "focus:ring-primary-300 dark:focus:ring-primary-600 shrink-0 border-gray-300 bg-gray-50 bg-(length:--check-icon-size) text-blue-500 checked:border-blue-500 checked:bg-current checked:bg-(image:--check-icon) focus:ring-0 dark:border-gray-600 dark:bg-gray-700 dark:ring-offset-gray-800",
-      blue: "bg-(length:--check-icon-size) text-blue-500 checked:border-blue-500 checked:bg-current checked:bg-(image:--check-icon) focus:ring-0 dark:ring-offset-transparent dark:focus:ring-0",
-    },
-  },
   radio: {
     base: "text-primary-600 focus:ring-primary-500 dark:focus:bg-primary-500 dark:focus:ring-primary-300 h-4 w-4 from-white from-43% via-current via-44% to-current !ring-0 checked:bg-radial checked:ring-0 focus:!ring-0 focus:outline-0 focus:outline-offset-0 dark:border-none dark:border-gray-600 dark:bg-gray-700 dark:ring-0 dark:outline-0 dark:outline-offset-0 dark:checked:ring-0 dark:focus:!ring-0 dark:focus:outline-0 dark:focus:outline-offset-0",
   },

@@ -49,7 +49,8 @@ export function isScoreComplete(stage: Stage, score: ScoreInput | null): boolean
     }
 
     case 'bullseye':
-    case 'archery': {
+    case 'archery':
+    case 'issf': {
       // Ring-based: at least one ring value > 0
       const ringValues: number[] = score.score_data?.ring_values || [];
       return ringValues.some(v => v > 0);

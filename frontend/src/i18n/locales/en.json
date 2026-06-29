@@ -242,6 +242,8 @@
     "configRapidFire": "Rapid Fire",
     "configArrowsPerEnd": "Arrows per End",
     "configPointValue": "Point Value per Hit",
+    "configCourseType": "Course type",
+    "configShotsPerCourse": "Shots per course",
     "printScoreSheets": "Print Score Sheets",
     "printSheetsDescription_one": "Generate a blank score sheet for 1 stage. Set number of copies in the print dialog.",
     "printSheetsDescription_other": "Generate blank score sheets for {{count}} stages. Set number of copies in the print dialog.",
@@ -462,6 +464,8 @@
     "archery": "Archery",
     "bullseye": "Bullseye",
     "fclass": "F-Class",
+    "issf": "ISSF Smallbore",
+    "issfScoring": "🎯 ISSF Smallbore",
     "clickToReset": "Click to reset row",
     "ptsPerHit": "{{value}} pts per hit",
     "nsPenalty": "NS (−{{points}})",
@@ -482,6 +486,33 @@
     "printedReset": "Printed list reset",
     "unprintedPrompt_one": "{{count}} new scored result — print summary?",
     "unprintedPrompt_other": "{{count}} new scored results — print summary?"
+  },
+  "scoringTypes": {
+    "comstock": "Comstock",
+    "virginia": "Virginia Count",
+    "fixedTime": "Fixed Time",
+    "chrono": "Chrono",
+    "hitFactor": "Hit Factor",
+    "idpa": "IDPA (Vickers Count)",
+    "actionSteel": "Action Steel",
+    "multiGun": "Multi-Gun (3-Gun)",
+    "longRange": "Long Range Rifle",
+    "bullseye": "Bullseye",
+    "archery": "Archery",
+    "nrl22": "NRL22",
+    "issf": "ISSF Smallbore"
+  },
+  "issfCourses": {
+    "10mAirRifle": "10m Air Rifle",
+    "10mAirPistol": "10m Air Pistol",
+    "50mRifleProne": "50m Rifle Prone",
+    "50mRifle3p": "50m Rifle 3-Position",
+    "50mPistol": "50m Pistol (Free Pistol)",
+    "25mSportPistol": "25m Sport Pistol",
+    "25mStandardPistol": "25m Standard Pistol",
+    "25mCenterfirePistol": "25m Center-Fire Pistol",
+    "300mRifle": "300m Rifle",
+    "custom": "Custom (specify shots)"
   },
   "results": {
     "title": "Results",
@@ -659,7 +690,8 @@
     "nrl22": "NRL22",
     "prs": "PRS",
     "nra": "NRA (Bullseye)",
-    "usaArchery": "USA Archery"
+    "usaArchery": "USA Archery",
+    "issf": "ISSF"
   },
   "categories": {
     "regular": "Regular",

@@ -535,6 +535,7 @@ export default function ScoreSummarySheet(props: ScoreSummarySheetProps) {
 
     case 'bullseye':
     case 'archery':
+    case 'issf':
       return <RingSummary {...props} />;
 
     case 'long_range':

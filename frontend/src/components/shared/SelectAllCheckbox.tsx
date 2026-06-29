@@ -16,6 +16,7 @@ export default function SelectAllCheckbox({ allSelected, someSelected, onToggle,
         checked={allSelected}
         indeterminate={someSelected}
         onChange={onToggle}
+        className="size-5 cursor-pointer"
       />
       {selectedCount > 0 && (
         <span className="text-xs text-gray-500 dark:text-gray-400">

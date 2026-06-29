@@ -244,7 +244,7 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
     });
     total_time = calcResult.total_time;
 
-  } else if (scoringType === 'bullseye' || scoringType === 'archery' || (scoringType === 'long_range' && stageConfig.variant === 'f_class')) {
+  } else if (['bullseye', 'archery', 'issf'].includes(scoringType) || (scoringType === 'long_range' && stageConfig.variant === 'f_class')) {
     const sd = score_data || {};
     const ringValues = sd.ring_values || [];
     calcResult = calculateRingScore(ringValues);
@@ -519,7 +519,7 @@ async function recalculateStage(matchId: string, stageId: string) {
         WHERE ss.id = ranked.id
       `;
 
-    } else if (['bullseye', 'archery'].includes(scoringType) || (scoringType === 'long_range' && stageConfig.variant === 'f_class')) {
+    } else if (['bullseye', 'archery', 'issf'].includes(scoringType) || (scoringType === 'long_range' && stageConfig.variant === 'f_class')) {
       // Rank by net_points (highest wins) within each division
       await sql`
         WITH ranked AS (

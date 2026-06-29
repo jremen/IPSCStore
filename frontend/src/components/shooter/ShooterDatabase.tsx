@@ -149,7 +149,7 @@ export default function ShooterDatabase() {
                   className={`${selection.isSelected(s.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''} ${isDeleted ? 'opacity-60' : ''}`}
                 >
                   <TableCell>
-                    <Checkbox checked={selection.isSelected(s.id)} onChange={() => selection.toggle(s.id)} />
+                    <Checkbox className="size-5 cursor-pointer" checked={selection.isSelected(s.id)} onChange={() => selection.toggle(s.id)} />
                   </TableCell>
                   <TableCell className={`font-medium dark:text-white ${isDeleted ? 'line-through' : ''}`}>
                     {s.first_name} {s.last_name}

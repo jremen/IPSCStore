@@ -56,6 +56,10 @@ function calcStageParams(scoring_type: string, paper_targets: number, steel_targ
       const shots = config?.shots_per_string || 10;
       return { min_rounds: shots, max_points: shots * 10 };
     }
+    case 'issf': {
+      const shots = config?.shots_per_course || 60;
+      return { min_rounds: shots, max_points: shots * 10 };
+    }
     case 'archery': {
       const arrows = config?.arrows_per_end || 6;
       return { min_rounds: arrows, max_points: arrows * 10 };

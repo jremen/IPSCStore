@@ -42,9 +42,10 @@ export default function ScoringSheet({ stage, score }: Props) {
             return <ActionSteelScoringSheet {...sheetProps} />;
           case 'multi_gun':
             return <MultiGunScoringSheet {...sheetProps} />;
-          case 'bullseye':
-          case 'archery':
-            return <RingScoringSheet {...sheetProps} />;
+           case 'bullseye':
+           case 'archery':
+           case 'issf':
+             return <RingScoringSheet {...sheetProps} />;
           case 'long_range':
             if (config.variant === 'f_class') {
               return <RingScoringSheet {...sheetProps} />;

@@ -20,7 +20,6 @@ const PAGE_W = 210;
 const PAGE_H = 297;
 const MARGIN = 8;
 const USABLE_W = PAGE_W - 2 * MARGIN;
-const USABLE_H = PAGE_H - 2 * MARGIN;
 const HEADER_H = 12;
 const SQUAD_GAP_X = 4;
 const SQUAD_GAP_Y = 4;

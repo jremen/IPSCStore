@@ -1,9 +1,7 @@
-import { Select, Label, Dropdown, DropdownItem } from 'flowbite-react';
+import { Select, Label } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import type { Language } from '../../stores/uiStore';
-import { TbGlobe } from "react-icons/tb";
-import { HiOutlineGlobeAlt } from "react-icons/hi";
 
 export default function LanguageSelector() {
   const { i18n } = useTranslation();

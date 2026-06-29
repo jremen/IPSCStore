@@ -17,7 +17,6 @@ interface RegistrationTableProps {
   onEdit: (r: any) => void;
   onRemove: (regId: string) => void;
   onUngroup: (regId: string) => void;
-  onGroupRows: (registrationIds: string[]) => void;
   onDragToGroup: (sourceId: string, targetId: string) => void;
 }
 
@@ -122,7 +121,7 @@ function RegistrationRow({
   );
 }
 
-export default function RegistrationTable({ registrations, totalCount, selection, onEdit, onRemove, onUngroup, onGroupRows, onDragToGroup }: RegistrationTableProps) {
+export default function RegistrationTable({ registrations, totalCount, selection, onEdit, onRemove, onUngroup, onDragToGroup }: RegistrationTableProps) {
   const { t } = useTranslation();
   const [activeRegistration, setActiveRegistration] = useState<RegistrationWithShooter | null>(null);
 

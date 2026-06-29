@@ -5,7 +5,6 @@ import {
   onMenuAction,
   TAB_ACTIONS,
   setPendingMenuAction,
-  clearPendingMenuAction,
   dispatchMenuEvent,
 } from '../../hooks/useMenuActions';
 import { useUIStore, type TabId } from '../../stores/uiStore';

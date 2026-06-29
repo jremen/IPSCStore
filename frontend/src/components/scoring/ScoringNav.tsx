@@ -1,5 +1,5 @@
 import { Button, Badge } from 'flowbite-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { divisionLabel } from '../../utils/constants';
 import { useConstLabels } from '../../hooks/useConstLabels';

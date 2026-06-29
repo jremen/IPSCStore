@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useMatchStore } from '../../stores/matchStore';

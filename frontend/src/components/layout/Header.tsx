@@ -13,7 +13,7 @@ import SettingsModal from '../settings/SettingsModal';
 import { ThemeToggle } from "../settings/ThemeToggle";
 import StageDetailsView from '../scoring/StageDetailsView';
 import StagePickerModal from '../scoring/StagePickerModal';
-import { TbSettings, TbClipboardText, TbLogout } from "react-icons/tb";
+import { TbSettings, TbClipboardText } from "react-icons/tb";
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function Header() {

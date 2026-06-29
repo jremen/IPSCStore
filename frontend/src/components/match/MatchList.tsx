@@ -16,7 +16,7 @@ import ImportMatchModal from './ImportMatchModal';
 import BulkDeleteMatchesModal from './BulkDeleteMatchesModal';
 import SelectAllCheckbox from '../shared/SelectAllCheckbox';
 import BulkActionToolbar from '../shared/BulkActionToolbar';
-import { TbTrash, TbFileExport, TbFileUpload } from 'react-icons/tb';
+import { TbFileExport, TbFileUpload } from 'react-icons/tb';
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 import { twMerge } from "tailwind-merge";
 

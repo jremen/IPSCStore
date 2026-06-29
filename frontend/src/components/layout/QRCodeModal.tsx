@@ -64,7 +64,6 @@ export default function QRCodeModal({ show, onClose, mode }: QRCodeModalProps) {
       });
       doc.save(`ipsc-score-${mode}-qr-code.pdf`);
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('Failed to generate QR PDF:', err);
     }
   }, [qr, url, label, mode]);

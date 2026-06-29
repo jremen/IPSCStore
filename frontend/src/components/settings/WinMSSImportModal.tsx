@@ -46,24 +46,6 @@ export default function WinMSSImportModal({ show, onClose }: { show: boolean; on
     }
   }, [addToast, fetchMatches, t]);
 
-  const handleInspect = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (!file) return;
-    setInspecting(true);
-    setError(null);
-    setResult(null);
-    setInspectData(null);
-    try {
-      const data = await api.inspectWinMSS(file) as Record<string, any>;
-      setInspectData(data);
-    } catch (err: any) {
-      setError(err.message || 'Inspect failed');
-      addToast(`Inspect failed: ${err.message}`, 'error');
-    } finally {
-      setInspecting(false);
-    }
-  }, [addToast]);
-
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: handleImport,
     accept: {

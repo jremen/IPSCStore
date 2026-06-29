@@ -38,7 +38,7 @@ export default function DeleteShooterModal({ show, onClose, shooter, onDeleted }
       await api.deleteShooter(shooter.id);
       onDeleted();
       onClose();
-    } catch (err: any) {
+    } catch {
       // Error toast is handled by the caller
     } finally {
       setLoading(false);

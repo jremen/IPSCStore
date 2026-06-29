@@ -1,4 +1,4 @@
-import { Badge, Label } from 'flowbite-react';
+import { Badge } from 'flowbite-react';
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
 import { calculateHitCountPreview } from '../../../utils/scoring';

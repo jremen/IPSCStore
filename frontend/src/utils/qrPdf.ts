@@ -10,7 +10,6 @@ export interface QrPdfInput {
 }
 
 const PAGE_W = 210;
-const PAGE_H = 297;
 const MARGIN = 20;
 
 /**

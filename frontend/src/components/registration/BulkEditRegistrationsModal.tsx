@@ -11,12 +11,11 @@ interface BulkEditRegistrationsModalProps {
   show: boolean;
   onClose: () => void;
   selectedIds: string[];
-  selectedNames: string[];
   matchId: string;
   onSaved: () => void;
 }
 
-export default function BulkEditRegistrationsModal({ show, onClose, selectedIds, selectedNames, matchId, onSaved }: BulkEditRegistrationsModalProps) {
+export default function BulkEditRegistrationsModal({ show, onClose, selectedIds, matchId, onSaved }: BulkEditRegistrationsModalProps) {
   const { t } = useTranslation();
   const { matches } = useMatchStore();
   const match = matches.find((m: any) => m.id === matchId);

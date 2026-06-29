@@ -21,14 +21,12 @@ export default function PublicSquadsView() {
 
   const loadData = useCallback(async () => {
     let currentMatch: any = null;
-    let fromCache = false;
 
     try {
       currentMatch = await api.getCurrentMatch();
     } catch {
       try {
         currentMatch = await offlineDB.getCachedCurrentMatch();
-        if (currentMatch) fromCache = true;
       } catch {
         // leave as-is
       }
@@ -61,7 +59,6 @@ export default function PublicSquadsView() {
         if (cachedRegs.length > 0) {
           setRegistrations(cachedRegs);
           setIsOffline(true);
-          fromCache = true;
         } else {
           setError('loadError');
         }

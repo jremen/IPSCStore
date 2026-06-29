@@ -195,7 +195,6 @@ export default function ShooterDatabase() {
         show={showBulkEdit}
         onClose={() => setShowBulkEdit(false)}
         selectedIds={selection.selectedArray}
-        selectedNames={selectedNames}
         onSaved={handleBulkEdited}
       />
     </div>

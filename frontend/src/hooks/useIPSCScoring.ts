@@ -1,7 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import { useScoringStore } from '../stores/scoringStore';
 import { calculatePreview } from '../utils/scoring';
-import { parseTimeString } from '../utils/timeFormat';
 import type { Stage } from '../types/stage';
 import type { ScoreInput, TargetScore } from '../types/scoring';
 

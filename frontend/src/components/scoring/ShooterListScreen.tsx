@@ -40,8 +40,6 @@ export default function ShooterListScreen({ show, onClose, onSelect }: ShooterLi
     onClose();
   };
 
-  console.log(shooterListSort)
-
   const stageLabel = currentStage
     ? `${t('scoring.stage', { number: currentStage.stage_number })}: ${currentStage.name}`
     : t('scoring.shooterList');

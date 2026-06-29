@@ -163,8 +163,18 @@ function openDB(): Promise<IDBDatabase> {
     };
 
     request.onerror = () => {
+      const err = request.error;
+      if (err?.name === 'VersionError') {
+        dbReady = null;
+        dbInstance = null;
+        indexedDB.deleteDatabase(DB_NAME);
+        reject(new Error(
+          `IndexedDB version mismatch: existing DB is at a higher version than this build supports. The offline cache has been reset.`,
+        ));
+        return;
+      }
       dbReady = null;
-      reject(new Error(`IndexedDB open failed: ${request.error?.message}`));
+      reject(new Error(`IndexedDB open failed: ${err?.message}`));
     };
   });
 

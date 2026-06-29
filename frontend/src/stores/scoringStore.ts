@@ -489,8 +489,12 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
   setOfflineMode: (offline: boolean) => set({ isOfflineMode: offline }),
 
   refreshPendingCount: async () => {
-    const count = await offlineDB.getPendingCount();
-    set({ pendingSaveCount: count });
+    try {
+      const count = await offlineDB.getPendingCount();
+      set({ pendingSaveCount: count });
+    } catch {
+      /* IDB error — leave previous count */
+    }
   },
 
   updateRegistrationLocal: (registrationId, patch) => set((state) => ({

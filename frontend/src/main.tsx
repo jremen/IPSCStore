@@ -13,6 +13,16 @@ declare const __APP_BUILD_TIME__: string;
 // Assign to document so it survives tree-shaking and is visible in the built app
 (document as any).__buildTime__ = typeof __APP_BUILD_TIME__ !== 'undefined' ? __APP_BUILD_TIME__ : String(Date.now());
 
+// Suppress the benign "ResizeObserver loop completed with undelivered notifications"
+// browser warning. Triggered by @floating-ui/dom (Flowbite Modal) and @dnd-kit
+// observing many rows at once. The browser already drops the second notification
+// to prevent infinite loops — this is purely a console warning, not a real error.
+window.addEventListener('error', (e) => {
+  if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
+    e.stopImmediatePropagation();
+  }
+});
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ScoringBaseUrlProvider />

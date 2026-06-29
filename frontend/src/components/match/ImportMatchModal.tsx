@@ -3,8 +3,6 @@ import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from 'flowbite-rea
 import { useTranslation } from 'react-i18next';
 import { useMatchExport } from '../../hooks/useMatchExport';
 import { useEscClose } from '../../hooks/useEscClose';
-import { TbFileImport } from 'react-icons/tb';
-
 interface ImportMatchModalProps {
   show: boolean;
   onClose: () => void;

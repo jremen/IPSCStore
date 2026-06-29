@@ -10,11 +10,10 @@ interface BulkEditShootersModalProps {
   show: boolean;
   onClose: () => void;
   selectedIds: string[];
-  selectedNames: string[];
   onSaved: () => void;
 }
 
-export default function BulkEditShootersModal({ show, onClose, selectedIds, selectedNames, onSaved }: BulkEditShootersModalProps) {
+export default function BulkEditShootersModal({ show, onClose, selectedIds, onSaved }: BulkEditShootersModalProps) {
   const { t } = useTranslation();
   const bulkUpdate = useShooterStore((s) => s.bulkUpdateShooters);
   const [loading, setLoading] = useState(false);

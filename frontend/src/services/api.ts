@@ -112,20 +112,6 @@ async function requestText(path: string, options?: RequestInit): Promise<string>
   }
 }
 
-async function uploadFile<T>(path: string, file: File, fieldName: string = 'file'): Promise<T> {
-  const form = new FormData();
-  form.append(fieldName, file);
-  const headers: Record<string, string> = {};
-  const token = getAuthToken();
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', body: form, headers });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
-
 async function uploadImage(path: string, file: File): Promise<{ image_path: string }> {
   const form = new FormData();
   form.append('image', file);

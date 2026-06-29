@@ -5,7 +5,7 @@
  * and falls back to online event + periodic polling for Safari/others.
  */
 import * as offlineDB from './offlineDB';
-import { api, getAuthToken } from './api';
+import { api } from './api';
 import { isNetworkError } from './connectivity';
 import { useScoringStore } from '../stores/scoringStore';
 import type { PendingSave } from './offlineDB';

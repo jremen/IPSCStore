@@ -249,7 +249,6 @@ export default function MatchRegistration() {
             onEdit={setEditReg}
             onRemove={handleRemove}
             onUngroup={handleUngroupSingle}
-            onGroupRows={handleGroupRows}
             onDragToGroup={handleDragToGroup}
           />
         ) : (
@@ -266,7 +265,6 @@ export default function MatchRegistration() {
         show={showBulkEdit}
         onClose={() => setShowBulkEdit(false)}
         selectedIds={selection.selectedArray}
-        selectedNames={selectedNames}
         matchId={activeMatchId}
         onSaved={handleBulkAction}
       />

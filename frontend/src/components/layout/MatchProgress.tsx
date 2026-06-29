@@ -1,7 +1,5 @@
 import { memo, useEffect } from "react";
-import { useScoringStore } from "../../stores/scoringStore";
 import { useMatchStore } from "../../stores/matchStore";
-import { useStageStore } from "../../stores/stageStore";
 import { useUIStore } from "../../stores/uiStore";
 import { Progress } from "flowbite-react";
 import { useMatchProgress } from "../../hooks/useMatchProgress";

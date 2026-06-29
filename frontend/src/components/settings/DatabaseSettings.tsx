@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Button, Modal, ModalHeader, ModalBody, ModalFooter, Alert, ToggleSwitch, Progress, Spinner, Label } from 'flowbite-react';
+import { Button, Modal, ModalHeader, ModalBody, ModalFooter, Alert, ToggleSwitch, Spinner, Label } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useDatabaseBackup } from '../../hooks/useDatabaseBackup';
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';

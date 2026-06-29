@@ -1,5 +1,4 @@
 import { Checkbox } from 'flowbite-react';
-import { useTranslation } from 'react-i18next';
 
 interface SelectAllCheckboxProps {
   allSelected: boolean;
@@ -11,8 +10,6 @@ interface SelectAllCheckboxProps {
 
 /** Checkbox with indeterminate state for table header select-all. */
 export default function SelectAllCheckbox({ allSelected, someSelected, onToggle, selectedCount, totalCount }: SelectAllCheckboxProps) {
-  const { t } = useTranslation();
-
   return (
     <div className="flex items-center gap-2">
       <Checkbox

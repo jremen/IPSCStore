@@ -5,7 +5,6 @@ import { TbRefresh, TbArrowLeft } from 'react-icons/tb';
 import { useScoringStore } from '../../stores/scoringStore';
 import { useStageStore } from '../../stores/stageStore';
 import { useShooterList } from '../../hooks/useShooterList';
-import { useConstLabels } from '../../hooks/useConstLabels';
 import { divisionLabel } from '../../utils/constants';
 import { useEscClose } from '../../hooks/useEscClose';
 

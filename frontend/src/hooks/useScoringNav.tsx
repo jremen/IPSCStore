@@ -13,7 +13,7 @@ import { shouldAttemptApiCall } from '../services/connectivity';
 export function useScoringNav() {
   const { activeMatchId, addToast } = useUIStore();
   const { registrations, fetchRegistrations, currentRegistrationId, selectShooter,
-          currentScore, loadScore, saveScore, validateScore, nextShooter, prevShooter,
+          currentScore, loadScore, saveScore, validateScore,
           activeStageId, setActiveStageId, fetchScoringProgress, showSummary, setShowSummary,
           setScore, setSquadFilter, setShooterListSort, reshuffleRandomOrder } = useScoringStore();
   const { stages, fetchStages } = useStageStore();

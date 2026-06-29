@@ -6,15 +6,13 @@ import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
 import { calculateMultiGunPreview } from '../../../utils/scoring';
 import { ScoringSheetHeader, DnfToggle, DqSection } from '../shared';
 import PenaltyStepper from '../shared/PenaltyStepper';
-import type { Stage } from '../../../types/stage';
 import type { ScoreInput } from '../../../types/scoring';
 
 interface Props {
-  stage: Stage;
   score: ScoreInput;
 }
 
-export default function MultiGunScoringSheet({ stage, score }: Props) {
+export default function MultiGunScoringSheet({ score }: Props) {
   const { setScore } = useScoringStore();
   const { sd, updateScoreData } = useScoreDataUpdater(score);
   const shooter = useScoringStore(s => s.registrations.find(r => r.id === s.currentRegistrationId));

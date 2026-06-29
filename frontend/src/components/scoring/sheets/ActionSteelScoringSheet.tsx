@@ -1,10 +1,10 @@
-import { Badge, Label } from 'flowbite-react';
+import { Label } from 'flowbite-react';
 import { InputField } from '../../shared/InputField';
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useScoreDataUpdater } from '../../../hooks/useScoreDataUpdater';
 import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
 import { calculateActionSteelPreview } from '../../../utils/scoring';
-import { ScoringSheetHeader, DnfToggle, DqSection, ScorePreviewCard } from '../shared';
+import { ScoringSheetHeader, DnfToggle, DqSection } from '../shared';
 import type { Stage } from '../../../types/stage';
 import type { ScoreInput } from '../../../types/scoring';
 

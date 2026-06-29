@@ -13,7 +13,6 @@ import {
   calculateMultiGunPreview,
   calculateRingPreview,
   calculateHitCountPreview,
-  getPointValues,
 } from '../../utils/scoring';
 import { formatTimeDisplay } from '../../utils/timeFormat';
 
@@ -314,7 +313,7 @@ function IDPASummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
 }
 
 /** Action Steel summary */
-function ActionSteelSummary({ stage, score, shooterName, shooterDetails, onBack, onApprove }: ScoreSummarySheetProps) {
+function ActionSteelSummary({ stage, score, shooterName, onBack, onApprove }: ScoreSummarySheetProps) {
   const { t } = useTranslation();
 
   const sd = score.score_data || {};
@@ -372,7 +371,7 @@ function ActionSteelSummary({ stage, score, shooterName, shooterDetails, onBack,
 }
 
 /** Multi-Gun summary */
-function MultiGunSummary({ stage, score, shooterName, shooterDetails, onBack, onApprove }: ScoreSummarySheetProps) {
+function MultiGunSummary({ score, shooterName, onBack, onApprove }: ScoreSummarySheetProps) {
   const { t } = useTranslation();
 
   const sd = score.score_data || {};
@@ -431,7 +430,7 @@ function MultiGunSummary({ stage, score, shooterName, shooterDetails, onBack, on
 }
 
 /** Ring-based summary (Bullseye, Archery, F-Class) */
-function RingSummary({ stage, score, shooterName, shooterDetails, onBack, onApprove }: ScoreSummarySheetProps) {
+function RingSummary({ score, shooterName, onBack, onApprove }: ScoreSummarySheetProps) {
   const { t } = useTranslation();
 
   const ringValues: number[] = score.score_data?.ring_values || [];
@@ -472,7 +471,7 @@ function RingSummary({ stage, score, shooterName, shooterDetails, onBack, onAppr
 }
 
 /** Hit-count summary (NRL22, PRS) */
-function HitCountSummary({ stage, score, shooterName, shooterDetails, onBack, onApprove }: ScoreSummarySheetProps) {
+function HitCountSummary({ stage, score, shooterName, onBack, onApprove }: ScoreSummarySheetProps) {
   const { t } = useTranslation();
 
   const config = stage.config || {};

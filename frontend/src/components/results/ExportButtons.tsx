@@ -1,6 +1,6 @@
 import { Button, Modal, ModalHeader, ModalBody, ModalFooter, TextInput } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
-import useExportButtons, { ExportButtonsProps, SaveProps } from "../../hooks/useExportButtons";
+import useExportButtons, { ExportButtonsProps } from "../../hooks/useExportButtons";
 
 
 export default function ExportButtons({ activeTab }: ExportButtonsProps) {

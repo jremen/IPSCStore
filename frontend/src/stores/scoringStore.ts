@@ -3,7 +3,7 @@ import { api, getAuthToken } from '../services/api';
 import * as offlineDB from '../services/offlineDB';
 import { isNetworkError, shouldAttemptApiCall } from '../services/connectivity';
 import { useUIStore } from './uiStore';
-import type { ScoringAlert, TargetScore, ScoreInput, RegistrationWithShooter, ScoringProgress } from '../types/scoring';
+import type { ScoringAlert, ScoreInput, RegistrationWithShooter, ScoringProgress } from '../types/scoring';
 import type { Stage } from '../types/stage';
 import { buildEmptyScore } from '../utils/buildEmptyScore';
 import { buildScorePayload } from '../utils/buildScorePayload';
@@ -314,7 +314,6 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
     if (score.is_dnf) return alerts;
 
     const scoringType = stage.scoring_type;
-    const config = stage.config || {};
 
     // Zone-per-target types (IPSC, IDPA, Hit Factor)
     const zoneTypes = ['comstock', 'virginia', 'fixed_time', 'hit_factor', 'idpa'];

@@ -115,7 +115,7 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
   },
 
   markCurrent: async (id) => {
-    const updated = await api.setCurrentMatch(id);
+    await api.setCurrentMatch(id);
     set((state) => {
       const matches = state.matches.map((m) => ({
         ...m,

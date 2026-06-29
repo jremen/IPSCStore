@@ -237,7 +237,7 @@ export const useResultsStore = create<ResultsState & ResultsActions>((set) => ({
     try {
       const data = await api.getShooterStageSummaries(matchId, registrationId);
       set({ shooterSummary: data, shooterSummaryLoading: false });
-    } catch (err: any) {
+    } catch {
       set({ shooterSummary: null, shooterSummaryLoading: false });
     }
   },

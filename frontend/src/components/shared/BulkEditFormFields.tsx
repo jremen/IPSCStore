@@ -1,4 +1,4 @@
-import { Checkbox, Select, ToggleSwitch } from 'flowbite-react';
+import { Select, ToggleSwitch } from 'flowbite-react';
 import { InputField } from './InputField';
 import { useTranslation } from 'react-i18next';
 import { CATEGORIES, POWER_FACTORS, getDivisionsForMatch, getDivisionsForOrganization, getGroupedDivisions } from '../../utils/constants';

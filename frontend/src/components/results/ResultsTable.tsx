@@ -1,9 +1,6 @@
 import { Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell, Badge, Progress, theme } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { divisionLabel } from '../../utils/constants';
-import { useMatchProgress } from "../../hooks/useMatchProgress";
-import { useMatchStore } from "../../stores/matchStore";
-import { useEffect } from "react";
 import { ScoringProgressEntry } from "../../types/scoring";
 import { twMerge } from "tailwind-merge";
 
@@ -66,7 +63,7 @@ function isBoldColumn(col: ColumnKey): boolean {
   return col === 'matchPoints' || col === 'stagePoints';
 }
 
-function cellClassName(col: ColumnKey, r?: any): string {
+function cellClassName(col: ColumnKey): string {
   const base = col !== 'shooter' && col !== 'division' ? 'font-mono' : '';
   const bold = isBoldColumn(col) ? 'font-bold' : '';
   const shooter = col === 'shooter' ? 'font-medium dark:text-white whitespace-nowrap' : '';
@@ -97,7 +94,7 @@ export default function ResultsTable({ results, scored, columns, showDqBadge = t
               const progressText = scored?.stagesLength && scored?.scored ? `${scored?.scored?.filter(shooter => shooter.registration_id === r.registration_id).length} / ${scored?.stagesLength}` : "";
               return <TableRow key={r.registration_id} className={r.is_dq ? 'bg-red-50' : ''}>
                 {columns.map(col => (
-                  <TableCell key={col} className={cellClassName(col, r)}>
+                  <TableCell key={col} className={cellClassName(col)}>
                     {col === 'shooter' && showDqBadge && r.is_dq ? (
                       <span className="flex items-center gap-1">
                         {onShooterClick ? (

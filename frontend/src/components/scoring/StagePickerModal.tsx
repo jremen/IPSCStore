@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useScoringStore } from '../../stores/scoringStore';
 import { useStageStore } from '../../stores/stageStore';
 import { useEscClose } from '../../hooks/useEscClose';
-import { useScoringProgress } from '../../hooks/useScoringProgress';
 
 export interface StagePickerModalProps {
   show: boolean;

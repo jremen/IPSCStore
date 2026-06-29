@@ -221,7 +221,6 @@ export function getScoringCategory(type: string): ScoringCategory {
 
 export function getScoringCategoryConfig(type: string) {
   const category = getScoringCategory(type);
-  const isLongRangePrs = type === 'long_range'; // will be refined with variant from config
 
   if (category === 'zone_per_target' && type === 'idpa') {
     return {

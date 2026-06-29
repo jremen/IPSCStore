@@ -16,8 +16,14 @@ import BulkEditShootersModal from './BulkEditShootersModal';
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function ShooterDatabase() {
-  const { shooters, total, loading, showDeleted, fetchShooters, restoreShooter, toggleShowDeleted } = useShooterStore();
-  const { addToast } = useUIStore();
+  const shooters = useShooterStore((s) => s.shooters);
+  const total = useShooterStore((s) => s.total);
+  const loading = useShooterStore((s) => s.loading);
+  const showDeleted = useShooterStore((s) => s.showDeleted);
+  const fetchShooters = useShooterStore((s) => s.fetchShooters);
+  const restoreShooter = useShooterStore((s) => s.restoreShooter);
+  const toggleShowDeleted = useShooterStore((s) => s.toggleShowDeleted);
+  const addToast = useUIStore((s) => s.addToast);
   const { categoryLabel, powerFactorLabel } = useConstLabels();
   const { t } = useTranslation();
   const [showCreate, setShowCreate] = useState(false);

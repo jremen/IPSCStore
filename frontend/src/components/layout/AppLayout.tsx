@@ -23,9 +23,17 @@ import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
 import MenuActionListener from '../shared/MenuActionListener';
 
 export default function AppLayout() {
-  const { activeTab, activeMatchId, setActiveMatch } = useUIStore();
-  const { fetchMatches } = useMatchStore();
-  const { isAuthenticated, isAdmin, isLocalNetwork, domainMode, authenticatedMatchId, restoreSession, logout } = useAuthStore();
+  const activeTab = useUIStore((s) => s.activeTab);
+  const activeMatchId = useUIStore((s) => s.activeMatchId);
+  const setActiveMatch = useUIStore((s) => s.setActiveMatch);
+  const fetchMatches = useMatchStore((s) => s.fetchMatches);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isAdmin = useAuthStore((s) => s.isAdmin);
+  const isLocalNetwork = useAuthStore((s) => s.isLocalNetwork);
+  const domainMode = useAuthStore((s) => s.domainMode);
+  const authenticatedMatchId = useAuthStore((s) => s.authenticatedMatchId);
+  const restoreSession = useAuthStore((s) => s.restoreSession);
+  const logout = useAuthStore((s) => s.logout);
   const sessionValidated = useRef(false);
   const [sessionRestoring, setSessionRestoring] = useState(true);
 

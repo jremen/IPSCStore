@@ -6,7 +6,11 @@ import { isOnlineSync } from '../../services/connectivity';
 import LanguageSelector from '../settings/LanguageSelector';
 
 export default function StageLoginPage() {
-  const { loginWithTrustToken, autoLogin, loading, error, isLocalNetwork } = useAuthStore();
+  const loginWithTrustToken = useAuthStore((s) => s.loginWithTrustToken);
+  const autoLogin = useAuthStore((s) => s.autoLogin);
+  const loading = useAuthStore((s) => s.loading);
+  const error = useAuthStore((s) => s.error);
+  const isLocalNetwork = useAuthStore((s) => s.isLocalNetwork);
   const { t } = useTranslation();
   const [pasteMode, setPasteMode] = useState(false);
   const [pastedUrl, setPastedUrl] = useState('');

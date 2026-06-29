@@ -5,6 +5,7 @@ import { useStageStore } from '../../stores/stageStore';
 import { useMatchStore } from '../../stores/matchStore';
 import { useUIStore } from '../../stores/uiStore';
 import { SCORING_TYPES } from '../../utils/constants';
+import TimeInput from '../scoring/shared/TimeInput';
 import { InputField } from '../shared/InputField';
 import type { ScoringType, StageConfig } from '../../types/stage';
 import type { Stage } from '../../types/stage';
@@ -63,9 +64,10 @@ interface StageFormModalProps {
 }
 
 export default function StageFormModal({ show, onClose, editStage, matchId }: StageFormModalProps) {
-  const { createStage, updateStage } = useStageStore();
-  const { addToast } = useUIStore();
-  const { matches } = useMatchStore();
+  const createStage = useStageStore((s) => s.createStage);
+  const updateStage = useStageStore((s) => s.updateStage);
+  const addToast = useUIStore((s) => s.addToast);
+  const matches = useMatchStore((s) => s.matches);
   const { t } = useTranslation();
   useEscClose(onClose);
   const [form, setForm] = useState<StageForm>(emptyForm());
@@ -161,7 +163,10 @@ export default function StageFormModal({ show, onClose, editStage, matchId }: St
                 </div>
               )}
               {visibleFields.parTime && (
-                <InputField label={t('stages.parTime')} type="number" step="0.01" min="0" decimal value={form.par_time ?? ''} onChange={(v) => setForm({ ...form, par_time: v ? parseFloat(v) : null })} disabled={form.scoring_type !== 'fixed_time'} />
+                <div>
+                  <Label>{t('stages.parTime')}</Label>
+                  <TimeInput regular value={form.par_time} onChange={(v) => setForm({ ...form, par_time: v })} disabled={form.scoring_type !== 'fixed_time'} />
+                </div>
               )}
             </div>
           )}

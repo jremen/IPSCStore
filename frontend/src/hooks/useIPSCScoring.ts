@@ -10,7 +10,7 @@ import type { ScoreInput, TargetScore } from '../types/scoring';
  * and live score preview calculation.
  */
 export function useIPSCScoring(stage: Stage, score: ScoreInput) {
-  const { setScore } = useScoringStore();
+  const setScore = useScoringStore((s) => s.setScore);
 
   const pf = (() => {
     const shooter = useScoringStore.getState().registrations.find(

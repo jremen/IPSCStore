@@ -14,8 +14,9 @@ interface ShooterFormModalProps {
 }
 
 export default function ShooterFormModal({ show, onClose, editShooter }: ShooterFormModalProps) {
-  const { createShooter, updateShooter } = useShooterStore();
-  const { addToast } = useUIStore();
+  const createShooter = useShooterStore((s) => s.createShooter);
+  const updateShooter = useShooterStore((s) => s.updateShooter);
+  const addToast = useUIStore((s) => s.addToast);
   const { t } = useTranslation();
   useEscClose(onClose);
   const [form, setForm] = useState<ShooterFormData>({

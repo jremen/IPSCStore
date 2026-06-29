@@ -21,7 +21,7 @@ interface Props {
 export default function IPSCScoringSheet({ stage, score }: Props) {
   const { t, i18n } = useTranslation();
   const { isDesktop } = useDeviceContext();
-  const { alerts } = useScoringStore();
+  const alerts = useScoringStore((s) => s.alerts);
   const shooter = useScoringStore(
     (s) => s.registrations.find(r => r.id === s.currentRegistrationId)
   );
@@ -43,10 +43,10 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
 
   // Subtitle showing stage composition
   const subtitleParts = [];
-  if (stage.paper_targets > 0) subtitleParts.push(`${stage.paper_targets} paper × ${hpp} hits`);
-  if (stage.steel_targets > 0) subtitleParts.push(`${stage.steel_targets} steel`);
-  if (hasNoShootTargets) subtitleParts.push('no-shoot');
-  if (stage.npm_targets > 0) subtitleParts.push(`${stage.npm_targets} npm`);
+  if (stage.paper_targets > 0) subtitleParts.push(t('scoring.paperTargetsShort', { count: stage.paper_targets, hpp }));
+  if (stage.steel_targets > 0) subtitleParts.push(`${stage.steel_targets} ${t('scoring.steelTargets')}`);
+  if (hasNoShootTargets) subtitleParts.push(t('scoring.noShootTargets'));
+  if (stage.npm_targets > 0) subtitleParts.push(`${stage.npm_targets} ${t('scoring.npmTargets')}`);
   const subtitle = subtitleParts.join(' • ');
 
   return (

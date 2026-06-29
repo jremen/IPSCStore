@@ -70,7 +70,7 @@ export function parseTimeString(raw: string): number | null {
  * Format a numeric time value for display.
  * Always shows exactly 2 decimal places.
  */
-export function formatTimeDisplay(time: number | null): string {
+export function formatTimeDisplay(time: string | number | null): string {
   if (time === null || time === undefined) return '';
   // API can return time as a string (e.g., "25.20"), coerce to number
   const num = typeof time === 'string' ? parseFloat(time) : time;

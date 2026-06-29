@@ -12,8 +12,10 @@ import * as offlineDB from '../services/offlineDB';
  * Routes through the offline queue when offline or when the endpoint is unreachable.
  */
 export function useDqActions() {
-  const { currentRegistrationId, updateRegistrationLocal } = useScoringStore();
-  const { activeMatchId, addToast } = useUIStore();
+  const currentRegistrationId = useScoringStore((s) => s.currentRegistrationId);
+  const updateRegistrationLocal = useScoringStore((s) => s.updateRegistrationLocal);
+  const activeMatchId = useUIStore((s) => s.activeMatchId);
+  const addToast = useUIStore((s) => s.addToast);
   const { t } = useTranslation();
   const [dqReason, setDqReason] = useState('');
   const [showDqModal, setShowDqModal] = useState(false);

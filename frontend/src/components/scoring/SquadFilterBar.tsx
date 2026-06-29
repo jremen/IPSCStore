@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { useScoringProgress } from '../../hooks/useScoringProgress';
 
 export default function SquadFilterBar() {
-  const { squadFilter, setSquadFilter, registrations } = useScoringStore();
+  const squadFilter = useScoringStore((s) => s.squadFilter);
+  const setSquadFilter = useScoringStore((s) => s.setSquadFilter);
+  const registrations = useScoringStore((s) => s.registrations);
   const { squadStatuses } = useScoringProgress();
   const { t } = useTranslation();
 

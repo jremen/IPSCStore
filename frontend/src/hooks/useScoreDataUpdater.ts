@@ -6,7 +6,7 @@ import { useScoringStore } from '../stores/scoringStore';
  * the score_data field (ActionSteel, IDPA, MultiGun).
  */
 export function useScoreDataUpdater(score: ScoreInput) {
-  const { setScore } = useScoringStore();
+  const setScore = useScoringStore((s) => s.setScore);
   const sd: ScoreData = score.score_data || {};
 
   const updateScoreData = (updates: Partial<ScoreData>) => {

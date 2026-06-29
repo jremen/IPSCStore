@@ -17,8 +17,8 @@ interface EditRegistrationModalProps {
 }
 
 export default function EditRegistrationModal({ show, onClose, registration, matchId, onSaved }: EditRegistrationModalProps) {
-  const { addToast } = useUIStore();
-  const { matches } = useMatchStore();
+  const addToast = useUIStore((s) => s.addToast);
+  const matches = useMatchStore((s) => s.matches);
   const { t } = useTranslation();
   useEscClose(onClose);
   const match = matches.find((m: any) => m.id === matchId);

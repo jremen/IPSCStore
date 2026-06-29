@@ -24,8 +24,9 @@ interface ShooterListScreenProps {
  */
 export default function ShooterListScreen({ show, onClose, onSelect }: ShooterListScreenProps) {
   const { t } = useTranslation();
-  const { currentRegistrationId, activeStageId } = useScoringStore();
-  const { stages } = useStageStore();
+  const currentRegistrationId = useScoringStore((s) => s.currentRegistrationId);
+  const activeStageId = useScoringStore((s) => s.activeStageId);
+  const stages = useStageStore((s) => s.stages);
   const currentStage = stages.find(s => s.id === activeStageId) ?? null;
   const { search, setSearch, list, shooterListSort, setShooterListSort,
           reshuffleRandomOrder, scoredIds } = useShooterList();

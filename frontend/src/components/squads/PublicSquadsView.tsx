@@ -11,7 +11,8 @@ const AUTO_REFRESH_INTERVAL = 30000;
 
 export default function PublicSquadsView() {
   const { t } = useTranslation();
-  const { setActiveMatch, setActiveTab } = useUIStore();
+  const setActiveMatch = useUIStore((s) => s.setActiveMatch);
+  const setActiveTab = useUIStore((s) => s.setActiveTab);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<'noCurrentMatch' | 'loadError' | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());

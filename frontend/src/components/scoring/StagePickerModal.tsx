@@ -11,8 +11,11 @@ export interface StagePickerModalProps {
 
 export default function StagePickerModal({ show, onClose }: StagePickerModalProps) {
   const { t } = useTranslation();
-  const { stages } = useStageStore();
-  const { activeStageId, setActiveStageId, registrations, scoringProgress } = useScoringStore();
+  const stages = useStageStore((s) => s.stages);
+  const activeStageId = useScoringStore((s) => s.activeStageId);
+  const setActiveStageId = useScoringStore((s) => s.setActiveStageId);
+  const registrations = useScoringStore((s) => s.registrations);
+  const scoringProgress = useScoringStore((s) => s.scoringProgress);
 
   useEscClose(show ? onClose : undefined);
 

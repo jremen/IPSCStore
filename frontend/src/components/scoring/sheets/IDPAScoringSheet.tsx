@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import { Alert, Badge, Label } from 'flowbite-react';
-import { InputField } from '../../shared/InputField';
+import TimeInput from '../shared/TimeInput';
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useScoreDataUpdater } from '../../../hooks/useScoreDataUpdater';
 import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
@@ -16,8 +16,9 @@ interface Props {
 }
 
 export default function IDPAScoringSheet({ stage, score }: Props) {
-  const { t } = useTranslation();
-  const { setScore, alerts } = useScoringStore();
+  const { t, i18n } = useTranslation();
+  const setScore = useScoringStore((s) => s.setScore);
+  const alerts = useScoringStore((s) => s.alerts);
   const { sd, updateScoreData } = useScoreDataUpdater(score);
   const shooter = useScoringStore(s => s.registrations.find(r => r.id === s.currentRegistrationId));
   const isReadOnly = useScoringReadOnly();
@@ -108,10 +109,10 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
     setScore({ ...score, targets: newTargets });
   }, [steelTargets.length, score, stage.paper_targets, setScore]);
 
-  const handleTimeChange = useCallback((value: string) => {
+  const handleTimeChange = useCallback((value: number | null) => {
     const currentScore = useScoringStore.getState().currentScore;
     if (currentScore) {
-      setScore({ ...currentScore, time: value ? parseFloat(value) : null });
+      setScore({ ...currentScore, time: value });
     }
   }, [setScore]);
 
@@ -136,21 +137,28 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
     penalty_pe, penalty_hnt, penalty_ftn, penalty_fp, penalty_ftdr,
   });
 
+  const penalties = [
+    { key: 'penalty_pe' as const, label: t('scoring.peProcedural'), sec: 3 },
+    { key: 'penalty_hnt' as const, label: t('scoring.hntHitNs'), sec: 5 },
+    { key: 'penalty_ftn' as const, label: t('scoring.ftnFailNeutralize'), sec: 5 },
+    { key: 'penalty_fp' as const, label: t('scoring.fpFlagrant'), sec: 10 },
+  ];
+
   return (
     <div className="p-2 sm:p-4 max-w-2xl mx-auto">
       {/* TIME INPUT */}
       <div className="bg-blue-50 dark:bg-gray-800 rounded-lg p-3 mb-3 border-2 border-blue-200 dark:border-blue-800">
         <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
-        <InputField type="number" step="0.01" min="0" sizing="lg" decimal value={score.time ?? ''} onChange={handleTimeChange} disabled={isReadOnly} className="text-center text-2xl font-mono" />
+        <TimeInput value={score.time} onChange={handleTimeChange} disabled={isReadOnly} className="text-2xl font-mono py-4!" />
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-3 shadow-sm">
         <ScoringSheetHeader
-          title="IDPA SCORING SHEET"
-          subtitle={`${stage.paper_targets} paper × ${hpp} hits • ${stage.steel_targets} steel`}
+          title={t('scoring.idpaTitle')}
+          subtitle={t('scoring.idpaSubtitle', { paper: stage.paper_targets, hpp, steel: stage.steel_targets })}
           onReset={isReadOnly ? undefined : handleResetAll}
         />
-        <p className="text-[10px] text-gray-400 px-3 -mt-1 mb-1">Tap cell +1 • Long-press −1 • Tap # to reset row</p>
+        <p className="text-[10px] text-gray-400 px-3 -mt-1 mb-1">{t('scoring.tapCellInstruction')}</p>
 
         {/* PAPER TARGETS — IDPA labels: -0, -1, -3 */}
         {paperTargets.length > 0 && (
@@ -197,7 +205,7 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
               </table>
             </div>
             <p className="text-xs text-gray-400 mt-1.5 text-center">
-              {paperTargets.filter(isTargetFinished).length}/{paperTargets.length} targets finished (≥{hpp} hits)
+              {i18n.t('scoring.finished', { hpp, finished: paperTargets.filter(isTargetFinished).length, total: paperTargets.length })}
             </p>
           </div>
         )}
@@ -233,14 +241,9 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
             <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide">{t('scoring.idpaPenalties')}</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {[
-              { key: 'penalty_pe' as const, label: 'PE (Procedural)', desc: '+3s' },
-              { key: 'penalty_hnt' as const, label: 'HNT (Hit N/S)', desc: '+5s' },
-              { key: 'penalty_ftn' as const, label: 'FTN (Fail Neutralize)', desc: '+5s' },
-              { key: 'penalty_fp' as const, label: 'FP (Flagrant)', desc: '+10s' },
-            ].map(({ key, label, desc }) => (
+            {penalties.map(({ key, label, sec }) => (
               <div key={key}>
-                <Label className="text-xs">{label} <span className="text-gray-400">{desc}</span></Label>
+                <Label className="text-xs">{label} <span className="text-gray-400">{t('scoring.secondsEach', { sec })}</span></Label>
                 <PenaltyStepper
                   value={(sd[key] as number) || 0}
                   onDecrement={() => updateScoreData({ [key]: Math.max(0, ((sd[key] as number) || 0) - 1) })}
@@ -252,7 +255,7 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
               </div>
             ))}
             <div className="col-span-2">
-              <Label className="text-xs">FTDR (Fail to Do Right) <span className="text-gray-400">+20s</span></Label>
+              <Label className="text-xs">{t('scoring.ftdrFailToDoRight')} <span className="text-gray-400">{t('scoring.secondsEach', { sec: 20 })}</span></Label>
               <PenaltyStepper
                 value={penalty_ftdr}
                 onDecrement={() => updateScoreData({ penalty_ftdr: Math.max(0, penalty_ftdr - 1) })}

@@ -16,8 +16,13 @@ function getScoringTypeLabel(type: string): string {
 }
 
 export default function StageList() {
-  const { stages, loading, error, fetchStages, deleteStage } = useStageStore();
-  const { activeMatchId, addToast } = useUIStore();
+  const stages = useStageStore((s) => s.stages);
+  const loading = useStageStore((s) => s.loading);
+  const error = useStageStore((s) => s.error);
+  const fetchStages = useStageStore((s) => s.fetchStages);
+  const deleteStage = useStageStore((s) => s.deleteStage);
+  const activeMatchId = useUIStore((s) => s.activeMatchId);
+  const addToast = useUIStore((s) => s.addToast);
   const { t } = useTranslation();
   const [showCreate, setShowCreate] = useState(false);
   const [editStage, setEditStage] = useState<Stage | null>(null);

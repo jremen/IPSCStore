@@ -11,13 +11,28 @@ import { shouldAttemptApiCall } from '../services/connectivity';
 
 
 export function useScoringNav() {
-  const { activeMatchId, addToast } = useUIStore();
-  const { registrations, fetchRegistrations, currentRegistrationId, selectShooter,
-          currentScore, loadScore, saveScore, validateScore,
-          activeStageId, setActiveStageId, fetchScoringProgress, showSummary, setShowSummary,
-          setScore, setSquadFilter, setShooterListSort, reshuffleRandomOrder } = useScoringStore();
-  const { stages, fetchStages } = useStageStore();
-  const { isAdmin } = useAuthStore();
+  const activeMatchId = useUIStore((s) => s.activeMatchId);
+  const addToast = useUIStore((s) => s.addToast);
+  const registrations = useScoringStore((s) => s.registrations);
+  const fetchRegistrations = useScoringStore((s) => s.fetchRegistrations);
+  const currentRegistrationId = useScoringStore((s) => s.currentRegistrationId);
+  const selectShooter = useScoringStore((s) => s.selectShooter);
+  const currentScore = useScoringStore((s) => s.currentScore);
+  const loadScore = useScoringStore((s) => s.loadScore);
+  const saveScore = useScoringStore((s) => s.saveScore);
+  const validateScore = useScoringStore((s) => s.validateScore);
+  const activeStageId = useScoringStore((s) => s.activeStageId);
+  const setActiveStageId = useScoringStore((s) => s.setActiveStageId);
+  const fetchScoringProgress = useScoringStore((s) => s.fetchScoringProgress);
+  const showSummary = useScoringStore((s) => s.showSummary);
+  const setShowSummary = useScoringStore((s) => s.setShowSummary);
+  const setScore = useScoringStore((s) => s.setScore);
+  const setSquadFilter = useScoringStore((s) => s.setSquadFilter);
+  const setShooterListSort = useScoringStore((s) => s.setShooterListSort);
+  const reshuffleRandomOrder = useScoringStore((s) => s.reshuffleRandomOrder);
+  const stages = useStageStore((s) => s.stages);
+  const fetchStages = useStageStore((s) => s.fetchStages);
+  const isAdmin = useAuthStore((s) => s.isAdmin);
   const isReadOnly = useScoringReadOnly();
   const { t } = useTranslation();
   const prevMatchIdRef = useRef<string | null>(null);

@@ -3,6 +3,7 @@ import { formatTimeDisplay, parseTimeString, formatTimeOnBlur } from '../../../u
 import { useTranslation } from "react-i18next";
 
 interface TimeInputProps {
+  regular?: boolean;
   value: number | null;
   onChange: (value: number | null) => void;
   disabled?: boolean;
@@ -29,7 +30,7 @@ interface TimeInputProps {
  * - Typing "25.20" directly works
  * - Always shows 2 decimal places on blur
  */
-export default function TimeInput({ value, onChange, disabled, className, debounceMs = 600 }: TimeInputProps) {
+export default function TimeInput({ regular, value, onChange, disabled, className, debounceMs = 600 }: TimeInputProps) {
   const {t} = useTranslation();
   const [displayValue, setDisplayValue] = useState(() => formatTimeDisplay(value));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -224,13 +225,14 @@ export default function TimeInput({ value, onChange, disabled, className, deboun
       disabled={disabled}
       autoComplete="off"
       placeholder={t('scoring.time')}
-      className={`text-center text-4xl font-semibold font-mono w-full p-2
-        rounded-lg border border-purple-300 bg-gray-700 text-white
+      className={`text-center font-semibold px-2! py-2!
+        rounded-lg border border-gray-700 bg-gray-700 text-white
         focus:border-blue-500 focus:ring-blue-500 focus:outline-none focus:ring-2
-        dark:border-purple-600 dark:bg-purple-500 
         dark:focus:border-blue-500 dark:focus:ring-blue-500
         disabled:cursor-not-allowed disabled:opacity-50
-        ${className ?? ''}`}
+        ${className ?? ''}
+        ${!regular && 'border-purple-300 dark:border-purple-600 dark:bg-purple-500 text-4xl w-full'}
+        `}
     />
   );
 }

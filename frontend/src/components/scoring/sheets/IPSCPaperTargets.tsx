@@ -93,7 +93,7 @@ export default function PaperTargetsTable({
                 className={`flex items-center justify-center gap-1 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                 onClick={disabled ? undefined : onResetSteel}
                 disabled={disabled}
-                title="Click to reset row"
+                title={t('scoring.clickToReset')}
               >
                 <span className={`text-xs font-bold uppercase ${disabled ? 'text-gray-400' : 'hover:text-red-500 dark:text-white dark:hover:text-red-400'}`}>{t('stages.steel')}</span>
                 <Badge size="sm" color="gray">{steelCount}</Badge>
@@ -126,7 +126,7 @@ export default function PaperTargetsTable({
                 className={`flex items-center justify-center gap-1 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                 onClick={disabled ? undefined : onResetNpm}
                 disabled={disabled}
-                title="Click to reset row"
+                title={t('scoring.clickToReset')}
               >
                 <span className={`text-xs font-bold uppercase ${disabled ? 'text-gray-400' : 'text-blue-600 hover:text-red-500 dark:text-blue-400 dark:hover:text-red-400'}`}>NPM</span>
                 <Badge size="sm" color="blue">{npmCount}</Badge>
@@ -158,7 +158,7 @@ export default function PaperTargetsTable({
                   className={`font-mono text-sm font-bold transition-colors ${disabled ? 'text-gray-400 cursor-not-allowed' : 'text-gray-500 hover:text-red-500 dark:text-white dark:hover:text-red-400 cursor-pointer'}`}
                   onClick={disabled ? undefined : () => onResetTarget(target.target_index)}
                   disabled={disabled}
-                  title="Click to reset row"
+                  title={t('scoring.clickToReset')}
                 >
                   {idx + 1}
                 </button>

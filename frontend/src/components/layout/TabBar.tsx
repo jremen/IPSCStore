@@ -12,7 +12,8 @@ const TABS: { id: TabId; labelKey: string; icon: string }[] = [
 ];
 
 export default function TabBar() {
-  const { activeTab, setActiveTab } = useUIStore();
+  const activeTab = useUIStore((s) => s.activeTab);
+  const setActiveTab = useUIStore((s) => s.setActiveTab);
   const { t } = useTranslation();
   // useEffect (() => { runningMatch && fetchMatch(runningMatch); }, [fetchMatch, runningMatch]);
 

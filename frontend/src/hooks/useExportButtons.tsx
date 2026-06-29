@@ -59,8 +59,9 @@ const useExportButtons = (activeTab: ResultTab) => {
   
     const [pdfLoading, setPdfLoading] = useState(false);
     const [saveModal, setSaveModal] = useState<SaveProps | null>(null);
-    const { activeMatchId, addToast } = useUIStore();
-    const { matches } = useMatchStore();
+    const activeMatchId = useUIStore((s) => s.activeMatchId);
+    const addToast = useUIStore((s) => s.addToast);
+    const matches = useMatchStore((s) => s.matches);
   
   
     const activeMatch = matches?.find((m: any) => m.id === activeMatchId);

@@ -15,8 +15,10 @@ interface CreateMatchModalProps {
 const initialForm = { name: '', date: '', organization: 'IPSC' as Organization, firearm_type: 'handgun' as FirearmType, match_level: '' as '' | MatchLevel };
 
 export default function CreateMatchModal({ show, onClose }: CreateMatchModalProps) {
-  const { createMatch, markCurrent } = useMatchStore();
-  const { setActiveMatch, addToast } = useUIStore();
+  const createMatch = useMatchStore((s) => s.createMatch);
+  const markCurrent = useMatchStore((s) => s.markCurrent);
+  const setActiveMatch = useUIStore((s) => s.setActiveMatch);
+  const addToast = useUIStore((s) => s.addToast);
   const { t } = useTranslation();
   const [form, setForm] = useState(initialForm);
 

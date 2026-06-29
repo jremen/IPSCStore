@@ -10,8 +10,9 @@ import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function PrintScoreSheetButton({ stages }: { stages: Stage[] }) {
   const { t } = useTranslation();
-  const { matches } = useMatchStore();
-  const { activeMatchId, addToast } = useUIStore();
+  const matches = useMatchStore((s) => s.matches);
+  const activeMatchId = useUIStore((s) => s.activeMatchId);
+  const addToast = useUIStore((s) => s.addToast);
   const [showModal, setShowModal] = useState(false);
   const [generating, setGenerating] = useState(false);
 

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 export function useDatabaseBackup() {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
-  const { addToast } = useUIStore();
+  const addToast = useUIStore((s) => s.addToast);
   const { t } = useTranslation();
 
   const handleExport = useCallback(async () => {

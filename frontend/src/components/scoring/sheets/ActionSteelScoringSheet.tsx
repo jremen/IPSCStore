@@ -1,5 +1,5 @@
 import { Label } from 'flowbite-react';
-import { InputField } from '../../shared/InputField';
+import { useTranslation } from "react-i18next";
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useScoreDataUpdater } from '../../../hooks/useScoreDataUpdater';
 import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
@@ -7,6 +7,7 @@ import { calculateActionSteelPreview } from '../../../utils/scoring';
 import { ScoringSheetHeader, DnfToggle, DqSection } from '../shared';
 import type { Stage } from '../../../types/stage';
 import type { ScoreInput } from '../../../types/scoring';
+import TimeInput from "../shared/TimeInput";
 
 interface Props {
   stage: Stage;
@@ -14,7 +15,8 @@ interface Props {
 }
 
 export default function ActionSteelScoringSheet({ stage, score }: Props) {
-  const { setScore } = useScoringStore();
+  const { t } = useTranslation();
+  const setScore = useScoringStore((s) => s.setScore);
   const { sd, updateScoreData } = useScoreDataUpdater(score);
   const shooter = useScoringStore(s => s.registrations.find(r => r.id === s.currentRegistrationId));
   const isReadOnly = useScoringReadOnly();
@@ -29,9 +31,9 @@ export default function ActionSteelScoringSheet({ stage, score }: Props) {
     ? sd.string_plate_hits!
     : new Array(numStrings).fill(null).map(() => new Array(targetsPerString).fill(false));
 
-  const handleStringTime = (stringIdx: number, value: string) => {
+  const handleStringTime = (stringIdx: number, value: number | null) => {
     const times = [...stringTimes];
-    times[stringIdx] = value ? parseFloat(value) : 0;
+    times[stringIdx] = value ?? 0;
     updateScoreData({ string_times: times });
   };
 
@@ -67,8 +69,8 @@ export default function ActionSteelScoringSheet({ stage, score }: Props) {
     <div className="p-2 sm:p-4 max-w-xl mx-auto">
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-3 shadow-sm">
         <ScoringSheetHeader
-          title="🎯 Action Steel"
-          subtitle={`${numStrings} strings • ${targetsPerString} plates each • Drop ${dropWorst} worst`}
+          title={`🎯 ${t('scoring.actionSteelTitle')}`}
+          subtitle={t('scoring.actionSteelSubtitle', { strings: numStrings, plates: targetsPerString, worst: dropWorst })}
           onReset={isReadOnly ? undefined : handleResetAll}
         />
 
@@ -79,10 +81,15 @@ export default function ActionSteelScoringSheet({ stage, score }: Props) {
           return (
             <div key={idx} className="p-3 border-b border-gray-100 dark:border-gray-700">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-bold text-blue-600 dark:text-blue-400">String {idx + 1}</span>
+                <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{t('scoring.stringN', { number: idx + 1 })}</span>
                 <div className="flex items-center gap-2">
-                  <Label className="text-xs">Time (s)</Label>
-                  <InputField type="number" step="0.01" min="0" sizing="md" decimal value={time || ''} onChange={(v) => handleStringTime(idx, v)} disabled={isReadOnly} />
+                  <Label className="text-xs">{t('scoring.timeSeconds')}</Label>
+                  <TimeInput
+                    regular
+                    value={time}
+                    onChange={(v) => handleStringTime(idx, v)}
+                    disabled={isReadOnly || stage.scoring_type === 'fixed_time'}
+                  />
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 justify-center">
@@ -100,8 +107,8 @@ export default function ActionSteelScoringSheet({ stage, score }: Props) {
                 ))}
               </div>
               <div className="flex justify-between mt-1 text-xs text-gray-500">
-                <span>{hits.filter(h => h).length} hit / {missCount} miss</span>
-                <span>Adj: {adjustedTime.toFixed(2)}s{missCount > 0 ? ` (+${missCount * 3}s)` : ''}</span>
+                <span>{t('scoring.hitMissSummary', { hits: hits.filter(h => h).length, misses: missCount })}</span>
+                <span>{t('scoring.adjustedTime', { time: adjustedTime.toFixed(2), penalty: missCount > 0 ? ` (+${missCount * 3}s)` : '' })}</span>
               </div>
             </div>
           );
@@ -114,10 +121,10 @@ export default function ActionSteelScoringSheet({ stage, score }: Props) {
       </div>
 
       <div className="bg-green-50 dark:bg-gray-800 rounded-lg p-3 border border-green-200 dark:border-green-800 shadow-sm">
-        <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-2">📊 Action Steel Preview</h3>
+        <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-2">📊 {t('scoring.actionSteelPreview')}</h3>
         <div className="text-center">
           <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{preview.total_time?.toFixed(2) ?? '0.00'}s</div>
-          <div className="text-xs text-gray-500">Total Time (drop {dropWorst} worst)</div>
+          <div className="text-xs text-gray-500">{t('scoring.totalTimeDropWorst', { count: dropWorst })}</div>
         </div>
       </div>
     </div>

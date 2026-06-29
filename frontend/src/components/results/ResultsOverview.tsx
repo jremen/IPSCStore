@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { useMatchStore } from '../../stores/matchStore';
@@ -13,6 +13,10 @@ import { twMerge } from "tailwind-merge";
 import { useMatchProgress } from "../../hooks/useMatchProgress";
 
 type ResultTab = 'byDivision' | 'overall' | 'byStage' | 'byCategory' | 'byTag';
+
+const DIVISION_COLUMNS: ColumnKey[] = ['position', 'shooter', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'matchPercent', 'matchPoints'];
+const OVERALL_COLUMNS: ColumnKey[] = ['position', 'shooter', 'division', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'matchPercent', 'matchPoints'];
+const STAGE_COLUMNS: ColumnKey[] = ['position', 'shooter', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'stagePercent', 'stagePoints', 'hitFactor', 'netPoints'];
 
 const TABS: { key: ResultTab; labelKey: string }[] = [
   { key: 'byDivision', labelKey: 'results.byDivision' },
@@ -88,13 +92,15 @@ function DivisionContent({ divisionResults, dqDivisions, loading, onShooterClick
 
     const runningMatchId = useMatchStore((s) => s.runningMatch?.id);
 
-    const {scored, stagesLength, fetchScoringProgress, fetchStages} = useMatchProgress();
+    const progressData = useMatchProgress();
+
+  const scoredData = useMemo(() => progressData.scored != null ? {scored: progressData.scored, stagesLength: progressData.stagesLength} : undefined, [progressData.scored, progressData.stagesLength]);
 
     useEffect(() => {
       if (!runningMatchId) return;
 
-      fetchStages(runningMatchId);
-      fetchScoringProgress(runningMatchId);
+      progressData.fetchStages(runningMatchId);
+      progressData.fetchScoringProgress(runningMatchId);
     }, [runningMatchId]);
 
   return (
@@ -108,7 +114,7 @@ function DivisionContent({ divisionResults, dqDivisions, loading, onShooterClick
         .map(([division, results]) => (
           <div key={division} className="division-results-section mb-6">
             <h3 className="font-semibold text-lg mb-2 dark:text-white">{divisionLabel(division)}</h3>
-            <ResultsTable scored={{scored, stagesLength}} results={results as any[]} columns={['position', 'shooter', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'matchPercent', 'matchPoints']} onShooterClick={onShooterClick} />
+            <ResultsTable scored={scoredData} results={results as any[]} columns={DIVISION_COLUMNS} onShooterClick={onShooterClick} />
           </div>
         ))}
       <DqTable dqShooters={dqDivisions} />
@@ -126,7 +132,7 @@ function OverallContent({ overallResults, dqOverall, onShooterClick }: {
   return (
     <>
       <h2 className="print-only hidden text-lg font-bold mb-2">{t('results.overall')}</h2>
-      <ResultsTable results={overallResults as any[]} columns={['position', 'shooter', 'division', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'matchPercent', 'matchPoints']} onShooterClick={onShooterClick} />
+      <ResultsTable results={overallResults as any[]} columns={OVERALL_COLUMNS} onShooterClick={onShooterClick} />
       <DqTable dqShooters={dqOverall} />
     </>
   );
@@ -135,7 +141,7 @@ function OverallContent({ overallResults, dqOverall, onShooterClick }: {
 function StageContent({ stageResults, onShooterClick }: { stageResults: any[]; onShooterClick?: (registrationId: string) => void; }) {
   const { t } = useTranslation();
 
-  const stageColumns: ColumnKey[] = ['position', 'shooter', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'stagePercent', 'stagePoints', 'hitFactor', 'netPoints'];
+  const stageColumns = STAGE_COLUMNS;
 
   return (
     <>
@@ -237,7 +243,7 @@ function CategoryContent({ categoryResults, dqCategories }: {
             .map(([division, results]) => (
               <div key={division} className="mb-4 ml-2">
                 <h4 className="font-medium text-sm text-gray-600 dark:text-gray-400 mb-1">{divisionLabel(division)}</h4>
-                <ResultsTable results={results as any[]} columns={['position', 'shooter', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'matchPercent', 'matchPoints']} />
+                <ResultsTable results={results as any[]} columns={DIVISION_COLUMNS} />
               </div>
             ))}
         </div>
@@ -264,7 +270,7 @@ function TagContent({ tagResults, dqTags }: {
             .map(([division, results]) => (
               <div key={division} className="mb-4 ml-2">
                 <h4 className="font-medium text-sm text-gray-600 dark:bg-gray-400 mb-1">{divisionLabel(division)}</h4>
-                <ResultsTable results={results as any[]} columns={['position', 'shooter', 'time', 'alpha', 'charlie', 'delta', 'miss', 'noShootHits', 'procedurals', 'matchPercent', 'matchPoints']} />
+                <ResultsTable results={results as any[]} columns={DIVISION_COLUMNS} />
               </div>
             ))}
         </div>
@@ -276,10 +282,27 @@ function TagContent({ tagResults, dqTags }: {
 }
 
 export default function ResultsOverview({isPublic}:{isPublic?:true}) {
-  const { activeMatchId } = useUIStore();
-  const { matches } = useMatchStore();
-  const { overallResults, dqOverall, divisionResults, dqDivisions, stageResults, categoryResults, dqCategories, tagResults, dqTags, loading,
-          fetchOverall, fetchByDivision, fetchByStage, fetchByCategory, fetchByTag, fetchShooterStageSummaries, shooterSummary, shooterSummaryLoading, clearShooterSummary } = useResultsStore();
+  const activeMatchId = useUIStore((s) => s.activeMatchId);
+  const matches = useMatchStore((s) => s.matches);
+  const overallResults = useResultsStore((s) => s.overallResults);
+  const dqOverall = useResultsStore((s) => s.dqOverall);
+  const divisionResults = useResultsStore((s) => s.divisionResults);
+  const dqDivisions = useResultsStore((s) => s.dqDivisions);
+  const stageResults = useResultsStore((s) => s.stageResults);
+  const categoryResults = useResultsStore((s) => s.categoryResults);
+  const dqCategories = useResultsStore((s) => s.dqCategories);
+  const tagResults = useResultsStore((s) => s.tagResults);
+  const dqTags = useResultsStore((s) => s.dqTags);
+  const loading = useResultsStore((s) => s.loading);
+  const fetchOverall = useResultsStore((s) => s.fetchOverall);
+  const fetchByDivision = useResultsStore((s) => s.fetchByDivision);
+  const fetchByStage = useResultsStore((s) => s.fetchByStage);
+  const fetchByCategory = useResultsStore((s) => s.fetchByCategory);
+  const fetchByTag = useResultsStore((s) => s.fetchByTag);
+  const fetchShooterStageSummaries = useResultsStore((s) => s.fetchShooterStageSummaries);
+  const shooterSummary = useResultsStore((s) => s.shooterSummary);
+  const shooterSummaryLoading = useResultsStore((s) => s.shooterSummaryLoading);
+  const clearShooterSummary = useResultsStore((s) => s.clearShooterSummary);
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<ResultTab>('byDivision');
   const [selectedRegistrationId, setSelectedRegistrationId] = useState<string | null>(null);

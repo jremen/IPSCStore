@@ -17,7 +17,7 @@ interface BulkEditRegistrationsModalProps {
 
 export default function BulkEditRegistrationsModal({ show, onClose, selectedIds, matchId, onSaved }: BulkEditRegistrationsModalProps) {
   const { t } = useTranslation();
-  const { matches } = useMatchStore();
+  const matches = useMatchStore((s) => s.matches);
   const match = matches.find((m: any) => m.id === matchId);
   const matchOrganization = match?.organization;
   const matchFirearmType = match?.firearm_type;

@@ -17,8 +17,8 @@ interface ImportResult {
 }
 
 export default function WinMSSImportModal({ show, onClose }: { show: boolean; onClose: () => void }) {
-  const { addToast } = useUIStore();
-  const { fetchMatches } = useMatchStore();
+  const addToast = useUIStore((s) => s.addToast);
+  const fetchMatches = useMatchStore((s) => s.fetchMatches);
   const { t } = useTranslation();
   const [importing, setImporting] = useState(false);
   const [inspecting, setInspecting] = useState(false);

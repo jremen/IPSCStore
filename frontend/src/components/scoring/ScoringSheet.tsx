@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Alert } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import type { Stage } from '../../types/stage';
@@ -24,7 +25,7 @@ export default function ScoringSheet({ stage, score }: Props) {
   const { t } = useTranslation();
 
   // All sheets read shooter from the store directly (principle: no prop drilling)
-  const sheetProps = { stage, score };
+  const sheetProps = useMemo(() => ({ stage, score }), [stage, score]);
 
   return (
     <>

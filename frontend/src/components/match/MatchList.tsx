@@ -21,8 +21,14 @@ import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 import { twMerge } from "tailwind-merge";
 
 export default function MatchList() {
-  const { matches, loading, fetchMatches, markCurrent, unmarkCurrent } = useMatchStore();
-  const { activeMatchId, setActiveMatch, addToast } = useUIStore();
+  const matches = useMatchStore((s) => s.matches);
+  const loading = useMatchStore((s) => s.loading);
+  const fetchMatches = useMatchStore((s) => s.fetchMatches);
+  const markCurrent = useMatchStore((s) => s.markCurrent);
+  const unmarkCurrent = useMatchStore((s) => s.unmarkCurrent);
+  const activeMatchId = useUIStore((s) => s.activeMatchId);
+  const setActiveMatch = useUIStore((s) => s.setActiveMatch);
+  const addToast = useUIStore((s) => s.addToast);
   const { handleExport, exporting } = useMatchExport();
   const { t } = useTranslation();
   const [showCreate, setShowCreate] = useState(false);

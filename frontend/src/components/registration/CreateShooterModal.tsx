@@ -17,9 +17,9 @@ interface CreateShooterModalProps {
 }
 
 export default function CreateShooterModal({ show, onClose, matchId, onCreated }: CreateShooterModalProps) {
-  const { addToast } = useUIStore();
-  const { matches } = useMatchStore();
-  const { fetchShooters } = useShooterStore();
+  const addToast = useUIStore((s) => s.addToast);
+  const matches = useMatchStore((s) => s.matches);
+  const fetchShooters = useShooterStore((s) => s.fetchShooters);
   const { t } = useTranslation();
   useEscClose(onClose);
   const match = matches.find((m: any) => m.id === matchId);

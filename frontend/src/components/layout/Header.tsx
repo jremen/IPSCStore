@@ -17,11 +17,15 @@ import { TbSettings, TbClipboardText } from "react-icons/tb";
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function Header() {
-  const { activeMatchId } = useUIStore();
-  const { currentMatch } = useMatchStore();
-  const { isAdmin, authenticatedMatchId, logout, adminLogout } = useAuthStore();
-  const { stages, fetchStages } = useStageStore();
-  const { activeStageId } = useScoringStore();
+  const activeMatchId = useUIStore((s) => s.activeMatchId);
+  const currentMatch = useMatchStore((s) => s.currentMatch);
+  const isAdmin = useAuthStore((s) => s.isAdmin);
+  const authenticatedMatchId = useAuthStore((s) => s.authenticatedMatchId);
+  const logout = useAuthStore((s) => s.logout);
+  const adminLogout = useAuthStore((s) => s.adminLogout);
+  const stages = useStageStore((s) => s.stages);
+  const fetchStages = useStageStore((s) => s.fetchStages);
+  const activeStageId = useScoringStore((s) => s.activeStageId);
   const { t } = useTranslation();
   const [showSettings, setShowSettings] = useState(false);
   const [showDetails, setShowDetails] = useState(false);

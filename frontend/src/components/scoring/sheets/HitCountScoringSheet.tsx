@@ -1,4 +1,5 @@
 import { Badge } from 'flowbite-react';
+import { useTranslation } from "react-i18next";
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
 import { calculateHitCountPreview } from '../../../utils/scoring';
@@ -12,7 +13,8 @@ interface Props {
 }
 
 export default function HitCountScoringSheet({ stage, score }: Props) {
-  const { setScore } = useScoringStore();
+  const { t } = useTranslation();
+  const setScore = useScoringStore((s) => s.setScore);
   const shooter = useScoringStore(s => s.registrations.find(r => r.id === s.currentRegistrationId));
   const isReadOnly = useScoringReadOnly();
 
@@ -43,21 +45,22 @@ export default function HitCountScoringSheet({ stage, score }: Props) {
   const hits = score.targets.filter(t => t.target_data?.hit === true).length;
   const totalTargets = score.targets.length;
   const preview = calculateHitCountPreview(hits, pointValue);
-  const typeLabel = stage.scoring_type === 'nrl22' ? 'NRL22' : 'Long Range (PRS)';
+  const typeLabelKey = stage.scoring_type === 'nrl22' ? 'scoring.nrl22Scoring' : 'scoring.longRangeScoring';
+  const typeLabel = t(typeLabelKey);
 
   return (
     <div className="p-2 sm:p-4 max-w-xl mx-auto">
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-3 shadow-sm">
         <ScoringSheetHeader
-          title={`🎯 ${typeLabel} Scoring`}
-          subtitle={`${totalTargets} targets • ${pointValue} pts per hit • Tap to toggle Hit/Miss`}
+          title={`🎯 ${typeLabel}`}
+          subtitle={`${totalTargets} ${t('scoring.targets')} • ${t('scoring.ptsPerHit', { value: pointValue })} • ${t('scoring.tapToToggleHitMiss')}`}
           onReset={isReadOnly ? undefined : handleResetAll}
         />
 
         <div className="p-3">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">Targets</span>
-            <Badge size="sm" color="blue">{hits}/{totalTargets} hits</Badge>
+            <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">{t('scoring.targets')}</span>
+            <Badge size="sm" color="blue">{t('scoring.hitsOutOf', { hits, total: totalTargets })}</Badge>
           </div>
           <div className="flex flex-wrap gap-2 justify-center">
             {score.targets.map((target, idx) => {
@@ -86,11 +89,11 @@ export default function HitCountScoringSheet({ stage, score }: Props) {
       </div>
 
       <div className="bg-green-50 dark:bg-gray-800 rounded-lg p-3 border border-green-200 dark:border-green-800 shadow-sm">
-        <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-2">📊 {typeLabel} Preview</h3>
+        <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-2">📊 {typeLabel}</h3>
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div><div className="text-2xl font-bold dark:text-white">{hits}</div><div className="text-xs text-gray-500">Hits</div></div>
-          <div><div className="text-2xl font-bold dark:text-white">×{pointValue}</div><div className="text-xs text-gray-500">Pts Each</div></div>
-          <div><div className="text-2xl font-bold text-green-600">{preview.raw_points}</div><div className="text-xs text-gray-500">Total Score</div></div>
+          <div><div className="text-2xl font-bold dark:text-white">{hits}</div><div className="text-xs text-gray-500">{t('scoring.hits')}</div></div>
+          <div><div className="text-2xl font-bold dark:text-white">×{pointValue}</div><div className="text-xs text-gray-500">{t('scoring.pointsEach')}</div></div>
+          <div><div className="text-2xl font-bold text-green-600">{preview.raw_points}</div><div className="text-xs text-gray-500">{t('scoring.totalScore')}</div></div>
         </div>
       </div>
     </div>

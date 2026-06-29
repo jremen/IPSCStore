@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import { useScoringStore } from '../stores/scoringStore';
 import { useStageStore } from '../stores/stageStore';
 import type { RegistrationWithShooter } from '../types/scoring';
@@ -22,14 +21,10 @@ export function useScoringProgress(): {
   scoredIds: Set<string>;
   squadStatuses: SquadStatusMap;
 } {
-  const { registrations, scoringProgress, activeStageId } = useScoringStore(
-    useShallow((state) => ({
-      registrations: state.registrations,
-      scoringProgress: state.scoringProgress,
-      activeStageId: state.activeStageId,
-    }))
-  );
-  const { stages } = useStageStore();
+  const registrations = useScoringStore((s) => s.registrations);
+  const scoringProgress = useScoringStore((s) => s.scoringProgress);
+  const activeStageId = useScoringStore((s) => s.activeStageId);
+  const stages = useStageStore((s) => s.stages);
 
   // Build set of scored registration_ids for the current stage
   const scoredIds = useMemo(() => {

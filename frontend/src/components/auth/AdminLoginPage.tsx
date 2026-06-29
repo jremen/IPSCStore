@@ -5,7 +5,9 @@ import { useAuthStore } from '../../stores/authStore';
 import LanguageSelector from '../settings/LanguageSelector';
 
 export default function AdminLoginPage() {
-  const { adminLogin, loading, error } = useAuthStore();
+  const adminLogin = useAuthStore((s) => s.adminLogin);
+  const loading = useAuthStore((s) => s.loading);
+  const error = useAuthStore((s) => s.error);
   const { t } = useTranslation();
   const [password, setPassword] = useState('');
 

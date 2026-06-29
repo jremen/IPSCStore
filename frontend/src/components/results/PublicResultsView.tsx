@@ -14,10 +14,16 @@ const SSE_FALLBACK_INTERVAL = 300000; // 5 minutes
 
 export default function PublicResultsView() {
   const { t } = useTranslation();
-  const { activeMatchId, setActiveMatch, setActiveTab } = useUIStore();
+  const activeMatchId = useUIStore((s) => s.activeMatchId);
+  const setActiveMatch = useUIStore((s) => s.setActiveMatch);
+  const setActiveTab = useUIStore((s) => s.setActiveTab);
   const sseConnected = useSSEStore((s) => s.connected);
-  const { fetchMatches } = useMatchStore();
-  const { fetchOverall, fetchByDivision, fetchByStage, fetchByCategory, fetchByTag } = useResultsStore();
+  const fetchMatches = useMatchStore((s) => s.fetchMatches);
+  const fetchOverall = useResultsStore((s) => s.fetchOverall);
+  const fetchByDivision = useResultsStore((s) => s.fetchByDivision);
+  const fetchByStage = useResultsStore((s) => s.fetchByStage);
+  const fetchByCategory = useResultsStore((s) => s.fetchByCategory);
+  const fetchByTag = useResultsStore((s) => s.fetchByTag);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());

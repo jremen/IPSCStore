@@ -91,14 +91,14 @@ export default function DesktopSteelTargets({
                 </button>
               </div>
             </div>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500">(−10 each)</span>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500">{t('scoring.proceduralsDesc')}</span>
           </div>
         )}
 
         <div className="flex gap-3 mt-2">
           <Badge color="success" size="sm">{totalHits} {t('scoring.hit')}</Badge>
           {steelMisses > 0 && <Badge color="failure" size="sm">{steelMisses} {t('scoring.miss')}</Badge>}
-          {steelNSHits > 0 && <Badge color="failure" size="sm">{steelNSHits} NS (−{steelNSHits * 10})</Badge>}
+          {steelNSHits > 0 && <Badge color="failure" size="sm">{steelNSHits} {t('scoring.nsPenalty', { points: steelNSHits * 10 })}</Badge>}
         </div>
       </div>
       )}
@@ -108,7 +108,7 @@ export default function DesktopSteelTargets({
           <div className="flex items-center gap-2 mb-2">
             <span className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide">NPM</span>
             <Badge size="sm" color="blue">{npmCount}</Badge>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500">(+5 bonus, 0 penalty)</span>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500">{t('scoring.npmBonus')}</span>
           </div>
 
           <div className="flex items-center gap-4">
@@ -141,8 +141,8 @@ export default function DesktopSteelTargets({
           </div>
 
           <div className="flex gap-3 mt-2">
-            {npmHits > 0 && <Badge color="success" size="sm">+{npmHits * 5} pts</Badge>}
-            <Badge color="gray" size="sm">{npmCount - npmHits} miss (0 pen)</Badge>
+            {npmHits > 0 && <Badge color="success" size="sm">{t('scoring.npmPoints', { points: npmHits * 5 })}</Badge>}
+            <Badge color="gray" size="sm">{t('scoring.npmMissPenalty', { count: npmCount - npmHits })}</Badge>
           </div>
         </div>
       )}

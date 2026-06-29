@@ -1,5 +1,5 @@
 import { Button, Badge } from 'flowbite-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 import { divisionLabel } from '../../utils/constants';
 import { useConstLabels } from '../../hooks/useConstLabels';
@@ -17,11 +17,16 @@ import { useUIStore } from "../../stores/uiStore";
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function ScoringNav() {
-  const { activeMatchId } = useUIStore();
-  const { registrations, scoringProgress, currentRegistrationId,
-            currentScore, nextShooter, prevShooter,
-            activeStageId, showSummary } = useScoringStore();
-  const { stages } = useStageStore();
+  const activeMatchId = useUIStore((s) => s.activeMatchId);
+  const registrations = useScoringStore((s) => s.registrations);
+  const scoringProgress = useScoringStore((s) => s.scoringProgress);
+  const currentRegistrationId = useScoringStore((s) => s.currentRegistrationId);
+  const currentScore = useScoringStore((s) => s.currentScore);
+  const nextShooter = useScoringStore((s) => s.nextShooter);
+  const prevShooter = useScoringStore((s) => s.prevShooter);
+  const activeStageId = useScoringStore((s) => s.activeStageId);
+  const showSummary = useScoringStore((s) => s.showSummary);
+  const stages = useStageStore((s) => s.stages);
   const { t } = useTranslation();
   const { categoryLabel, powerFactorLabel } = useConstLabels();
   const {currentShooter, currentStage, performSave, handleSelectShooter, handleSummaryBack, handleConfirm, handleStageChange, canConfirm} = useScoringNav();
@@ -41,6 +46,12 @@ export default function ScoringNav() {
     );
   }
 
+  const shooterDetails = useMemo(() => currentShooter ? {
+    division: currentShooter.effective_division,
+    category: currentShooter.effective_category,
+    powerFactor: currentShooter.effective_power_factor,
+  } : null, [currentShooter?.effective_division, currentShooter?.effective_category, currentShooter?.effective_power_factor]);
+
   // Summary view for remote scorers
   if (showSummary && currentStage && currentScore && currentShooter) {
     return (
@@ -48,11 +59,7 @@ export default function ScoringNav() {
         stage={currentStage}
         score={currentScore}
         shooterName={`${currentShooter.first_name} ${currentShooter.last_name}`}
-        shooterDetails={{
-          division: currentShooter.effective_division,
-          category: currentShooter.effective_category,
-          powerFactor: currentShooter.effective_power_factor,
-        }}
+        shooterDetails={shooterDetails!}
         onBack={handleSummaryBack}
         onApprove={performSave}
       />

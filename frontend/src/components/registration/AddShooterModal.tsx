@@ -19,7 +19,7 @@ interface AddShooterModalProps {
 }
 
 export default function AddShooterModal({ show, onClose, matchId, registeredShooterIds, onAdded, onCreate }: AddShooterModalProps) {
-  const { addToast } = useUIStore();
+  const addToast = useUIStore((s) => s.addToast);
   const { t } = useTranslation();
   const [squad, setSquad] = useState('');
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());

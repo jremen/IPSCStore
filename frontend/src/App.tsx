@@ -8,7 +8,7 @@ import { ThemeInit } from '../.flowbite-react/init';
 
 export default function App() {
   const { i18n } = useTranslation();
-  const { language } = useUIStore();
+  const language = useUIStore((s) => s.language);
 
   // Sync i18n language with store on mount and when it changes
   useEffect(() => {

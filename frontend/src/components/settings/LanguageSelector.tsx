@@ -5,7 +5,8 @@ import type { Language } from '../../stores/uiStore';
 
 export default function LanguageSelector() {
   const { i18n } = useTranslation();
-  const { language, setLanguage } = useUIStore();
+  const language = useUIStore((s) => s.language);
+  const setLanguage = useUIStore((s) => s.setLanguage);
 
   const handleChange = (lang: Language) => {
     setLanguage(lang);

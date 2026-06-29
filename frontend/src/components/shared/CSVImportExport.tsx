@@ -15,7 +15,7 @@ interface Props {
 
 export default function CSVImportExport({ type, matchId, onImportComplete }: Props) {
   const { t } = useTranslation();
-  const { addToast } = useUIStore();
+  const addToast = useUIStore((s) => s.addToast);
   const [show, setShow] = useState(false);
   const [exporting, setExporting] = useState(false);
 

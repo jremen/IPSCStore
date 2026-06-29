@@ -21,7 +21,7 @@ export interface UseSquaddingResult {
 }
 
 export function useSquadding(matchId: string | null): UseSquaddingResult {
-  const { addToast } = useUIStore();
+  const addToast = useUIStore((s) => s.addToast);
   const [registrations, setRegistrations] = useState<RegistrationWithShooter[]>([]);
   const [squadCount, setSquadCount] = useState(0);
   const [loading, setLoading] = useState(true);

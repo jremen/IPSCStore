@@ -20,9 +20,10 @@ import SquaddingModal from './SquaddingModal';
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function MatchRegistration() {
-  const { activeMatchId, addToast } = useUIStore();
+  const activeMatchId = useUIStore((s) => s.activeMatchId);
+  const addToast = useUIStore((s) => s.addToast);
   const { t } = useTranslation();
-  const { matches } = useMatchStore();
+  const matches = useMatchStore((s) => s.matches);
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [showInlineCreate, setShowInlineCreate] = useState(false);

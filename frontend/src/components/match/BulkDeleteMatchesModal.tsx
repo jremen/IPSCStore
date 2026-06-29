@@ -15,7 +15,7 @@ interface BulkDeleteMatchesModalProps {
 
 export default function BulkDeleteMatchesModal({ show, onClose, matchIds, matchNames, onDeleted }: BulkDeleteMatchesModalProps) {
   const { t } = useTranslation();
-  const { bulkDeleteMatches } = useMatchStore();
+  const bulkDeleteMatches = useMatchStore((s) => s.bulkDeleteMatches);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ deleted: number; failed: Array<{ id: string; name: string; reason: string }> } | null>(null);
 

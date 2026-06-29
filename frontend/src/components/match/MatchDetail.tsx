@@ -6,8 +6,10 @@ import { useUIStore } from '../../stores/uiStore';
 import { formatDate } from '../../utils/constants';
 
 export default function MatchDetail() {
-  const { currentMatch, fetchMatch } = useMatchStore();
-  const { activeMatchId, setActiveMatch } = useUIStore();
+  const currentMatch = useMatchStore((s) => s.currentMatch);
+  const fetchMatch = useMatchStore((s) => s.fetchMatch);
+  const activeMatchId = useUIStore((s) => s.activeMatchId);
+  const setActiveMatch = useUIStore((s) => s.setActiveMatch);
   const { t } = useTranslation();
 
   useEffect(() => {

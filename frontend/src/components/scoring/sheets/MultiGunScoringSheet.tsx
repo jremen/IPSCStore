@@ -1,5 +1,6 @@
 import { Label } from 'flowbite-react';
-import { InputField } from '../../shared/InputField';
+import { useTranslation } from "react-i18next";
+import TimeInput from '../shared/TimeInput';
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useScoreDataUpdater } from '../../../hooks/useScoreDataUpdater';
 import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
@@ -13,7 +14,8 @@ interface Props {
 }
 
 export default function MultiGunScoringSheet({ score }: Props) {
-  const { setScore } = useScoringStore();
+  const { t } = useTranslation();
+  const setScore = useScoringStore((s) => s.setScore);
   const { sd, updateScoreData } = useScoreDataUpdater(score);
   const shooter = useScoringStore(s => s.registrations.find(r => r.id === s.currentRegistrationId));
   const isReadOnly = useScoringReadOnly();
@@ -32,8 +34,8 @@ export default function MultiGunScoringSheet({ score }: Props) {
     setScore({ ...score, targets: newTargets });
   };
 
-  const handleTimeChange = (value: string) => {
-    setScore({ ...score, time: value ? parseFloat(value) : null });
+  const handleTimeChange = (value: number | null) => {
+    setScore({ ...score, time: value });
   };
 
   const handleResetAll = () => {
@@ -57,26 +59,33 @@ export default function MultiGunScoringSheet({ score }: Props) {
     penalty_procedural_sec,
   });
 
+  const penalties = [
+    { key: 'penalty_ftn_sec' as const,        label: t('scoring.ftnFailNeutralize'), sec: 5 },
+    { key: 'penalty_miss_sec' as const,       label: t('scoring.misses'),            sec: 10 },
+    { key: 'penalty_no_shoot_sec' as const,   label: t('scoring.noShootHits'),       sec: 5 },
+    { key: 'penalty_procedural_sec' as const, label: t('scoring.procedurals'),       sec: 5 },
+  ];
+
   return (
     <div className="p-2 sm:p-4 max-w-2xl mx-auto">
       {/* TIME INPUT */}
       <div className="bg-blue-50 dark:bg-gray-800 rounded-lg p-3 mb-3 border-2 border-blue-200 dark:border-blue-800">
-        <Label className="text-sm font-bold mb-1 block">⏱ TIME (seconds)</Label>
-        <InputField type="number" step="0.01" min="0" sizing="lg" decimal value={score.time ?? ''} onChange={handleTimeChange} className="text-center text-2xl font-mono" disabled={isReadOnly} />
+        <Label className="text-sm font-bold mb-1 block">⏱ {t('scoring.time')}</Label>
+        <TimeInput regular value={score.time} onChange={handleTimeChange} className="text-2xl font-mono py-4!" disabled={isReadOnly} />
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-3 shadow-sm">
         <ScoringSheetHeader
-          title="🎯 Multi-Gun Scoring"
-          subtitle={`${score.targets.length} targets`}
+          title={`🎯 ${t('scoring.multiGunTitle')}`}
+          subtitle={`${score.targets.length} ${t('scoring.targets')}`}
           onReset={isReadOnly ? undefined : handleResetAll}
         />
 
         {score.targets.filter(t => t.target_type === 'paper').length > 0 && (
           <div className="p-3 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">🎯 Targets</span>
-              <span className="text-xs text-gray-400">Tap to toggle Neutralized / Miss</span>
+              <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">🎯 {t('scoring.targets')}</span>
+              <span className="text-xs text-gray-400">{t('scoring.tapToToggle')}</span>
             </div>
             <div className="flex flex-wrap gap-2 justify-center">
               {score.targets.filter(t => t.target_type === 'paper').map((target, idx) => {
@@ -102,17 +111,12 @@ export default function MultiGunScoringSheet({ score }: Props) {
         {/* Penalty seconds */}
         <div className="p-3 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide">⚠️ Penalties (seconds added)</span>
+            <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide">⚠️ {t('scoring.penaltiesSecondsAdded')}</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {[
-              { key: 'penalty_ftn_sec' as const, label: 'FTN', sec: 5 },
-              { key: 'penalty_miss_sec' as const, label: 'Miss', sec: 10 },
-              { key: 'penalty_no_shoot_sec' as const, label: 'No-Shoot', sec: 5 },
-              { key: 'penalty_procedural_sec' as const, label: 'Procedural', sec: 5 },
-            ].map(({ key, label, sec }) => (
+            {penalties.map(({ key, label, sec }) => (
               <div key={key}>
-                <Label className="text-xs">{label} <span className="text-gray-400">+{sec}s each</span></Label>
+                <Label className="text-xs">{label} <span className="text-gray-400">{t('scoring.secondsEach', { sec })}</span></Label>
                 <PenaltyStepper
                   value={(sd[key] as number) || 0}
                   onDecrement={() => updateScoreData({ [key]: Math.max(0, ((sd[key] as number) || 0) - 1) })}
@@ -134,11 +138,11 @@ export default function MultiGunScoringSheet({ score }: Props) {
 
       {/* Preview */}
       <div className="bg-green-50 dark:bg-gray-800 rounded-lg p-3 border border-green-200 dark:border-green-800 shadow-sm">
-        <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-2">📊 Multi-Gun Preview</h3>
+        <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-2">📊 {t('scoring.multiGunPreview')}</h3>
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div><div className="text-lg font-bold dark:text-white">{(score.time || 0).toFixed(2)}s</div><div className="text-xs text-gray-500">Raw Time</div></div>
-          <div><div className="text-lg font-bold text-red-600">+{preview.penalty_points.toFixed(1)}s</div><div className="text-xs text-gray-500">Penalties</div></div>
-          <div><div className="text-lg font-bold text-blue-600">{preview.total_time?.toFixed(2) ?? '0.00'}s</div><div className="text-xs text-gray-500">Total Time</div></div>
+          <div><div className="text-lg font-bold dark:text-white">{(score.time || 0).toFixed(2)}s</div><div className="text-xs text-gray-500">{t('scoring.rawTime')}</div></div>
+          <div><div className="text-lg font-bold text-red-600">+{preview.penalty_points.toFixed(1)}s</div><div className="text-xs text-gray-500">{t('scoring.penalties')}</div></div>
+          <div><div className="text-lg font-bold text-blue-600">{preview.total_time?.toFixed(2) ?? '0.00'}s</div><div className="text-xs text-gray-500">{t('scoring.totalTime')}</div></div>
         </div>
       </div>
     </div>

@@ -10,7 +10,7 @@ interface DeleteMatchModalProps {
 }
 
 export default function DeleteMatchModal({ show, onClose, matchId }: DeleteMatchModalProps) {
-  const { deleteMatch } = useMatchStore();
+  const deleteMatch = useMatchStore((s) => s.deleteMatch);
   const { t } = useTranslation();
   useEscClose(onClose);
 

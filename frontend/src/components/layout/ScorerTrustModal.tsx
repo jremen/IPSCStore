@@ -15,7 +15,7 @@ export interface ScorerTrustModalProps {
 
 export default function ScorerTrustModal({ show, onClose }: ScorerTrustModalProps) {
   const { t } = useTranslation();
-  const { adminToken } = useAuthStore();
+  const adminToken = useAuthStore((s) => s.adminToken);
   const { domainUrls } = useLanUrl();
   const [trustToken, setTrustToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

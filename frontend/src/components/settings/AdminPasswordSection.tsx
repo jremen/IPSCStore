@@ -6,7 +6,7 @@ import { api } from '../../services/api';
 
 export default function AdminPasswordSection() {
   const { t } = useTranslation();
-  const { adminToken } = useAuthStore();
+  const adminToken = useAuthStore((s) => s.adminToken);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

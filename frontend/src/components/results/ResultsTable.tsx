@@ -4,6 +4,8 @@ import { divisionLabel } from '../../utils/constants';
 import { ScoringProgressEntry } from "../../types/scoring";
 import { twMerge } from "tailwind-merge";
 
+const PROGRESS_THEME = { base: twMerge(theme.progress.base, "relative overflow-visible!") };
+
 export type ColumnKey = 'position' | 'shooter' | 'division' | 'time' | 'alpha' | 'charlie' | 'delta' | 'miss' | 'noShootHits' | 'procedurals' | 'matchPercent' | 'matchPoints' | 'stagePercent' | 'stagePoints' | 'hitFactor' | 'netPoints';
 
 interface ResultsTableProps {
@@ -112,7 +114,7 @@ export default function ResultsTable({ results, scored, columns, showDqBadge = t
                   </TableCell>
                 ))}
                 {scored && <TableCell>
-                  <Progress theme={{base: twMerge(theme.progress.base,"relative overflow-visible!")}} className="[&_span]:absolute [&_span]:-top-4 [&_span]:text-xs [&_span]:left-1/2 [&_span]:-translate-x-1/2" progress={progress} textLabel={progressText} labelText />
+                  <Progress theme={PROGRESS_THEME} className="[&_span]:absolute [&_span]:-top-4 [&_span]:text-xs [&_span]:left-1/2 [&_span]:-translate-x-1/2" progress={progress} textLabel={progressText} labelText />
                 </TableCell>}
               </TableRow>
             })}

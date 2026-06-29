@@ -4,6 +4,7 @@ import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
 import { calculateRingPreview } from '../../../utils/scoring';
 import { ringValueLabel } from '../../../utils/constants';
 import { ScoringSheetHeader, DnfToggle, DqSection } from '../shared';
+import { useTranslation } from "react-i18next";
 import type { Stage } from '../../../types/stage';
 import type { ScoreInput } from '../../../types/scoring';
 
@@ -13,7 +14,8 @@ interface Props {
 }
 
 export default function RingScoringSheet({ stage, score }: Props) {
-  const { setScore } = useScoringStore();
+  const { t } = useTranslation();
+  const setScore = useScoringStore((s) => s.setScore);
   const { sd, updateScoreData } = useScoreDataUpdater(score);
   const shooter = useScoringStore(s => s.registrations.find(r => r.id === s.currentRegistrationId));
   const isReadOnly = useScoringReadOnly();
@@ -28,7 +30,7 @@ export default function RingScoringSheet({ stage, score }: Props) {
   if (scoringType === 'archery') {
     ringValues = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
     shotsCount = (config.arrows_per_end as number) || 6;
-    label = 'Arrow';
+    label = t('scoring.archery');
   } else if (scoringType === 'long_range' && config.variant === 'f_class') {
     ringValues = [11, 10, 9, 8, 7, 6, 5];
     shotsCount = (config.shots_per_string as number) || 20;
@@ -77,22 +79,23 @@ export default function RingScoringSheet({ stage, score }: Props) {
   const preview = calculateRingPreview(currentRings);
   const totalShots = currentRings.filter(v => v > 0).length;
 
-  const typeLabel = scoringType === 'archery' ? 'Archery' : scoringType === 'bullseye' ? 'Bullseye' : 'F-Class';
+  const typeLabelKey = scoringType === 'archery' ? 'scoring.archery' : scoringType === 'bullseye' ? 'scoring.bullseye' : 'scoring.fclass';
+  const typeLabel = t(typeLabelKey);
   const typeIcon = scoringType === 'archery' ? '🏹' : scoringType === 'bullseye' ? '🎯' : '🔭';
 
   return (
     <div className="p-2 sm:p-4 max-w-xl mx-auto">
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-3 shadow-sm">
         <ScoringSheetHeader
-          title={`${typeIcon} ${typeLabel} Scoring`}
-          subtitle={`${shotsCount} ${label.toLowerCase()}s • Tap to cycle values`}
+          title={`${typeIcon} ${typeLabel}`}
+          subtitle={`${shotsCount} ${label.toLowerCase()}s • ${t('scoring.tapToCycle')}`}
           onReset={isReadOnly ? undefined : handleResetAll}
         />
 
         <div className="p-3">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-bold text-blue-600 uppercase tracking-wide">
-              {label}s ({totalShots}/{shotsCount} entered)
+              {t('scoring.ringShotsEntered', { label, entered: totalShots, total: shotsCount })}
             </span>
           </div>
           <div className="grid grid-cols-5 gap-2">
@@ -124,13 +127,13 @@ export default function RingScoringSheet({ stage, score }: Props) {
       </div>
 
       <div className="bg-green-50 dark:bg-gray-800 rounded-lg p-3 border border-green-200 dark:border-green-800 shadow-sm">
-        <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-2">📊 Score Preview</h3>
+        <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-2">📊 {t('scoring.scorePreview')}</h3>
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div><div className="text-2xl font-bold dark:text-white">{preview.raw_points}</div><div className="text-xs text-gray-500">Total Score</div></div>
+          <div><div className="text-2xl font-bold dark:text-white">{preview.raw_points}</div><div className="text-xs text-gray-500">{t('scoring.totalScore')}</div></div>
           {preview.x_count !== undefined && preview.x_count > 0 && (
-            <div><div className="text-2xl font-bold text-yellow-600">{preview.x_count}</div><div className="text-xs text-gray-500">X-Count</div></div>
+            <div><div className="text-2xl font-bold text-yellow-600">{preview.x_count}</div><div className="text-xs text-gray-500">{t('scoring.xCount')}</div></div>
           )}
-          <div><div className="text-2xl font-bold text-green-600">{totalShots}/{shotsCount}</div><div className="text-xs text-gray-500">{label}s Entered</div></div>
+          <div><div className="text-2xl font-bold text-green-600">{totalShots}/{shotsCount}</div><div className="text-xs text-gray-500">{t('scoring.shotsEntered', { label })}</div></div>
         </div>
       </div>
     </div>

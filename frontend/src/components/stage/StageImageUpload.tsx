@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function StageImageUpload({ stageId }: Props) {
-  const { uploadImage } = useStageStore();
+  const uploadImage = useStageStore((s) => s.uploadImage);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {

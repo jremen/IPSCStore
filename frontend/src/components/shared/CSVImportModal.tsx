@@ -51,7 +51,7 @@ const COLUMN_DEFINITIONS: Record<string, { key: string; labelKey: string; requir
 };
 
 export default function CSVImportModal({ show, onClose, type, matchId, onImportComplete }: Props) {
-  const { addToast } = useUIStore();
+  const addToast = useUIStore((s) => s.addToast);
   const { t } = useTranslation();
   const [result, setResult] = useState<CSVImportResult | null>(null);
   const [importing, setImporting] = useState(false);

@@ -313,6 +313,7 @@
     "squad": "Squad",
     "squadPlaceholder": "Číslo squadu",
     "squadOptional": "Squad (voliteľné)",
+    "squadGroup": "Potiahnutím na iného strelca vytvoríte neoddeliteľnú skupinu (ak strelci chcú byť spolu v squade)",
     "search": "Hľadať strelcov...",
     "searchEmpty": "Žiadni strelci nenájdení. Vytvorte nového.",
     "addTitle": "Pridať strelca do súťaže",

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../stores/uiStore';
+import { useMatchStore } from '../stores/matchStore';
 import { useScoringStore } from '../stores/scoringStore';
 import { useStageStore } from '../stores/stageStore';
 import { useAuthStore } from '../stores/authStore';
@@ -38,7 +39,8 @@ export function useScoringNav() {
   const prevMatchIdRef = useRef<string | null>(null);
 
   // For remote scorers: fall back to authenticatedMatchId when activeMatchId isn't set yet
-  const effectiveMatchId = activeMatchId || useAuthStore.getState().authenticatedMatchId;
+  const runningMatchId = useMatchStore((s) => s.runningMatch?.id);
+  const effectiveMatchId = activeMatchId || useAuthStore.getState().authenticatedMatchId || runningMatchId;
 
   // Remote scorers see summary before saving; admins save directly
   const requiresSummary = !isAdmin;

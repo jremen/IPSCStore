@@ -301,6 +301,7 @@
     "squad": "Squad",
     "squadPlaceholder": "Squad number",
     "squadOptional": "Squad (optional)",
+    "squadGroup": "Dragging over the other shooter will create a group of shooters (if they want to be in squad together)",
     "search": "Search shooters...",
     "searchEmpty": "No shooters found. Create a new one instead.",
     "addTitle": "Add Shooter to Match",

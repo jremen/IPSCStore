@@ -38,19 +38,19 @@ export default function ScoringNav() {
     if (canConfirm) handleConfirm();
   });
 
-  if (!activeMatchId) {
-    return (
-      <p className="p-4 text-gray-500 text-center">
-        {t('offline.noCachedData')}
-      </p>
-    );
-  }
-
   const shooterDetails = useMemo(() => currentShooter ? {
     division: currentShooter.effective_division,
     category: currentShooter.effective_category,
     powerFactor: currentShooter.effective_power_factor,
   } : null, [currentShooter?.effective_division, currentShooter?.effective_category, currentShooter?.effective_power_factor]);
+
+  if (!activeMatchId) {
+    return (
+      <p className="p-4 text-gray-500 text-center">
+        {t('scoring.noMatch')}
+      </p>
+    );
+  }
 
   // Summary view for remote scorers
   if (showSummary && currentStage && currentScore && currentShooter) {

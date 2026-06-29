@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, Button, Checkbox, Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell } from 'flowbite-react';
+import { Badge, Button, Checkbox, Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell, Tooltip } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from '@dnd-kit/core';
 import { useConstLabels } from '../../hooks/useConstLabels';
@@ -21,20 +21,23 @@ interface RegistrationTableProps {
 }
 
 function GripHandle({ registration }: { registration: RegistrationWithShooter }) {
+  const {t} = useTranslation();
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `reg-drag-${registration.id}`,
     data: { registration },
   });
 
   return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      className="flex ml-auto items-center justify-center cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-300"
-    >
-      <TbGripVertical className="size-5" />
-    </div>
+    <Tooltip content={t('registration.squadGroup')}>
+      <div
+        ref={setNodeRef}
+        {...listeners}
+        {...attributes}
+        className="flex ml-auto items-center justify-center cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-300"
+      >
+        <TbGripVertical className="size-5" />
+      </div>
+    </Tooltip>
   );
 }
 

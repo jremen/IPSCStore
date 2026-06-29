@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useLanUrl } from '../../hooks/useLanUrl';
 import { useQRCode } from '../../hooks/useQRCode';
 import { generateSingleQrPdf } from '../../utils/qrPdf';
+import { triggerPrint } from '../../utils/print';
 import { useEscClose } from '../../hooks/useEscClose';
 import { BsPrinter, BsFilePdf, BsCopy, BsCheckCircle } from 'react-icons/bs';
 
@@ -50,7 +51,7 @@ export default function QRCodeModal({ show, onClose, mode }: QRCodeModalProps) {
   }, [url]);
 
   const handlePrint = useCallback(() => {
-    window.print();
+    triggerPrint();
   }, []);
 
   const handlePdf = useCallback(async () => {

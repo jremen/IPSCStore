@@ -46,7 +46,7 @@ export default function StagePickerModal({ show, onClose }: StagePickerModalProp
                     : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
                   }`}
               >
-                <span className="font-medium text-sm">
+                <span className="font-medium">
                   {t('scoring.stage', { number: stage.stage_number })}: {stage.name}
                 </span>
                 {scored && (

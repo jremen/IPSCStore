@@ -460,7 +460,19 @@
     "summary": "Score Summary",
     "totalPenalties": "Penalties",
     "approve": "Approve",
-    "backToScoring": "Back to scoring"
+    "backToScoring": "Back to scoring",
+    "liveSummary": "Live Summary",
+    "printLiveSummary": "Print Scored Summary",
+    "saveLiveSummaryPdf": "Save as PDF",
+    "noUnprinted": "No new results to print",
+    "printedSuccess": "Summary sent to printer",
+    "pdfGenerated": "PDF generated",
+    "printedSoFar": "Printed: {{printed}} of {{total}}",
+    "resetPrinted": "Reset printed",
+    "resetPrintedConfirm": "Clear the printed list and start a new summary sheet?",
+    "printedReset": "Printed list reset",
+    "unprintedPrompt_one": "{{count}} new scored result — print summary?",
+    "unprintedPrompt_other": "{{count}} new scored results — print summary?"
   },
   "results": {
     "title": "Results",

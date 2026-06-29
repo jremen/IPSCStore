@@ -1,9 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Badge } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
-import { useConstLabels } from '../../hooks/useConstLabels';
-import { divisionLabel } from '../../utils/constants';
 import { groupColor } from '../../utils/groupColors';
 import type { RegistrationWithShooter } from '../../types/scoring';
 
@@ -15,7 +12,6 @@ interface ShooterCardProps {
 
 export default function ShooterCard({ registration, isDragging, onRemoveFromGroup }: ShooterCardProps) {
   const { t } = useTranslation();
-  const { categoryLabel } = useConstLabels();
 
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: `shooter-${registration.shooter_id}`,

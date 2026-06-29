@@ -1,8 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Button, Modal, ModalHeader, ModalBody, TextInput, Badge, ModalFooter } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
-import { useConstLabels } from '../../hooks/useConstLabels';
-import { divisionLabel } from '../../utils/constants';
 import { useEscClose } from '../../hooks/useEscClose';
 import type { RegistrationWithShooter } from '../../types/scoring';
 
@@ -16,7 +14,6 @@ interface AddShooterToSquadModalProps {
 
 export default function AddShooterToSquadModal({ show, onClose, targetSquad, registrations, onAdd }: AddShooterToSquadModalProps) {
   const { t } = useTranslation();
-  const { categoryLabel, powerFactorLabel } = useConstLabels();
   const [query, setQuery] = useState('');
 
   // Filter: all shooters NOT already in this squad

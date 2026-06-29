@@ -19,6 +19,7 @@ export const TAB_ACTIONS: Record<string, string> = {
   'prev-shooter': 'scoring',
   'next-shooter': 'scoring',
   'confirm-score': 'scoring',
+  'print-live-summary': 'scoring',
   'print-results': 'results',
   'export-results-pdf': 'results',
   'export-results-csv': 'results',

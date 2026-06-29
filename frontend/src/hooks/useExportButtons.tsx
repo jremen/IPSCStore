@@ -6,6 +6,7 @@ import { useResultsStore } from "../stores/resultsStore";
 import { categoryLabel, divisionLabel } from "../utils/constants";
 import { useTranslation } from "react-i18next";
 import { loadPdfFonts, setBoldFont, setRegularFont } from "../utils/pdfFont";
+import { triggerPrint } from "../utils/print";
 
 
 type ResultTab = 'byDivision' | 'overall' | 'byStage' | 'byCategory' | 'byTag';
@@ -66,7 +67,7 @@ const useExportButtons = (activeTab: ResultTab) => {
     const baseName = (activeMatch?.name || 'Match').replace(/[^a-zA-Z0-9]/g, '_');
     const tabSuffix = TAB_SUFFIX[activeTab];
 
-  const handlePrint = useCallback(() => { window.print(); }, []);
+  const handlePrint = useCallback(() => { triggerPrint(); }, []);
 
   const showSaveDialog = useCallback(async (blob: Blob, defaultName: string, extension: string, types: { description: string; accept: Record<string, string[]> }[], successKey: string) => {
     const nativeOk = await nativeSaveAs(blob, defaultName, types);

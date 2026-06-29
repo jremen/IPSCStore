@@ -4,7 +4,6 @@ import { Modal, ModalHeader, ModalBody, TextInput, ModalFooter, Button, theme } 
 import { useTranslation } from 'react-i18next';
 import { useEscClose } from '../../hooks/useEscClose';
 import { useSquadding } from '../../hooks/useSquadding';
-import { useConstLabels } from '../../hooks/useConstLabels';
 import { api } from '../../services/api';
 import SquadColumn from './SquadColumn';
 import ShooterCard from './ShooterCard';
@@ -12,7 +11,6 @@ import AddShooterToSquadModal from './AddShooterToSquadModal';
 import type { RegistrationWithShooter } from '../../types/scoring';
 import { twMerge } from "tailwind-merge";
 import { seedGroupColors } from '../../utils/groupColors';
-import { divisionLabel } from '../../utils/constants';
 import { generateSquaddingPdf } from '../../utils/squaddingPdf';
 
 interface SquaddingModalProps {
@@ -24,7 +22,6 @@ interface SquaddingModalProps {
 
 export default function SquaddingModal({ show, onClose, matchId, onUpdated }: SquaddingModalProps) {
   const { t } = useTranslation();
-  const { categoryLabel, powerFactorLabel } = useConstLabels();
   const {
     registrations,
     columns,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
@@ -7,7 +7,6 @@ import { useShooterStore } from '../../stores/shooterStore';
 import { api } from '../../services/api';
 import ShooterFormFields, { type ShooterFormData } from '../shared/ShooterFormFields';
 import { getDivisionsForMatch } from '../../utils/constants';
-import type { Category, Division, PowerFactor } from '../../types/shooter';
 import { useEscClose } from '../../hooks/useEscClose';
 
 interface CreateShooterModalProps {

@@ -472,7 +472,20 @@
     "summary": "Súhrn skóre",
     "totalPenalties": "Pokuty",
     "approve": "Schváliť",
-    "backToScoring": "Späť na bodovanie"
+    "backToScoring": "Späť na bodovanie",
+    "liveSummary": "Živý súhrn",
+    "printLiveSummary": "Vytlačiť súhrn výsledkov",
+    "saveLiveSummaryPdf": "Uložiť ako PDF",
+    "noUnprinted": "Žiadne nové výsledky na tlač",
+    "printedSuccess": "Súhrn odoslaný na tlačiareň",
+    "pdfGenerated": "PDF vygenerované",
+    "printedSoFar": "Vytlačené: {{printed}} z {{total}}",
+    "resetPrinted": "Resetovať vytlačené",
+    "resetPrintedConfirm": "Vymazať zoznam vytlačených a začať nový súhrn?",
+    "printedReset": "Zoznam vytlačených resetovaný",
+    "unprintedPrompt_one": "{{count}} nový výsledok — vytlačiť súhrn?",
+    "unprintedPrompt_few": "{{count}} nové výsledky — vytlačiť súhrn?",
+    "unprintedPrompt_many": "{{count}} nových výsledkov — vytlačiť súhrn?"
   },
   "results": {
     "title": "Výsledky",

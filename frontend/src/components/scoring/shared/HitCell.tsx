@@ -8,6 +8,8 @@ interface HitCellProps {
   disabled?: boolean;
 }
 
+const SCROLL_THRESHOLD_PX = 8;
+
 const colorMap: Record<string, { bg: string; ring: string; text: string; activeBg: string }> = {
   green:  { bg: 'bg-green-50 dark:bg-green-900/30',   ring: 'ring-green-400',    text: 'text-green-700 dark:text-green-300', activeBg: 'active:bg-green-200 dark:active:bg-green-800' },
   yellow: { bg: 'bg-yellow-50 dark:bg-yellow-900/30',  ring: 'ring-yellow-400',   text: 'text-yellow-700 dark:text-yellow-300', activeBg: 'active:bg-yellow-200 dark:active:bg-yellow-800' },
@@ -20,33 +22,56 @@ const colorMap: Record<string, { bg: string; ring: string; text: string; activeB
 export default function HitCell({ value, color, onIncrement, onDecrement, disabled }: HitCellProps) {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const isScrolling = useRef(false);
 
   const c = colorMap[color] || colorMap.gray;
   const hasValue = value > 0;
 
-  const handlePointerDown = () => {
+  const cancelTimer = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
     longPressTriggered.current = false;
+    isScrolling.current = false;
+    pointerStart.current = { x: e.clientX, y: e.clientY };
     longPressTimer.current = setTimeout(() => {
       longPressTriggered.current = true;
       onDecrement();
     }, 500);
   };
 
-  const handlePointerUp = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!pointerStart.current || isScrolling.current) return;
+    const dx = e.clientX - pointerStart.current.x;
+    const dy = e.clientY - pointerStart.current.y;
+    if (Math.abs(dx) > SCROLL_THRESHOLD_PX || Math.abs(dy) > SCROLL_THRESHOLD_PX) {
+      isScrolling.current = true;
+      cancelTimer();
     }
-    if (!longPressTriggered.current) {
+  };
+
+  const handlePointerUp = () => {
+    cancelTimer();
+    pointerStart.current = null;
+    if (!longPressTriggered.current && !isScrolling.current) {
       onIncrement();
     }
   };
 
   const handlePointerLeave = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
+    cancelTimer();
+    pointerStart.current = null;
+  };
+
+  const handlePointerCancel = () => {
+    cancelTimer();
+    pointerStart.current = null;
+    isScrolling.current = true;
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -64,8 +89,10 @@ export default function HitCell({ value, color, onIncrement, onDecrement, disabl
         ${hasValue ? `ring-2 ${c.ring}` : 'ring-1 ring-gray-200 dark:ring-gray-600'}
       `}
       onPointerDown={disabled ? undefined : handlePointerDown}
+      onPointerMove={disabled ? undefined : handlePointerMove}
       onPointerUp={disabled ? undefined : handlePointerUp}
       onPointerLeave={disabled ? undefined : handlePointerLeave}
+      onPointerCancel={disabled ? undefined : handlePointerCancel}
       onContextMenu={disabled ? undefined : handleContextMenu}
       disabled={disabled}
     >

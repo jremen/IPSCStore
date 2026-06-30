@@ -7,25 +7,39 @@
     <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png"/>
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#1e293b"/>
-    <meta name="msapplication-TileColor" content="#1e293b"/>
+    <meta name="theme-color" content="#ffffff"/>
+    <meta name="msapplication-TileColor" content="#ffffff"/>
     <meta name="msapplication-TileImage" content="/icons/mstile-150x150.png"/>
     <meta name="msapplication-config" content="/icons/browserconfig.xml"/>
     <title>IPSCScore</title>
     
     <script>
       try {
-        var LS_KEY = "flowbite-theme-mode";
-        var saved = localStorage.getItem(LS_KEY);
-        var valid = saved === "light" || saved === "dark" || saved === "auto";
+        var LS_KEY = "ipscscore-theme-mode";
+        var OLD_LS_KEY = "flowbite-theme-mode";
+        var saved = localStorage.getItem(LS_KEY) || localStorage.getItem(OLD_LS_KEY);
+        var valid = saved === "light" || saved === "dark" || saved === "eink" || saved === "auto";
         var resolved = valid ? saved : "auto";
-        var dark =
-          resolved === "dark" ||
-          (resolved === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-        document.documentElement.classList.toggle("dark", dark);
-        if (!valid) localStorage.setItem(LS_KEY, "auto");
+
+        // Migrate from old key
+        if (localStorage.getItem(OLD_LS_KEY) && !localStorage.getItem(LS_KEY)) {
+          localStorage.setItem(LS_KEY, resolved);
+          localStorage.removeItem(OLD_LS_KEY);
+        }
+
+        if (resolved === "dark") {
+          document.documentElement.classList.add("dark");
+        } else if (resolved === "eink") {
+          document.documentElement.classList.add("eink");
+        } else if (resolved === "auto") {
+          var dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          document.documentElement.classList.toggle("dark", dark);
+        }
+        // light mode has no class
+
         window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function (e) {
           if (localStorage.getItem(LS_KEY) === "auto") {
+            document.documentElement.classList.remove("dark", "eink");
             document.documentElement.classList.toggle("dark", e.matches);
           }
         });

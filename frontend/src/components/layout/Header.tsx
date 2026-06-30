@@ -10,7 +10,7 @@ import LanguageSelector from '../settings/LanguageSelector';
 import LanUrlBadge from './LanUrlBadge';
 import OfflineIndicator from './OfflineIndicator';
 import SettingsModal from '../settings/SettingsModal';
-import { ThemeToggle } from "../settings/ThemeToggle";
+import { ThemeSelector } from "../settings/ThemeSelector";
 import StageDetailsView from '../scoring/StageDetailsView';
 import StagePickerModal from '../scoring/StagePickerModal';
 import { TbSettings, TbClipboardText } from "react-icons/tb";
@@ -56,7 +56,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="bg-gray-900 text-white max-w-screen px-4 py-3 no-print">
+      <header className="relative z-999 bg-gray-900 text-white max-w-screen px-4 py-3 no-print">
         <div className="flex items-center mb-2">
           <div className="flex items-center gap-3 mr-auto">
             <h1 className="text-lg font-bold tracking-wider">{t('header.title')}</h1>
@@ -84,7 +84,7 @@ export default function Header() {
                 <TbSettings className="size-5" />
               </button>
             )}
-            <ThemeToggle />
+            <ThemeSelector />
           </div>
         </div>
         {!isAdmin ? (
@@ -92,7 +92,7 @@ export default function Header() {
             <Button
               onClick={() => setShowPicker(true)}
               color="purple"
-              className="flex-1 min-h-11"
+              className="flex-1 min-h-11 eink:bg-black! eink:text-white! eink:ring-2! eink:ring-black!"
             >
               {currentStage
                 ? `${t('scoring.stage', { number: currentStage.stage_number })}: ${currentStage.name}`

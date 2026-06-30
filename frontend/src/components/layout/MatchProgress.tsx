@@ -41,7 +41,7 @@ const {scoredLength, stagesLength, registrationsLength, fetchRegistrations, fetc
   return (
     <div className="ml-auto mr-4">
       <Progress
-        className="flex-1 w-48"
+        className="flex-1 w-48 eink:border eink:border-black! eink:text-white!"
         color="blue"
         size="lg"
         progress={progressValue}

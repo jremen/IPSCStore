@@ -70,6 +70,9 @@ export const customTheme: DeepPartial<FlowbiteTheme> = createTheme({
         "1600": "max-w-1600",
         "8xl": "max-w-8xl",
       },
+      show: {
+        on: twMerge(theme.modal.root.show.on, "eink:bg-black/50!")
+      }
     },
     content: {
       base: twMerge(theme.modal.content.base, "flex flex-col justify-center"),
@@ -91,7 +94,7 @@ export const customTheme: DeepPartial<FlowbiteTheme> = createTheme({
   },
   progress: {
     color: {
-      blue: "bg-blue-600",
+      blue: "bg-blue-600 eink:bg-black! eink:text-white! eink:[&_span]:bg-black! eink:[&_span]:text-white!",
       dark: "bg-gray-900 dark:bg-white",
       info: "bg-blue-600 dark:bg-blue-600",
       gray: "bg-gray-800 dark:bg-gray-700",

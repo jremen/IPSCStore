@@ -75,7 +75,7 @@ export default function ScoringNav() {
             key={stage.id}
             onClick={() => handleStageChange(stage.id)}
             className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors min-h-11 flex items-center
-              ${activeStageId === stage.id ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400' : 'cursor-pointer border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-500'}`}
+              ${activeStageId === stage.id ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400 eink:bg-black! eink:text-white!' : 'cursor-pointer border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-500'}`}
           >
             {t('scoring.stage', { number: stage.stage_number })}
             {registrations.length > 0 && scoringProgress && scoringProgress.scored.filter(e => e.stage_id === stage.id).length === registrations.length && <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-2.5 leading-none shrink-0">✓</span>}
@@ -92,15 +92,15 @@ export default function ScoringNav() {
             <button
               onClick={() => setShowShooterList(true)}
               disabled={!registrations.length}
-              className="flex-1 mx-1 sm:mx-2 px-3 py-1 text-lg rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white text-center hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-h-11 truncate"
+              className="flex-1 mx-1 sm:mx-2 px-3 py-1 text-lg rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white text-center hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-h-11 truncate eink:bg-black! eink:text-white! eink:border-black!"
             >
               {currentShooter ? (
-                <span className="truncate">
+                <span className="truncate eink:bg-black! eink:text-white!">
                   {currentShooter.first_name} {currentShooter.last_name}
-                  <span className="ml-1 hidden sm:inline">({divisionLabel(currentShooter.effective_division)})</span>
+                  <span className="ml-1 hidden sm:inline eink:bg-black! eink:text-white!">({divisionLabel(currentShooter.effective_division)})</span>
                 </span>
               ) : (
-                <span className="">{t('scoring.selectShooter')}</span>
+                <span className="eink:bg-black! eink:text-white!">{t('scoring.selectShooter')}</span>
               )}
             </button>
             <button onClick={nextShooter} disabled={!registrations.length} className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 dark:text-white rounded-lg disabled:opacity-30 min-h-11 min-w-11 flex items-center justify-center"><TbChevronRight className="size-6" /></button>
@@ -138,7 +138,7 @@ export default function ScoringNav() {
       {activeStageId && currentRegistrationId && (
       <div className="fixed bottom-0 z-100  w-full bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-3 flex justify-between items-center no-print scoring-nav-pinned">
           <Button color="gray" onClick={() => prevShooter()} className="min-h-11"><TbChevronLeft className="size-6 mr-1" />{t('common.prev')}</Button>
-          <Button color="blue" onClick={handleConfirm} disabled={!canConfirm} className="min-h-11">
+          <Button color="blue" onClick={handleConfirm} disabled={!canConfirm} className="min-h-11 eink:bg-black! eink:text-white! eink:ring-2! eink:ring-black!">
             {t('common.confirm')}
           </Button>
           <Button color="gray" onClick={() => nextShooter()} className="min-h-11">{t('common.next')}<TbChevronRight className="size-6 ml-1" /></Button>

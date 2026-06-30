@@ -229,6 +229,7 @@ export default function TimeInput({ regular, value, onChange, disabled, classNam
         rounded-lg border border-gray-700 bg-gray-700 text-white
         focus:border-blue-500 focus:ring-blue-500 focus:outline-none focus:ring-2
         dark:focus:border-blue-500 dark:focus:ring-blue-500
+        eink:bg-black! eink:text-white! eink:border-black!
         disabled:cursor-not-allowed disabled:opacity-50
         ${className ?? ''}
         ${!regular && 'border-purple-300 dark:border-purple-600 dark:bg-purple-500 text-4xl w-full'}

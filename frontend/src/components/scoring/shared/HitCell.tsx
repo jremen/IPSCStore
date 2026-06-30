@@ -86,7 +86,8 @@ export default function HitCell({ value, color, onIncrement, onDecrement, disabl
         transition-all select-none touch-manipulation
         ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
         ${c.bg} ${c.text} ${disabled ? '' : c.activeBg}
-        ${hasValue ? `ring-2 ${c.ring}` : 'ring-1 ring-gray-200 dark:ring-gray-600'}
+        ${hasValue ? `ring-2 ${c.ring} eink:ring-black!` : 'ring-1 ring-gray-200 dark:ring-gray-600'}
+        ${hasValue ? 'eink:bg-black! eink:text-white!' : ''}
       `}
       onPointerDown={disabled ? undefined : handlePointerDown}
       onPointerMove={disabled ? undefined : handlePointerMove}

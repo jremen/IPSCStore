@@ -58,7 +58,7 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
           value={score.time}
           onChange={handleTimeChange}
           disabled={isReadOnly || stage.scoring_type === 'fixed_time'}
-          className="py-1! eink:bg-white! eink:text-black! eink:border-black!"
+          className="py-1!"
         />
         {stage.scoring_type === 'fixed_time' && stage.par_time && (
           <p className="text-xs text-gray-500 dark:text-gray-300 mt-1 text-center">{i18n.t('scoring.parTime')} {stage.par_time}s</p>

@@ -158,7 +158,7 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
           subtitle={t('scoring.idpaSubtitle', { paper: stage.paper_targets, hpp, steel: stage.steel_targets })}
           onReset={isReadOnly ? undefined : handleResetAll}
         />
-        <p className="text-[10px] text-gray-400 px-3 -mt-1 mb-1">{t('scoring.tapCellInstruction')}</p>
+        <p className="text-2.5 text-gray-400 px-3 -mt-1 mb-1">{t('scoring.tapCellInstruction')}</p>
 
         {/* PAPER TARGETS — IDPA labels: -0, -1, -3 */}
         {paperTargets.length > 0 && (

@@ -75,7 +75,7 @@ export default function HitCountScoringSheet({ stage, score }: Props) {
                   disabled={isReadOnly}
                 >
                   <span className="text-lg">{isHit ? '✓' : '✗'}</span>
-                  <span className="text-[10px]">T{idx + 1}</span>
+                  <span className="text-2.5">T{idx + 1}</span>
                 </button>
               );
             })}

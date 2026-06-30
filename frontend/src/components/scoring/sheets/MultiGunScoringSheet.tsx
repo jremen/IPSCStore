@@ -100,7 +100,7 @@ export default function MultiGunScoringSheet({ score }: Props) {
                     disabled={isReadOnly}
                   >
                     <span className="text-lg">{neutralized ? '✓' : '✗'}</span>
-                    <span className="text-[10px]">T{idx + 1}</span>
+                    <span className="text-2.5">T{idx + 1}</span>
                   </button>
                 );
               })}

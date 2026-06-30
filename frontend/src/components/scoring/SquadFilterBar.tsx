@@ -63,7 +63,7 @@ export default function SquadFilterBar() {
             className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap min-h-8 transition-colors shrink-0 ${colorClass}`}
           >
             {t('scoring.squadN', { number: squad })}
-            <span className="ml-1 text-[10px] opacity-75">({count})</span>
+            <span className="ml-1 text-2.5 opacity-75">({count})</span>
           </button>
         );
       })}

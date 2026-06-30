@@ -118,7 +118,7 @@ export default function RingScoringSheet({ stage, score }: Props) {
                 disabled={isReadOnly}
               >
                 <span className="text-lg">{val === 0 ? '—' : ringValueLabel(val)}</span>
-                <span className="text-[10px] text-gray-400">#{idx + 1}</span>
+                <span className="text-2.5 text-gray-400">#{idx + 1}</span>
               </button>
             ))}
           </div>

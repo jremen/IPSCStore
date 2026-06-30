@@ -200,7 +200,7 @@ export default function MatchRegistration() {
 
       {registrations.length > 0 && (
         <div className="flex flex-wrap items-end gap-3 mb-3">
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-50">
             <Label htmlFor="reg-search">{t('common.name')}</Label>
             <TextInput
               id="reg-search"
@@ -222,7 +222,7 @@ export default function MatchRegistration() {
               ))}
             </Select>
           </div>
-          <div className="min-w-[180px]">
+          <div className="min-w-45">
             <Label htmlFor="reg-cat">{t('shooters.category')}</Label>
             <Select
               id="reg-cat"

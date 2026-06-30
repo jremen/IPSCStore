@@ -72,7 +72,7 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
           onReset={isReadOnly ? undefined : handleResetAll}
         />
         {isDesktop ? (
-          <p className="text-[10px] text-gray-500 dark:text-gray-300 px-3 my-1">{t('scoring.desktopInstruction')}</p>
+          <p className="text-2.5 text-gray-500 dark:text-gray-300 px-3 my-1">{t('scoring.desktopInstruction')}</p>
         ) : (
           <p className="text-sm text-gray-500 dark:text-gray-300 px-3 my-1">{t('scoring.mobileInstruction')}</p>
         )}

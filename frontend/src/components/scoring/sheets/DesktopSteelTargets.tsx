@@ -91,7 +91,7 @@ export default function DesktopSteelTargets({
                 </button>
               </div>
             </div>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500">{t('scoring.proceduralsDesc')}</span>
+            <span className="text-2.5 text-gray-400 dark:text-gray-500">{t('scoring.proceduralsDesc')}</span>
           </div>
         )}
 
@@ -108,7 +108,7 @@ export default function DesktopSteelTargets({
           <div className="flex items-center gap-2 mb-2">
             <span className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide">NPM</span>
             <Badge size="sm" color="blue">{npmCount}</Badge>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500">{t('scoring.npmBonus')}</span>
+            <span className="text-2.5 text-gray-400 dark:text-gray-500">{t('scoring.npmBonus')}</span>
           </div>
 
           <div className="flex items-center gap-4">

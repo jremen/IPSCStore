@@ -179,7 +179,7 @@ export default function PublicSquadsView() {
         <div className="flex items-center gap-2 text-xs text-purple-200 dark:text-white">
           <span>{t('squads.autoRefresh', { time: lastRefresh.toLocaleTimeString() })}</span>
           {isOffline && (
-            <span className="ml-2 px-1.5 py-0.5 bg-yellow-600 text-white rounded text-[10px] font-medium">
+            <span className="ml-2 px-1.5 py-0.5 bg-yellow-600 text-white rounded text-2.5 font-medium">
               {t('squads.offline')}
             </span>
           )}

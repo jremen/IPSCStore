@@ -5787,31 +5787,6 @@ async function stageAccessMiddleware(c, next) {
   return c.json({ error: "Access denied." }, 403);
 }
 
-// ../backend/src/middleware/scoreLock.ts
-init_client();
-async function scoreLockMiddleware(c, next) {
-  if (c.req.method !== "PUT") {
-    return next();
-  }
-  const role = c.get("authRole");
-  if (role === "admin") {
-    return next();
-  }
-  const stageId = c.req.param("stageId");
-  const registrationId = c.req.param("registrationId");
-  if (!stageId || !registrationId) {
-    return next();
-  }
-  const [existing] = await sql`
-    SELECT id FROM stage_scores
-    WHERE stage_id = ${stageId} AND registration_id = ${registrationId}
-  `;
-  if (existing) {
-    return c.json({ error: "Score already saved. Only admin can modify saved scores." }, 403);
-  }
-  return next();
-}
-
 // ../backend/src/middleware/securityHeaders.ts
 async function securityHeaders(c, next) {
   await next();
@@ -6053,6 +6028,10 @@ function calcStageParams(scoring_type, paper_targets, steel_targets, no_shoot_ta
     }
     case "bullseye": {
       const shots = config?.shots_per_string || 10;
+      return { min_rounds: shots, max_points: shots * 10 };
+    }
+    case "issf": {
+      const shots = config?.shots_per_course || 60;
       return { min_rounds: shots, max_points: shots * 10 };
     }
     case "archery": {
@@ -7612,7 +7591,7 @@ scoringRoutes.put("/matches/:matchId/stages/:stageId/scores/:registrationId", as
       penalty_procedural_sec: sd2.penalty_procedural_sec || 0
     });
     total_time = calcResult.total_time;
-  } else if (scoringType === "bullseye" || scoringType === "archery" || scoringType === "long_range" && stageConfig.variant === "f_class") {
+  } else if (["bullseye", "archery", "issf"].includes(scoringType) || scoringType === "long_range" && stageConfig.variant === "f_class") {
     const sd2 = score_data || {};
     const ringValues = sd2.ring_values || [];
     calcResult = calculateRingScore(ringValues);
@@ -7647,7 +7626,18 @@ scoringRoutes.put("/matches/:matchId/stages/:stageId/scores/:registrationId", as
       par_time: stage.par_time
     });
   }
+  const role = c.get("authRole");
   const scoreResult = await sql.begin(async (sql2) => {
+    const [existing] = await sql2`
+      SELECT id FROM stage_scores
+      WHERE stage_id = ${stageId} AND registration_id = ${registrationId}
+      FOR UPDATE
+    `;
+    if (existing && role !== "admin") {
+      const err = new Error("Score already saved. Only admin can modify saved scores.");
+      err.status = 409;
+      throw err;
+    }
     const [score] = await sql2`
       INSERT INTO stage_scores (match_id, stage_id, registration_id, time,
         extra_shot_count, extra_hit_count, stacking_count, overtime_shot_count,
@@ -7848,7 +7838,7 @@ async function recalculateStage(matchId, stageId) {
         FROM ranked
         WHERE ss.id = ranked.id
       `;
-    } else if (["bullseye", "archery"].includes(scoringType) || scoringType === "long_range" && stageConfig.variant === "f_class") {
+    } else if (["bullseye", "archery", "issf"].includes(scoringType) || scoringType === "long_range" && stageConfig.variant === "f_class") {
       await sql2`
         WITH ranked AS (
           SELECT ss.id,
@@ -19769,7 +19759,6 @@ app.use("/api/matches/:matchId/registrations", authMiddleware);
 app.route("/api", registrationRoutes);
 app.use("/api/matches/:matchId/stages/:stageId/scores/*", authMiddleware);
 app.use("/api/matches/:matchId/stages/:stageId/scores/*", stageAccessMiddleware);
-app.use("/api/matches/:matchId/stages/:stageId/scores/*", scoreLockMiddleware);
 app.use("/api/matches/:matchId/scoring-progress", authMiddleware);
 app.use("/api/matches/:matchId/stages/:stageId/recalculate", authMiddleware);
 app.use("/api/matches/:matchId/stages/:stageId/recalculate", requireAdmin);

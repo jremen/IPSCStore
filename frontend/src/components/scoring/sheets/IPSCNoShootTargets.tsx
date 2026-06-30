@@ -19,7 +19,7 @@ export default function NoShootSection({ noShootHits, onNoShootChange, disabled 
           onClick={disabled ? undefined : () => onNoShootChange(noShootHits - 1)}
           disabled={disabled}
         >−</button>
-        <div className="text-center min-w-[60px]">
+        <div className="text-center min-w-15">
           <span className="text-2xl font-mono font-bold text-red-600 dark:text-red-400">{noShootHits}</span>
           <p className="text-xs text-gray-400">{t('scoring.nsHits')}</p>
         </div>

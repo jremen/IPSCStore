@@ -123,7 +123,7 @@ export default function ShooterListScreen({ show, onClose, onSelect }: ShooterLi
               >
                 <span className="dark:text-white flex items-center gap-1.5 min-w-0">
                   {isScored && (
-                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-[10px] leading-none shrink-0">✓</span>
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-500 text-white text-2.5 leading-none shrink-0">✓</span>
                   )}
                   <span className="truncate">
                     {r.first_name} {r.last_name}

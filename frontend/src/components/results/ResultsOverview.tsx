@@ -346,7 +346,7 @@ export default function ResultsOverview({isPublic}:{isPublic?:true}) {
       </div>
 
       {/* Sticky header + tab bar */}
-      <div className={twMerge("sticky before:bg-gray-200 pb-3 dark:before:bg-gray-900 before:absolute before:h-4 before:-top-4 before:w-full  bg-gray-200 dark:bg-gray-900 z-100", isPublic ? "top-19.5" : "top-4")}>
+      <div className={twMerge("sticky before:bg-gray-200 eink:before:bg-white pb-3 dark:before:bg-gray-900 before:absolute before:h-4 before:-top-4 before:w-full  bg-gray-200 dark:bg-gray-900 z-100", isPublic ? "top-19.5" : "top-4")}>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="text-xl font-bold dark:text-white">{t('results.title')}</h2>
           <ExportButtons activeTab={activeTab} />

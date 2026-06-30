@@ -88,7 +88,7 @@ export default function MatchList() {
 
   return (
     <div className="p-4 mx-auto">
-      <div className="sticky top-4 before:bg-gray-200 pb-4 dark:before:bg-gray-900 before:absolute before:h-4 before:w-full before:-top-4 bg-gray-200 dark:bg-gray-900 z-100">
+      <div className="sticky top-4 before:bg-gray-200 eink:before:bg-white pb-4 dark:before:bg-gray-900 before:absolute before:h-4 before:w-full before:-top-4 bg-gray-200 dark:bg-gray-900 z-100">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h2 className="text-xl font-bold dark:text-white">{t('matches.count', { count: matches.length })}</h2>
           <div className="flex gap-2">

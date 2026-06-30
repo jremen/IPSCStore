@@ -100,14 +100,14 @@ export default function ResultsTable({ results, scored, columns, showDqBadge = t
                     {col === 'shooter' && showDqBadge && r.is_dq ? (
                       <span className="flex items-center gap-1">
                         {onShooterClick ? (
-                          <button onClick={() => onShooterClick(r.registration_id)} className="text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap">
+                          <button onClick={() => onShooterClick(r.registration_id)} className="text-blue-600 eink:border-none! dark:text-blue-400 hover:underline font-medium whitespace-nowrap">
                             {cellValue(col, r)}
                           </button>
                         ) : cellValue(col, r)}
                         <Badge color="failure" className="ml-1">{t('scoring.dq')}</Badge>
                       </span>
                     ) : col === 'shooter' && onShooterClick ? (
-                      <button onClick={() => onShooterClick(r.registration_id)} className="text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap">
+                      <button onClick={() => onShooterClick(r.registration_id)} className="text-blue-600 eink:border-none! dark:text-blue-400 hover:underline font-medium whitespace-nowrap">
                         {cellValue(col, r)}
                       </button>
                     ) : cellValue(col, r)}

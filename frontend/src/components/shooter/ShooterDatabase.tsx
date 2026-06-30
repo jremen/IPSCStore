@@ -90,7 +90,7 @@ export default function ShooterDatabase() {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <div className="sticky top-4 pb-4 before:bg-gray-200 dark:before:bg-gray-900 before:absolute before:h-4 before:w-full before:-top-4 bg-gray-200 dark:bg-gray-900 z-100">
+      <div className="sticky top-4 pb-4 before:bg-gray-200 eink:before:bg-white dark:before:bg-gray-900 before:absolute before:h-4 before:w-full before:-top-4 bg-gray-200 dark:bg-gray-900 z-100">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h2 className="text-xl font-bold dark:text-white">{t('shooters.title')} ({total})</h2>
           <div className="flex gap-2">

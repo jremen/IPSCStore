@@ -44,7 +44,7 @@ export default function StagePickerModal({ show, onClose }: StagePickerModalProp
                 onClick={() => handleSelect(stage.id)}
                 className={`w-full text-left p-3 rounded-lg transition-colors flex items-center justify-between
                   ${isActive
-                    ? 'bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-300 dark:ring-blue-700 text-blue-700 dark:text-blue-300'
+                    ? 'bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-300 dark:ring-blue-700 text-blue-700 dark:text-blue-300 eink:bg-black! eink:text-white! eink:ring-2! eink:ring-black!'
                     : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
                   }`}
               >

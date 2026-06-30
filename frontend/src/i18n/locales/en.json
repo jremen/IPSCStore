@@ -635,7 +635,12 @@
     "title": "Settings",
     "language": "Language",
     "english": "English",
-    "slovak": "Slovenčina"
+    "slovak": "Slovenčina",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeEink": "High Contrast",
+    "themeAriaLabel": "Theme selector"
   },
   "matchDetail": {
     "back": "← Back",

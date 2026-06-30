@@ -52,13 +52,13 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
   return (
     <div className="p-2 sm:p-4 max-w-7xl mx-auto lg:grid grid-cols-2 gap-6">
 
-      <div className="lg:hidden lg:my-3 my-6 max-lg:p-3 max-lg:dark:bg-gray-800 max-lg:rounded-lg max-lg:border max-lg:border-gray-200 max-lg:dark:border-gray-700">
+      <div className="lg:hidden lg:my-3 my-6 max-lg:p-3 max-lg:dark:bg-gray-800 max-lg:rounded-lg max-lg:border max-lg:border-gray-200 max-lg:dark:border-gray-700 max-lg:eink:border-black! max-lg:eink:bg-white!">
         <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
         <TimeInput
           value={score.time}
           onChange={handleTimeChange}
           disabled={isReadOnly || stage.scoring_type === 'fixed_time'}
-          className="py-1!"
+          className="py-1! eink:bg-white! eink:text-black! eink:border-black!"
         />
         {stage.scoring_type === 'fixed_time' && stage.par_time && (
           <p className="text-xs text-gray-500 dark:text-gray-300 mt-1 text-center">{i18n.t('scoring.parTime')} {stage.par_time}s</p>
@@ -198,7 +198,7 @@ export default function IPSCScoringSheet({ stage, score }: Props) {
 
       {/* DNF + DQ toggles */}
       <div className="lg:flex flex-col gap-6 mb-16">
-        <div className="max-lg:hidden lg:my-3 my-6 max-lg:p-3 max-lg:dark:bg-gray-800 max-lg:rounded-lg max-lg:border max-lg:border-gray-200 max-lg:dark:border-gray-700">
+        <div className="max-lg:hidden lg:my-3 my-6 max-lg:p-3 max-lg:dark:bg-gray-800 max-lg:rounded-lg max-lg:border max-lg:border-gray-200 max-lg:dark:border-gray-700 max-lg:eink:border-black! max-lg:eink:bg-white!">
           <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
           <TimeInput
             value={score.time}

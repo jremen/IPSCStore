@@ -21,9 +21,9 @@ export default function PenaltyStepper({
   };
 
   const colorClasses = {
-    orange: { value: 'text-orange-700 dark:text-orange-300', plusBg: 'bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 active:bg-orange-200' },
-    purple: { value: 'text-purple-700 dark:text-purple-300', plusBg: 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 active:bg-purple-200' },
-    red: { value: 'text-red-700 dark:text-red-300', plusBg: 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 active:bg-red-200' },
+    orange: { value: 'text-orange-700 dark:text-orange-300 eink:text-black!', plusBg: 'bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 active:bg-orange-200 eink:bg-white! eink:text-black!! eink:border! eink:border-black!' },
+    purple: { value: 'text-purple-700 dark:text-purple-300 eink:text-black!', plusBg: 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 active:bg-purple-200 eink:bg-white! eink:text-black!! eink:border! eink:border-black!' },
+    red: { value: 'text-red-700 dark:text-red-300 eink:text-black!', plusBg: 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 active:bg-red-200 eink:bg-white! eink:text-black!! eink:border! eink:border-black!' },
   };
 
   const s = sizeClasses[size];
@@ -32,7 +32,7 @@ export default function PenaltyStepper({
   return (
     <div className={`flex items-center ${s.wrapper}`}>
       <button
-        className={`penalty-stepper rounded ${s.button} font-bold bg-gray-200 dark:bg-gray-600 active:bg-gray-300 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`penalty-stepper rounded ${s.button} font-bold bg-gray-200 dark:bg-gray-600 active:bg-gray-300 eink:bg-white! eink:text-black!! eink:border! eink:border-black! ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         onClick={disabled ? undefined : onDecrement}
         disabled={disabled}
       >−</button>

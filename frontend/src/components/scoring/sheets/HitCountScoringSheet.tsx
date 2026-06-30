@@ -69,7 +69,7 @@ export default function HitCountScoringSheet({ stage, score }: Props) {
                 <button
                   key={target.target_index}
                   className={`w-16 h-16 rounded-lg font-bold text-sm flex flex-col items-center justify-center transition-colors cursor-pointer
-                    ${isHit ? 'bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300 ring-2 ring-green-400' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-1 ring-red-300'}
+                    ${isHit ? 'bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300 ring-2 ring-green-400 eink:bg-white! eink:text-black! eink:ring-2! eink:ring-black!' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-1 ring-red-300'}
                     ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                   onClick={() => toggleTargetHit(idx)}
                   disabled={isReadOnly}

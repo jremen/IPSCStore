@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { useThemeMode } from 'flowbite-react';
 import {
   useMenuActions,
   onMenuAction,
@@ -14,14 +13,14 @@ import { useScoringStore } from '../../stores/scoringStore';
 import i18n from '../../i18n';
 
 export default function MenuActionListener() {
-  const { toggleMode } = useThemeMode();
-
   const activeTab = useUIStore((s) => s.activeTab);
   const activeMatchId = useUIStore((s) => s.activeMatchId);
   const activeStageId = useUIStore((s) => s.activeStageId);
   const language = useUIStore((s) => s.language);
   const setLanguage = useUIStore((s) => s.setLanguage);
   const setActiveTab = useUIStore((s) => s.setActiveTab);
+  const themeMode = useUIStore((s) => s.themeMode);
+  const setThemeMode = useUIStore((s) => s.setThemeMode);
 
   const matches = useMatchStore((s) => s.matches);
   const stages = useStageStore((s) => s.stages);
@@ -31,7 +30,8 @@ export default function MenuActionListener() {
   // the correct tab and set a pending action for the component to execute.
   useMenuActions((action, payload) => {
     if (action === 'toggle-theme') {
-      toggleMode();
+      const next = themeMode === 'light' ? 'dark' : themeMode === 'dark' ? 'eink' : 'light';
+      setThemeMode(next);
       return;
     }
 

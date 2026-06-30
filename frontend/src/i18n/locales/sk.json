@@ -651,7 +651,12 @@
     "title": "Nastavenia",
     "language": "Jazyk",
     "english": "English",
-    "slovak": "Slovenčina"
+    "slovak": "Slovenčina",
+    "theme": "Motív",
+    "themeLight": "Svetlý",
+    "themeDark": "Tmavý",
+    "themeEink": "Vysoký kontrast",
+    "themeAriaLabel": "Výber motívu"
   },
   "matchDetail": {
     "back": "← Späť",

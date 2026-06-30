@@ -7,7 +7,7 @@ import { useResultsStore } from '../../stores/resultsStore';
 import { useSSEStore } from '../../stores/sseStore';
 import ResultsOverview from './ResultsOverview';
 import LanguageSelector from '../settings/LanguageSelector';
-import { ThemeToggle } from "../settings/ThemeToggle";
+import { ThemeSelector } from "../settings/ThemeSelector";
 
 const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
 const SSE_FALLBACK_INTERVAL = 300000; // 5 minutes
@@ -122,7 +122,7 @@ export default function PublicResultsView() {
           </div>
           <div className="flex items-center gap-3">
             <LanguageSelector />
-            <ThemeToggle />
+            <ThemeSelector />
           </div>
         </div>
         <div className="text-xs text-blue-200 dark:text-white">

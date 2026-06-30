@@ -3,6 +3,7 @@
 @source "../.flowbite-react/class-list.json";
 
 @custom-variant dark (&:where(.dark, .dark *));
+@custom-variant eink (&:where(.eink, .eink *));
 
 /* Print styles — black & white only */
 @media print {
@@ -59,6 +60,63 @@
   /* Squad print overlay */
   .squad-print-block { page-break-inside: avoid; break-inside: avoid; }
 }
+
+/* High contrast / E-ink theme — wholesale black-on-white override */
+:root.eink {
+  --eink-bg: #ffffff;
+  --eink-fg: #000000;
+  --eink-border: #000000;
+  --eink-muted: #444444;
+  color-scheme: light;
+}
+:root.eink,
+:root.eink * {
+  background-color: var(--eink-bg) !important;
+  color: var(--eink-fg) !important;
+  border-color: var(--eink-border) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  background-image: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+:root.eink a { text-decoration: underline; }
+:root.eink button,
+:root.eink input,
+:root.eink select,
+:root.eink textarea {
+  border: 1px solid var(--eink-border) !important;
+  font-weight: 600 !important;
+}
+:root.eink :is(button, [role="button"]):hover,
+:root.eink :is(button, [role="button"]):focus-visible {
+  outline: 3px solid var(--eink-fg) !important;
+  outline-offset: 2px !important;
+}
+:root.eink :is(.active, [data-active="true"], [aria-current="page"]) {
+  background-color: var(--eink-fg) !important;
+  color: var(--eink-bg) !important;
+}
+:root.eink :is(input, select, textarea):focus-visible {
+  outline: 3px solid var(--eink-fg) !important;
+  outline-offset: 2px !important;
+}
+:root.eink table,
+:root.eink :is(td, th) {
+  border: 1px solid var(--eink-border) !important;
+}
+:root.eink thead th {
+  background: var(--eink-fg) !important;
+  color: var(--eink-bg) !important;
+  font-weight: 700 !important;
+}
+:root.eink img { filter: grayscale(100%) !important; }
+:root.eink .scoring-btn,
+:root.eink .hit-cell,
+:root.eink .penalty-stepper {
+  border: 1px solid var(--eink-border) !important;
+}
+:root.eink select { background: var(--eink-bg) !important; }
 
 /* Scoring sheet — mobile-first touch targets (44px minimum) */
 .scoring-btn {

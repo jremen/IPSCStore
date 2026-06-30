@@ -118,7 +118,7 @@ export default function ShooterListScreen({ show, onClose, onSelect }: ShooterLi
                 key={r.id}
                 onClick={() => handleSelect(r.id)}
                 className={`w-full text-left px-3 py-2.5 text-lg flex items-center justify-between border-b border-gray-100 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors min-h-11 ${
-                  isCurrent ? 'bg-blue-50 dark:bg-blue-900/30' : ''
+                  isCurrent ? 'bg-blue-50 dark:bg-blue-900/30 eink:bg-black! eink:text-white!' : ''
                 }`}
               >
                 <span className="dark:text-white flex items-center gap-1.5 min-w-0">

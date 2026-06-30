@@ -108,10 +108,10 @@ export default function RingScoringSheet({ stage, score }: Props) {
                 key={idx}
                 className={`w-full aspect-square rounded-lg flex flex-col items-center justify-center font-bold transition-colors cursor-pointer
                   ${val === 0 ? 'bg-gray-50 dark:bg-gray-700/50 text-gray-400 ring-1 ring-gray-200 dark:ring-gray-600' :
-                    val === 11 ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 ring-2 ring-yellow-400' :
-                    val >= 9 ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 ring-2 ring-green-400' :
-                    val >= 7 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400' :
-                    'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 ring-2 ring-orange-400'}
+                    val === 11 ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 ring-2 ring-yellow-400 eink:bg-black! eink:text-white! eink:ring-2! eink:ring-black!' :
+                    val >= 9 ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 ring-2 ring-green-400 eink:bg-black! eink:text-white! eink:ring-2! eink:ring-black!' :
+                    val >= 7 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400 eink:bg-black! eink:text-white! eink:ring-2! eink:ring-black!' :
+                    'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 ring-2 ring-orange-400 eink:bg-black! eink:text-white! eink:ring-2! eink:ring-black!'}
                   ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                 onClick={() => cycleRingValue(idx)}
                 onContextMenu={(e) => { e.preventDefault(); longPressRing(idx); }}

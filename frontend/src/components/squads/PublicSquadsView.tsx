@@ -4,7 +4,7 @@ import { api } from '../../services/api';
 import * as offlineDB from '../../services/offlineDB';
 import { useUIStore } from '../../stores/uiStore';
 import LanguageSelector from '../settings/LanguageSelector';
-import { ThemeToggle } from '../settings/ThemeToggle';
+import { ThemeSelector } from '../settings/ThemeSelector';
 import type { RegistrationWithShooter } from '../../types/scoring';
 
 const AUTO_REFRESH_INTERVAL = 30000;
@@ -173,7 +173,7 @@ export default function PublicSquadsView() {
           </div>
           <div className="flex items-center gap-3">
             <LanguageSelector />
-            <ThemeToggle />
+            <ThemeSelector />
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs text-purple-200 dark:text-white">

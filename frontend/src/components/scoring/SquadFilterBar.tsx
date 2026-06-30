@@ -25,7 +25,7 @@ export default function SquadFilterBar() {
         onClick={() => setSquadFilter(null)}
         className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap min-h-8 transition-colors shrink-0
           ${squadFilter === null
-            ? 'bg-blue-600 text-white'
+            ? 'bg-blue-600 text-white eink:bg-black! eink:text-white!'
             : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
           }`}
       >
@@ -42,17 +42,17 @@ export default function SquadFilterBar() {
         if (allStagesComplete) {
           // Gold/amber: fully scored on all stages
           colorClass = squadFilter === squad
-            ? 'bg-amber-500 text-white'
+            ? 'bg-amber-500 text-white eink:bg-black! eink:text-white!'
             : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-900/60';
         } else if (currentStageComplete) {
           // Green: fully scored on current stage
           colorClass = squadFilter === squad
-            ? 'bg-green-600 text-white'
+            ? 'bg-green-600 text-white eink:bg-black! eink:text-white!'
             : 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 hover:bg-green-200 dark:hover:bg-green-900/60';
         } else {
           // Default: some or none scored
           colorClass = squadFilter === squad
-            ? 'bg-purple-600 text-white'
+            ? 'bg-purple-600 text-white eink:bg-black! eink:text-white!'
             : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600';
         }
 

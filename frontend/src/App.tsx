@@ -3,12 +3,15 @@ import { ThemeConfig, ThemeProvider } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import AppLayout from './components/layout/AppLayout';
 import { useUIStore } from './stores/uiStore';
+import { useThemeApplication } from './hooks/useThemeApplication';
 import { customTheme } from "./theme";
 import { ThemeInit } from '../.flowbite-react/init';
 
 export default function App() {
   const { i18n } = useTranslation();
   const language = useUIStore((s) => s.language);
+
+  useThemeApplication();
 
   // Sync i18n language with store on mount and when it changes
   useEffect(() => {

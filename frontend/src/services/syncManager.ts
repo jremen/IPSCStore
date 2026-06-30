@@ -127,10 +127,25 @@ async function replaySaveScore(save: PendingSave): Promise<void> {
     // Score not found on server (404) — no conflict, proceed
   }
 
-  const result = await api.saveScore(matchId, stageId, registrationId, payload);
-
-  // Update cached score with server response
-  await offlineDB.cacheScore(matchId, stageId, registrationId, result);
+  try {
+    const result = await api.saveScore(matchId, stageId, registrationId, payload);
+    // Update cached score with server response
+    await offlineDB.cacheScore(matchId, stageId, registrationId, result);
+  } catch (err: any) {
+    const msg = String(err?.message ?? '');
+    if (msg.includes('already saved') || msg.includes('HTTP 409')) {
+      // Host already has this score; discard our stale offline save.
+      // Refresh cache from server so local UI reflects the authoritative state.
+      try {
+        const serverScore = await api.getShooterScore(matchId, stageId, registrationId);
+        await offlineDB.cacheScore(matchId, stageId, registrationId, serverScore);
+      } catch {
+        // Server score unavailable (may have been deleted); ignore cache refresh
+      }
+    } else {
+      throw err;
+    }
+  }
 }
 
 async function replayDqShooter(save: PendingSave): Promise<void> {

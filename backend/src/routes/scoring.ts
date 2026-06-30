@@ -283,8 +283,23 @@ scoringRoutes.put('/matches/:matchId/stages/:stageId/scores/:registrationId', as
     });
   }
 
+  // Determine caller role for conflict check
+  const role = (c as any).get('authRole') as string;
+
   // Run the entire save + recalculate in a transaction to prevent concurrent write conflicts
   const scoreResult = await sql.begin(async (sql) => {
+    // CONFLICT CHECK: if a row already exists and caller is not admin, reject
+    const [existing] = await sql`
+      SELECT id FROM stage_scores
+      WHERE stage_id = ${stageId} AND registration_id = ${registrationId}
+      FOR UPDATE
+    `;
+    if (existing && role !== 'admin') {
+      const err = new Error('Score already saved. Only admin can modify saved scores.');
+      (err as any).status = 409;
+      throw err;
+    }
+
     // Upsert stage_score with type-specific fields
     const [score] = await sql`
       INSERT INTO stage_scores (match_id, stage_id, registration_id, time,

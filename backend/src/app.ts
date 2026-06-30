@@ -8,7 +8,6 @@ import { corsMiddleware } from './middleware/cors.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { authMiddleware, stageAccessMiddleware } from './middleware/auth.js';
-import { scoreLockMiddleware } from './middleware/scoreLock.js';
 import { securityHeaders } from './middleware/securityHeaders.js';
 import { requireAdmin, requireAuth, methodGuard } from './middleware/roles.js';
 import { matchRoutes } from './routes/matches.js';
@@ -154,7 +153,7 @@ app.route('/api', registrationRoutes);
 // ─── Scoring: scorer or admin auth ───
 app.use('/api/matches/:matchId/stages/:stageId/scores/*', authMiddleware);
 app.use('/api/matches/:matchId/stages/:stageId/scores/*', stageAccessMiddleware);
-app.use('/api/matches/:matchId/stages/:stageId/scores/*', scoreLockMiddleware);
+
 app.use('/api/matches/:matchId/scoring-progress', authMiddleware);
 // Recalculate: admin only
 app.use('/api/matches/:matchId/stages/:stageId/recalculate', authMiddleware);

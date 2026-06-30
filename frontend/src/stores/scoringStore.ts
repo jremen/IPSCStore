@@ -301,8 +301,18 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
         if (isNetworkError(err)) {
           persistToIDB();
         } else {
-          rollback();
-          useUIStore.getState().addToast(err?.message ?? 'Save failed', 'error');
+          const msg = String(err?.message ?? '');
+          if (msg.includes('already saved') || msg.includes('HTTP 409')) {
+            rollback();
+            get().fetchScoringProgress(matchId);
+            useUIStore.getState().addToast(
+              'Score already saved by another scorer',
+              'info',
+            );
+          } else {
+            rollback();
+            useUIStore.getState().addToast(err?.message ?? 'Save failed', 'error');
+          }
         }
       });
   },

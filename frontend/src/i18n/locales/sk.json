@@ -796,5 +796,30 @@
     "restoreFrom": "Obnovuje sa z:",
     "restoring": "Prebieha obnova dát…",
     "restoreSummary": "Full: {{file}} ({{size}}) + {{deltas}} delt ({{earliest}} → {{latest}})"
+  },
+  "help": {
+    "title": "Pomoc",
+    "subtitle": "Ako používať IPSCScore",
+    "close": "Zavrieť pomoc",
+    "zoomImage": "Kliknutím zväčšíte",
+    "viewInApp": "Otvoriť v aplikácii",
+    "openSection": "Otvoriť túto sekciu v aplikácii",
+    "adminOnly": "Iba pre administrátora — nie je dostupné pre zadávačov",
+    "loadingDoc": "Načítava sa…",
+    "loadError": "Nepodarilo sa načítať túto sekciu. Skúste to znova.",
+    "retry": "Skúsiť znova",
+    "sections": {
+      "overview": "Prehľad",
+      "matches": "Preteky",
+      "stages": "Etapy a situácie",
+      "scoringOverview": "Zadávanie výsledkov",
+      "scoringDesktop": "Zadávanie na počítači",
+      "scoringMobile": "Zadávanie v mobile",
+      "registration": "Registrácia a strelci",
+      "squadding": "Skupiny a družstvá",
+      "dq": "Diskvalifikácia (B-out)",
+      "results": "Výsledky",
+      "output": "Výstupy a exporty"
+    }
   }
 }

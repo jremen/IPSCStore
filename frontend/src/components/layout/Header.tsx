@@ -13,7 +13,8 @@ import SettingsModal from '../settings/SettingsModal';
 import { ThemeSelector } from "../settings/ThemeSelector";
 import StageDetailsView from '../scoring/StageDetailsView';
 import StagePickerModal from '../scoring/StagePickerModal';
-import { TbSettings, TbClipboardText } from "react-icons/tb";
+import HelpModal from '../help/HelpModal';
+import { TbSettings, TbClipboardText, TbHelpCircle } from "react-icons/tb";
 import { useTabMenuAction } from '../../hooks/useTabMenuAction';
 
 export default function Header() {
@@ -30,6 +31,7 @@ export default function Header() {
   const [showSettings, setShowSettings] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Load stages for the authenticated match so the details modal has the briefing/image.
   useEffect(() => {
@@ -84,6 +86,13 @@ export default function Header() {
                 <TbSettings className="size-5" />
               </button>
             )}
+            <button
+              onClick={() => setShowHelp(true)}
+              className="cursor-pointer p-1.5 text-gray-400 hover:text-white transition-colors"
+              title={t('help.title')}
+            >
+              <TbHelpCircle className="size-5" />
+            </button>
             <ThemeSelector />
           </div>
         </div>
@@ -126,6 +135,7 @@ export default function Header() {
           <StageDetailsView show={showDetails} onClose={() => setShowDetails(false)} stage={currentStage} />
         </>
       )}
+      <HelpModal show={showHelp} onClose={() => setShowHelp(false)} />
     </>
   );
 }

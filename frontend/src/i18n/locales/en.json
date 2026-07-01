@@ -777,5 +777,30 @@
     "restoreFrom": "Restoring from:",
     "restoring": "Restoring data in progres…",
     "restoreSummary": "Full: {{file}} ({{size}}) + {{deltas}} deltas ({{earliest}} → {{latest}})"
+  },
+  "help": {
+    "title": "Help",
+    "subtitle": "How to use IPSCScore",
+    "close": "Close help",
+    "zoomImage": "Click to zoom",
+    "viewInApp": "Open in app",
+    "openSection": "Open this section in the app",
+    "adminOnly": "Admin only — not available to scorers",
+    "loadingDoc": "Loading…",
+    "loadError": "Could not load this section. Please try again.",
+    "retry": "Retry",
+    "sections": {
+      "overview": "Overview",
+      "matches": "Matches",
+      "stages": "Stages & situations",
+      "scoringOverview": "Scoring",
+      "scoringDesktop": "Scoring on desktop",
+      "scoringMobile": "Scoring on mobile",
+      "registration": "Registration & shooters",
+      "squadding": "Squadding & groups",
+      "dq": "Disqualification (B-out)",
+      "results": "Results",
+      "output": "Output & exports"
+    }
   }
 }

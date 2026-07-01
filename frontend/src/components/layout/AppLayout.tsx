@@ -134,8 +134,10 @@ export default function AppLayout() {
           logout();
         }
       })();
-    } else if (isAuthenticated && isAdmin && !activeMatchId && (activeTab === 'scoring' || activeTab === 'results')) {
-      // Admin: auto-select the running match when entering scoring/results tabs with no match selected
+    } else if (isAuthenticated && isAdmin && !activeMatchId) {
+      // Admin: auto-select the running match when entering any tab with no match selected.
+      // Previously this was restricted to scoring/results, but Stages and
+      // Registration also need the current match to render anything useful.
       (async () => {
         let currentMatch: any = null;
 

@@ -162,7 +162,7 @@ export function calculateIDPAPreview(input: IDPAPreviewInput): PreviewScore {
 
   return {
     raw_points: points_down,
-    penalty_points: Math.round(penalty_seconds * 100) / 100,
+    penalty_points: 0,   // IDPA has no penalty points — all penalties are time additions
     net_points: 0,
     hit_factor: 0,
     total_time: Math.round(total_time * 100) / 100,

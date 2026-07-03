@@ -1,6 +1,6 @@
 # Registrácia a strelci
 
-Strelec je osoba v globálnej databáze. Registrácia je prepojenie medzi strelcom a konkrétnymi pretekmi, s voliteľnými prepísaniami divízie/kategórie/power factor.
+Strelec je osoba v globálnej databáze. Registrácia je prepojenie medzi strelcom a konkrétnou súťažou, s voliteľnými prepísaniami divízie/kategórie/power factor.
 
 ## Globálna databáza strelcov
 
@@ -15,15 +15,15 @@ Záložka **Strelci** je globálny fond. Môžete:
 
 **Vykonať v aplikácii:** [Pridať nového strelca](app-action:new-shooter)
 
-## Registrovanie strelcov do pretekov
+## Registrovanie strelcov do súťaží
 
-Otvorte záložku **Registrácia** pre aktuálne preteky.
+Otvorte záložku **Registrácia** pre aktuálnu súťaž.
 
 - **Pridať existujúceho strelca** — vyhľadajte v globálnej databáze, kliknutím pridajte.
 - **Vytvoriť + registrovať inline** — vytvorte nového strelca a pridajte ho v jednom kroku.
-- **Upraviť registráciu** — prepíšte divíziu, kategóriu alebo power factor len pre tieto preteky.
+- **Upraviť registráciu** — prepíšte divíziu, kategóriu alebo power factor len pre túto súťaž.
 - **Hromadná úprava / odstránenie** — označte riadky checkboxmi, potom akciu.
-- **Drag-to-group** — potiahnite riadok na iný riadok, aby ste ich dali do rovnakej skupiny (spoločný prevoz). Užitočné, aby priatelia boli v rovnakom družstve.
+- **Drag-to-group** — potiahnite riadok na iný riadok, aby ste ich dali do rovnakej skupiny. Užitočné, aby priatelia boli v rovnakom squade.
 
 ![Úprava registrácie](/docs/screenshots/edit-registration-modal.png)
 
@@ -31,10 +31,10 @@ Otvorte záložku **Registrácia** pre aktuálne preteky.
 
 ## Divízie a kategórie
 
-- **Divízia** je trieda zbrane (napr. Production, Standard, Open pre IPSC). Divízie sú ohraničené organizáciou pretekov a typom zbrane.
+- **Divízia** je trieda zbrane (napr. Production, Standard, Open pre IPSC). Divízie sú ohraničené organizáciou súťaže a typom zbrane.
 - **Kategória** je trieda osoby (Regular, Junior, Senior, Super Senior, Lady).
 - **Power factor** je Minor alebo Major — ovplyvňuje, ako sa zásahy bodujú (IPSC).
 
-Každá registrácia dedí predvolené hodnoty strelca; môžete ich prepísať pre konkrétne preteky cez modal Úprava registrácie.
+Každá registrácia dedí predvolené hodnoty strelca; môžete ich prepísať pre konkrétnu súťaž cez modal Úprava registrácie.
 
 **Vykonať v aplikácii:** [Pridať registráciu](app-action:add-registration)

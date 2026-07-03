@@ -4,7 +4,7 @@ import { useUIStore } from '../../stores/uiStore';
 import type { Language } from '../../stores/uiStore';
 
 export default function LanguageSelector() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const language = useUIStore((s) => s.language);
   const setLanguage = useUIStore((s) => s.setLanguage);
 
@@ -22,8 +22,8 @@ export default function LanguageSelector() {
           onChange={(e) => handleChange(e.target.value as Language)}
           className="[&_select]:py-1 [&_select]:text-sm [&_select]:bg-gray-800 [&_select]:text-white"
         >
-          <option value="en">English</option>
-          <option value="sk">Slovenčina</option>
+          <option value="en">{t('settings.english')}</option>
+          <option value="sk">{t('settings.slovak')}</option>
         </Select>
       </Label>
     </div>

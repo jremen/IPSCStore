@@ -35,7 +35,7 @@ const {scoredLength, stagesLength, registrationsLength, fetchRegistrations, fetc
 
   const progressValue =
     full > 0
-      ? Number(((scoredLength / full) * 100).toFixed(2))
+      ? Math.min(100, Number(((scoredLength / full) * 100).toFixed(2)))
       : 0;
 
   return (

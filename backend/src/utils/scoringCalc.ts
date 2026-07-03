@@ -303,9 +303,9 @@ export function calculateIDPAScore(input: IDPAInput): CalculatedScore {
 
   return {
     raw_points: points_down,
-    penalty_points: penalty_seconds,
-    net_points: 0,  // not used for IDPA
-    hit_factor: 0,  // not used for IDPA
+    penalty_points: 0,    // IDPA has no penalty points — all penalties are time additions
+    net_points: 0,        // not used for IDPA
+    hit_factor: 0,        // not used for IDPA
     total_time: Math.round(total_time * 100) / 100,
   };
 }

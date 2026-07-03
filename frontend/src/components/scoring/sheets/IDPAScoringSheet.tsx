@@ -3,9 +3,11 @@ import { Alert, Badge, Label } from 'flowbite-react';
 import TimeInput from '../shared/TimeInput';
 import { useScoringStore } from '../../../stores/scoringStore';
 import { useScoreDataUpdater } from '../../../hooks/useScoreDataUpdater';
+import { useDeviceContext } from '../../../hooks/useDeviceContext';
 import { useScoringReadOnly } from '../../../hooks/useScoringReadOnly';
 import { calculateIDPAPreview } from '../../../utils/scoring';
 import { HitCell, ScoringSheetHeader, DnfToggle, DqSection, PenaltyStepper } from '../shared';
+import IDPAScorePreviewCard from './IDPAScorePreviewCard';
 import type { Stage } from '../../../types/stage';
 import type { ScoreInput, TargetScore } from '../../../types/scoring';
 import { useTranslation } from "react-i18next";
@@ -17,6 +19,7 @@ interface Props {
 
 export default function IDPAScoringSheet({ stage, score }: Props) {
   const { t, i18n } = useTranslation();
+  const { isDesktop } = useDeviceContext();
   const setScore = useScoringStore((s) => s.setScore);
   const alerts = useScoringStore((s) => s.alerts);
   const { sd, updateScoreData } = useScoreDataUpdater(score);
@@ -145,20 +148,25 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
   ];
 
   return (
-    <div className="p-2 sm:p-4 max-w-2xl mx-auto">
-      {/* TIME INPUT */}
-      <div className="bg-blue-50 dark:bg-gray-800 rounded-lg p-3 mb-3 border-2 border-blue-200 dark:border-blue-800">
+    <div className="p-2 sm:p-4 max-w-7xl mx-auto lg:grid grid-cols-2 gap-6">
+      {/* MOBILE: time input at top */}
+      <div className="lg:hidden max-lg:mb-3 max-lg:p-3 max-lg:dark:bg-gray-800 max-lg:rounded-lg max-lg:border max-lg:border-gray-200 max-lg:dark:border-gray-700">
         <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
-        <TimeInput value={score.time} onChange={handleTimeChange} disabled={isReadOnly} className="text-2xl font-mono py-4!" />
+        <TimeInput value={score.time} onChange={handleTimeChange} disabled={isReadOnly} className="py-1!" />
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-3 shadow-sm">
+      {/* LEFT COLUMN: scoring sheet card */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 max-lg:mb-3 shadow-sm -order-1">
         <ScoringSheetHeader
           title={t('scoring.idpaTitle')}
           subtitle={t('scoring.idpaSubtitle', { paper: stage.paper_targets, hpp, steel: stage.steel_targets })}
           onReset={isReadOnly ? undefined : handleResetAll}
         />
-        <p className="text-2.5 text-gray-400 px-3 -mt-1 mb-1">{t('scoring.tapCellInstruction')}</p>
+        {isDesktop ? (
+          <p className="text-2.5 text-gray-500 dark:text-gray-300 px-3 my-1">{t('scoring.desktopInstruction')}</p>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-300 px-3 my-1">{t('scoring.mobileInstruction')}</p>
+        )}
 
         {/* PAPER TARGETS — IDPA labels: -0, -1, -3 */}
         {paperTargets.length > 0 && (
@@ -269,7 +277,20 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
         </div>
       </div>
 
-      {/* Alerts */}
+      {/* RIGHT COLUMN (desktop only): Time, DNF/DQ, Preview */}
+      <div className="lg:flex flex-col gap-6 mb-16">
+        <div className="max-lg:hidden max-lg:p-3 max-lg:dark:bg-gray-800 max-lg:rounded-lg max-lg:border max-lg:border-gray-200 max-lg:dark:border-gray-700">
+          <Label className="text-sm font-bold mb-1 block">{t('scoring.time')}</Label>
+          <TimeInput value={score.time} onChange={handleTimeChange} disabled={isReadOnly} className="py-1!" />
+        </div>
+        <div className="flex items-center gap-4 mb-3 flex-wrap">
+          <DnfToggle isDnf={score.is_dnf} onToggle={() => setScore({ ...score, is_dnf: !score.is_dnf })} disabled={isReadOnly} />
+          <DqSection shooter={shooter} disabled={isReadOnly} />
+        </div>
+        <IDPAScorePreviewCard raw_points={preview.raw_points} total_time={preview.total_time || 0} />
+      </div>
+
+      {/* Alerts below the grid */}
       {alerts.length > 0 && (
         <div className="space-y-2 mb-3">
           {alerts.map((alert, i) => (
@@ -277,21 +298,6 @@ export default function IDPAScoringSheet({ stage, score }: Props) {
           ))}
         </div>
       )}
-
-      <div className="flex items-center gap-4 mb-3 flex-wrap">
-        <DnfToggle isDnf={score.is_dnf} onToggle={() => setScore({ ...score, is_dnf: !score.is_dnf })} disabled={isReadOnly} />
-        <DqSection shooter={shooter} disabled={isReadOnly} />
-      </div>
-
-      {/* IDPA Score Preview */}
-      <div className="bg-green-50 dark:bg-gray-800 rounded-lg p-3 border border-green-200 dark:border-green-800 shadow-sm">
-        <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-2">📊 {t('scoring.scorePreview')}</h3>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div><div className="text-lg font-bold dark:text-white">{preview.raw_points}</div><div className="text-xs text-gray-500">{t('scoring.raw')}</div></div>
-          <div><div className="text-lg font-bold text-red-600">−{preview.penalty_points}</div><div className="text-xs text-gray-500">{t('scoring.pen')}</div></div>
-          <div><div className="text-lg font-bold text-blue-600">{preview.total_time?.toFixed(2) ?? '0.00'}</div><div className="text-xs text-gray-500">{t('scoring.totalTime')}</div></div>
-        </div>
-      </div>
     </div>
   );
 }

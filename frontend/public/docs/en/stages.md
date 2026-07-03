@@ -8,7 +8,7 @@ Open the **Stages** tab for the current match and click **+ Add Stage**.
 
 ![Add stage form](/docs/screenshots/stage-form-modal.png)
 
-A stage has:
+### A stage has
 
 - **Name** — Used everywhere the stage is listed.
 - **Scoring type** — See [Types of scoring](#types-of-scoring) below.

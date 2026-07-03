@@ -23,6 +23,7 @@ import { authRoutes } from './routes/auth.js';
 import { backupRoutes } from './routes/backup.js';
 import { localBackupRoutes } from './routes/localBackup.js';
 import { matchExportRoutes } from './routes/matchExport.js';
+import { auditLogRoutes } from './routes/audit.js';
 import { env } from './env.js';
 import { eventBroadcaster } from './services/events.js';
 
@@ -179,6 +180,11 @@ app.use('/api/import', authMiddleware);
 app.use('/api/import', requireAdmin);
 app.route('/api/import', importRoutes);
 app.route('/api/import', winmssImportRoutes);
+
+// ─── Audit Log: admin only ───
+app.use('/api/audit', authMiddleware);
+app.use('/api/audit', requireAdmin);
+app.route('/api', auditLogRoutes);
 
 // ─── Match Export/Import: admin only ───
 app.use('/api/matches/import', authMiddleware);

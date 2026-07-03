@@ -45,7 +45,7 @@ export function ThemeSelector() {
               key={opt.value}
               onClick={() => { setThemeMode(opt.value); setOpen(false); }}
               className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors cursor-pointer
-                ${themeMode === opt.value ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'}
+                ${themeMode === opt.value ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-100 text-gray-800 dark:hover:bg-gray-700 dark:text-white'}
               `}
             >
               {opt.icon}

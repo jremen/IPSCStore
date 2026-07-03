@@ -52,7 +52,7 @@ export default function DeleteShooterModal({ show, onClose, shooter, onDeleted }
     <Modal show={show} onClose={onClose} size="md">
       <ModalHeader>{t('shooters.deleteTitle')}</ModalHeader>
       <ModalBody>
-        <div className="space-y-3">
+        <div className="space-y-3 dark:text-white">
           <p>
             {t('shooters.deleteConfirm', { name: shooterName })}
           </p>
@@ -70,7 +70,7 @@ export default function DeleteShooterModal({ show, onClose, shooter, onDeleted }
               <ul className="text-sm list-disc pl-4 mt-1">
                 {matches.slice(0, 5).map((m: any) => (
                   <li key={m.match_id}>
-                    {m.match_name}{m.date ? ` (${new Date(m.date).toLocaleDateString()})` : ''}
+                    {m.match_name}{m.date ? t('common.parenthesisedDate', { date: new Date(m.date).toLocaleDateString() }) : ''}
                   </li>
                 ))}
                 {matches.length > 5 && (

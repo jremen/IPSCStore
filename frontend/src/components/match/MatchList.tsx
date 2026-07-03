@@ -218,7 +218,7 @@ export default function MatchList() {
                     <Badge color="gray" size="sm">{t(`firearmTypes.${m.firearm_type}`)}</Badge>
                   </TableCell>
                   <TableCell className="">
-                    {m.match_level ? <Badge color="indigo" size="sm">L{m.match_level}</Badge> : '—'}
+                    {m.match_level ? <Badge color="indigo" size="sm">{t('matches.levelBadge', { level: m.match_level })}</Badge> : '—'}
                   </TableCell>
                   <TableCell className="">{m.shooter_count ?? '—'}</TableCell>
                   <TableCell>

@@ -51,7 +51,7 @@ export default function BulkEditShootersModal({ show, onClose, selectedIds, onSa
         setTimeout(handleClose, 1500);
       }
     } catch (err: any) {
-      setResult({ updated: 0, failed: [{ id: '', reason: err.message || 'Unknown error' }] });
+      setResult({ updated: 0, failed: [{ id: '', reason: err.message || t('common.unknownError') }] });
     } finally {
       setLoading(false);
     }

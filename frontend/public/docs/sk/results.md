@@ -4,11 +4,11 @@ Otvorte záložku **Výsledky** pre zobrazenie rebríčka. Existuje päť podzá
 
 ## Podzáložky
 
-- **Podľa divízie** — jedna tabuľka pre každú divíziu, radené podľa percentuálneho podielu v pretekoch.
+- **Podľa divízie** — jedna tabuľka pre každú divíziu, radené podľa percentuálneho podielu v súťaži.
 - **Celkovo** — všetci strelci v jednej tabuľke, divízie ako stĺpce.
-- **Podľa etapy** — jedna tabuľka pre každú etapu, s divíziami vnorenými pod každou.
+- **Podľa situácie** — jedna tabuľka pre každú situáciu, s divíziami vnorenými pod každou.
 - **Podľa kategórie** — jedna sekcia pre každú kategóriu, potom tabuľky pre divízie.
-- **Podľa štítku** — jedna sekcia pre každý štítok strelca, potom tabuľky pre divízie (užitočné pre klubové vs. otvorené družstvá).
+- **Podľa štítku** — jedna sekcia pre každý štítok strelca, potom tabuľky pre divízie (užitočné pre klubové vs. otvorené squady).
 
 ![Výsledky podľa divízie](/docs/screenshots/results-by-division.png)
 
@@ -16,7 +16,7 @@ Otvorte záložku **Výsledky** pre zobrazenie rebríčka. Existuje päť podzá
 
 ## Drill-down strelca
 
-Kliknutím na meno strelca v ľubovoľnej tabuľke výsledkov otvoríte súhrnné zobrazenie strelca: každá etapa s jeho raw skóre, penalizáciami, hit faktorom a percentuálnym podielom v pretekoch.
+Kliknutím na meno strelca v ľubovoľnej tabuľke výsledkov otvoríte súhrnné zobrazenie strelca: každá situácia s jeho raw skóre, penalizáciami, hit faktorom a percentuálnym podielom v súťaži.
 
 ## DQ tabuľka
 

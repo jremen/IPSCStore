@@ -398,6 +398,9 @@ authRoutes.get('/me', async (c) => {
     if (scorerSession) {
       return c.json({ role: 'scorer', stageId: null, matchId: scorerSession.match_id, isLocalNetwork: false, domainMode });
     }
+
+    // Token provided but not valid → 401 so the frontend can detect expired sessions
+    return c.json({ error: 'Invalid or expired session token.' }, 401);
   }
 
   return c.json({ role: 'anonymous', stageId: null, isLocalNetwork: false, domainMode });

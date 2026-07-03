@@ -34,15 +34,15 @@ export default function RingScoringSheet({ stage, score }: Props) {
   } else if (scoringType === 'issf') {
     ringValues = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
     shotsCount = (config.shots_per_course as number) || 60;
-    label = 'Shot';
+    label = t('scoring.shot');
   } else if (scoringType === 'long_range' && config.variant === 'f_class') {
     ringValues = [11, 10, 9, 8, 7, 6, 5];
     shotsCount = (config.shots_per_string as number) || 20;
-    label = 'Shot';
+    label = t('scoring.shot');
   } else {
     ringValues = [11, 10, 9, 8, 7, 6, 5];
     shotsCount = (config.shots_per_string as number) || 10;
-    label = 'Shot';
+    label = t('scoring.shot');
   }
 
   const currentRings: number[] = sd.ring_values?.length === shotsCount ? sd.ring_values! : new Array(shotsCount).fill(0);

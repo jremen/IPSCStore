@@ -1,20 +1,20 @@
-# Zadávanie v mobile
+# Bodovanie v mobile
 
-Na telefóne sa zadávanie výsledkov zbalí do jedného stĺpca. Strelec prechádza papierovými terčami, potom oceľou, potom časom a nakoniec uloží.
+Na telefóne sa bodovanie zbalí do jedného stĺpca. Strelec prechádza papierovými terčami, potom oceľou, potom časom a nakoniec uloží.
 
 ![Hárok zadávania v mobile](/docs/screenshots/scoring-mobile-ipsc.png)
 
 ## Rozloženie
 
-- **Horná lišta** — aktívna etapa ako tlačidlo (kliknutím prepnete etapy cez modal), ikona briefingu.
+- **Horná lišta** — aktívna situácia ako tlačidlo (kliknutím prepnete situácie cez modal), ikona briefingu.
 - **Zoznam strelcov** — kliknutím na meno strelca začnete zadávať. Zoznam je na celú obrazovku.
 - **Hárok** — papierové terče zoradené vertikálne (jeden na riadok), potom oceľové terče v riadku, potom NPM/no-shoot (ak je to relevantné), potom procedurálne, potom čas naspodku.
 - **Tlačidlo DQ** — úplne naspodku.
 - **Uložiť** — veľké tlačidlo naspodku, sticky.
 
-## Prepínanie etáp
+## Prepínanie situácií
 
-Výber etapy je modal otvorený z hlavičky. Zobrazuje všetky etapy aktuálnych pretekov so zaškrtnutím pri hodnotených strelcoch.
+Výber situácie je modal otvorený z hlavičky. Zobrazuje všetky situácie aktuálnej súťaže so zaškrtnutím pri hodnotených strelcoch.
 
 ## Offline režim
 
@@ -24,8 +24,8 @@ V hlavičke sa zobrazí malý offline indikátor s počtom čakajúcich uložen�
 
 ## Súhrnné zobrazenie (vzdialení zadávači)
 
-Po zadaní všetkých polí vidia mobilní zadávači súhrnnú kartu so vstupmi a vypočítaným skóre. Ťuknutím na **Potvrdiť** odošlú. Hostiteľ pretekov potom schváli alebo zamietne.
+Po zadaní všetkých polí vidia mobilní zadávači súhrnnú kartu so vstupmi a vypočítaným skóre. Ťuknutím na **Potvrdiť** odošlú. Hostiteľ súťaže potom schváli alebo zamietne.
 
 ![Súhrnné zobrazenie v mobile](/docs/screenshots/scoring-mobile-summary.png)
 
-**Vykonať v aplikácii:** [Prejsť na zadávanie](app-tab:scoring)
+**Vykonať v aplikácii:** [Prejsť na bodovanie](app-tab:scoring)

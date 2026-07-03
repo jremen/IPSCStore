@@ -28,7 +28,14 @@
     "yes": "Yes",
     "no": "No",
     "import": "Import",
-    "export": "Export"
+    "export": "Export",
+    "filter": "Filter",
+    "refresh": "↻ Refresh",
+    "unknownError": "Unknown error",
+    "parenthesisedDate": "({{date}})"
+  },
+  "layout": {
+    "restoringSession": "Restoring session…"
   },
   "bulkActions": {
     "selectedCount_one": "1 selected",
@@ -116,7 +123,10 @@
     "loginUnavailableOffline": "Login is not available offline. Please reconnect to log in for the first time.",
     "offlineContinueHint": "Session restored from offline storage.",
     "offlineNoDataTitle": "No offline data available",
-    "offlineNoDataHint": "You are offline and there is no cached data. Open the IPSC Score app from your home screen, or reconnect to the internet to log in."
+    "offlineNoDataHint": "You are offline and there is no cached data. Open the IPSC Score app from your home screen, or reconnect to the internet to log in.",
+    "trustNoTokenYet": "No trust token has been generated yet. Click Rotate to create one.",
+    "trustLoadError": "Failed to load trust info",
+    "trustRotateError": "Failed to rotate trust token"
   },
   "tabs": {
     "matches": "Matches",
@@ -190,7 +200,8 @@
     "bulkDeletePartialSuccess": "{{deleted}} deleted, {{failed}} could not be deleted.",
     "bulkDeleteCannotBeUndone": "This action cannot be undone.",
     "bulkDeleteAndMore_one": "...and 1 more",
-    "bulkDeleteAndMore_other": "...and {{count}} more"
+    "bulkDeleteAndMore_other": "...and {{count}} more",
+    "levelBadge": "L{{level}}"
   },
   "stages": {
     "title": "Stages",
@@ -258,7 +269,12 @@
     "rounds": "Rounds",
     "points": "Points",
     "noBriefing": "No briefing set.",
-    "showDetails": "Show stage details"
+    "showDetails": "Show stage details",
+    "parTimeBadge": "Par {{seconds}}s",
+    "configShotsSuffix": " shots",
+    "configFireSuffix": " fire",
+    "configArrowsSuffix": " arrows/end",
+    "configPointsSuffix": " pts/hit"
   },
   "shooters": {
     "title": "Shooter Database",
@@ -486,7 +502,8 @@
     "resetPrintedConfirm": "Clear the printed list and start a new summary sheet?",
     "printedReset": "Printed list reset",
     "unprintedPrompt_one": "{{count}} new scored result — print summary?",
-    "unprintedPrompt_other": "{{count}} new scored results — print summary?"
+    "unprintedPrompt_other": "{{count}} new scored results — print summary?",
+    "shot": "Shot"
   },
   "scoringTypes": {
     "comstock": "Comstock",
@@ -559,7 +576,9 @@
     "close": "Close",
     "summaryNotAvailable": "Summary not available",
     "backToResults": "Back to Results",
-    "penaltiesDeducted": "Penalties Deducted"
+    "penaltiesDeducted": "Penalties Deducted",
+    "progress": "Progress",
+    "proceduralsHeader": "P"
   },
   "import": {
     "modalTitle": "Import {{entity}} from CSV",
@@ -628,7 +647,14 @@
       "errorsWord": "errors",
       "createdCol": "Created",
       "skippedCol": "Skipped",
-      "categoryCol": "Category"
+      "categoryCol": "Category",
+      "importFailedFallback": "Import failed",
+      "importFailedToast": "Import failed: {{message}}",
+      "inspectFailed": "Inspect failed",
+      "tableError": "Error: {{message}}",
+      "errorsCount": "({{count}} errors)",
+      "shooterImportErrors": "Shooter import errors ({{count}})",
+      "andMore": "...and {{count}} more"
     }
   },
   "settings": {
@@ -640,7 +666,26 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "themeEink": "High Contrast",
-    "themeAriaLabel": "Theme selector"
+    "themeAriaLabel": "Theme selector",
+    "auditLog": "Audit log",
+    "auditLogDescription": "View recent administrative and scoring actions recorded in the audit log.",
+    "viewAuditLog": "View Audit Log",
+    "auditLogTitle": "Audit Log",
+    "auditLogTime": "Time",
+    "auditLogActor": "Actor",
+    "auditLogAction": "Action",
+    "auditLogTarget": "Target",
+    "auditLogIp": "IP",
+    "auditLogMeta": "Details",
+    "auditLogFilterAction": "Filter by action...",
+    "auditLogFilterRole": "Role",
+    "auditLogRoleAll": "All",
+    "auditLogLoadMore": "Load more",
+    "auditLogNoEntries": "No audit log entries found.",
+    "auditLogError": "Failed to load audit log.",
+    "auditLogTotal": "{{count}} total entries",
+    "auditLogErrorFallback": "Failed to load",
+    "themeToggleAria": "Toggle theme"
   },
   "matchDetail": {
     "back": "← Back",
@@ -648,7 +693,10 @@
     "totalShots": "Total Shots",
     "maxPoints": "Max Points",
     "paperTargets": "Paper Targets",
-    "steelTargets": "Steel Targets"
+    "steelTargets": "Steel Targets",
+    "levelBadge": "L{{level}}",
+    "stageSummary": "{{paper}} P / {{steel}} S / {{noShoot}} NS{{npmSuffix}} • {{rounds}} rnds • {{points}} pts",
+    "stageSummaryNpmSuffix": " / {{npm}} NPM"
   },
   "database": {
     "title": "Database",
@@ -664,7 +712,10 @@
     "importConfirm": "Replace All Data?",
     "importWarning": "This will replace ALL existing data with the backup. This action cannot be undone.",
     "file": "File:",
-    "confirmButton": "Replace All Data"
+    "confirmButton": "Replace All Data",
+    "unitsByte": "B",
+    "unitsKb": "KB",
+    "unitsMb": "MB"
   },
   "offline": {
     "mode": "Offline",
@@ -744,7 +795,6 @@
   "squads": {
     "publicTitle": "Squads",
     "noCurrentMatch": "No active match. Squads will appear when a match is set as current.",
-    "autoRefresh": "Auto-refreshed at {{time}}",
     "loading": "Loading squads...",
     "loadError": "Failed to load squads. Please try again.",
     "retry": "Retry",
@@ -778,10 +828,17 @@
     "restoring": "Restoring data in progres…",
     "restoreSummary": "Full: {{file}} ({{size}}) + {{deltas}} deltas ({{earliest}} → {{latest}})"
   },
+  "csvImport": {
+    "columnAlpha": "Alpha (A)",
+    "columnCharlie": "Charlie (C)",
+    "columnDelta": "Delta (D)",
+    "missingMatchId": "Missing match ID for this import type"
+  },
   "help": {
     "title": "Help",
     "subtitle": "How to use IPSCScore",
     "close": "Close help",
+    "sidebarAria": "Help sections",
     "zoomImage": "Click to zoom",
     "viewInApp": "Open in app",
     "openSection": "Open this section in the app",
@@ -800,7 +857,11 @@
       "squadding": "Squadding & groups",
       "dq": "Disqualification (B-out)",
       "results": "Results",
-      "output": "Output & exports"
+      "output": "Output & exports",
+      "settings": "Settings",
+      "database": "Database backup",
+      "qrCodes": "QR codes & sharing",
+      "audit": "Audit log"
     }
   }
 }

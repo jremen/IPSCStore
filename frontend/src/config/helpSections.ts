@@ -84,6 +84,34 @@ export const HELP_SECTIONS: HelpSection[] = [
     adminOnly: true,
     order: 11,
   },
+  {
+    id: 'settings',
+    labelKey: 'help.sections.settings',
+    markdown: 'settings.md',
+    adminOnly: true,
+    order: 12,
+  },
+  {
+    id: 'database',
+    labelKey: 'help.sections.database',
+    markdown: 'database.md',
+    adminOnly: true,
+    order: 13,
+  },
+  {
+    id: 'qr-codes',
+    labelKey: 'help.sections.qrCodes',
+    markdown: 'qr-codes.md',
+    adminOnly: true,
+    order: 14,
+  },
+  {
+    id: 'audit',
+    labelKey: 'help.sections.audit',
+    markdown: 'audit.md',
+    adminOnly: true,
+    order: 15,
+  },
 ];
 
 export function getVisibleHelpSections(isAdmin: boolean): HelpSection[] {

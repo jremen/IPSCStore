@@ -7,15 +7,12 @@ import LanguageSelector from '../settings/LanguageSelector';
 import { ThemeSelector } from '../settings/ThemeSelector';
 import type { RegistrationWithShooter } from '../../types/scoring';
 
-const AUTO_REFRESH_INTERVAL = 30000;
-
 export default function PublicSquadsView() {
   const { t } = useTranslation();
   const setActiveMatch = useUIStore((s) => s.setActiveMatch);
   const setActiveTab = useUIStore((s) => s.setActiveTab);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<'noCurrentMatch' | 'loadError' | null>(null);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [matchName, setMatchName] = useState<string>('');
   const [registrations, setRegistrations] = useState<RegistrationWithShooter[]>([]);
   const [isOffline, setIsOffline] = useState(false);
@@ -68,7 +65,6 @@ export default function PublicSquadsView() {
       }
     }
 
-    setLastRefresh(new Date());
     setLoading(false);
   }, [setActiveMatch]);
 
@@ -76,14 +72,6 @@ export default function PublicSquadsView() {
     setActiveTab('squads');
     loadData();
   }, [setActiveTab, loadData]);
-
-  // Auto-refresh
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadData();
-    }, AUTO_REFRESH_INTERVAL);
-    return () => clearInterval(interval);
-  }, [loadData]);
 
   const squadData = useMemo(() => {
     const grouped: Record<number, RegistrationWithShooter[]> = {};
@@ -177,7 +165,6 @@ export default function PublicSquadsView() {
           </div>
         </div>
         <div className="flex items-center gap-2 text-xs text-purple-200 dark:text-white">
-          <span>{t('squads.autoRefresh', { time: lastRefresh.toLocaleTimeString() })}</span>
           {isOffline && (
             <span className="ml-2 px-1.5 py-0.5 bg-yellow-600 text-white rounded text-2.5 font-medium">
               {t('squads.offline')}

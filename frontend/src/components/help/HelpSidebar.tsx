@@ -12,7 +12,7 @@ export default function HelpSidebar({ sections, activeId, onSelect }: HelpSideba
 
   return (
     <nav
-      aria-label="Help sections"
+      aria-label={t('help.sidebarAria')}
       className="w-full sm:w-64 shrink-0 border-b sm:border-b-0 sm:border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 sm:max-h-[70vh] sm:overflow-y-auto"
     >
       <ul className="flex sm:flex-col overflow-x-auto sm:overflow-x-visible">

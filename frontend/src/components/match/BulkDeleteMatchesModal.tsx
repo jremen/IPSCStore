@@ -29,7 +29,7 @@ export default function BulkDeleteMatchesModal({ show, onClose, matchIds, matchN
         setTimeout(onClose, 1500);
       }
     } catch (err: any) {
-      setResult({ deleted: 0, failed: [{ id: '', name: '', reason: err.message || 'Unknown error' }] });
+      setResult({ deleted: 0, failed: [{ id: '', name: '', reason: err.message || t('common.unknownError') }] });
     } finally {
       setLoading(false);
     }

@@ -14,7 +14,7 @@ Open the **Squadding** modal from the Registration tab.
 
 ![Squadding modal](/docs/screenshots/squadding-modal.png)
 
-The modal shows:
+### The modal shows
 
 - **Unassigned** column on the left, with a search box.
 - **N squad columns** to the right, with shooters and an "Add Shooter" button.

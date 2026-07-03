@@ -28,7 +28,14 @@
     "yes": "Áno",
     "no": "Nie",
     "import": "Importovať",
-    "export": "Exportovať"
+    "export": "Exportovať",
+    "filter": "Filtrovať",
+    "refresh": "↻ Obnoviť",
+    "unknownError": "Neznáma chyba",
+    "parenthesisedDate": "({{date}})"
+  },
+  "layout": {
+    "restoringSession": "Obnovujem reláciu…"
   },
   "bulkActions": {
     "selectedCount_one": "1 vybraná",
@@ -122,7 +129,10 @@
     "loginUnavailableOffline": "Prihlásenie nie je dostupné offline. Prosím, pripojte sa k internetu pre prvé prihlásenie.",
     "offlineContinueHint": "Relácia obnovená z offline úložiska.",
     "offlineNoDataTitle": "Nie sú dostupné offline údaje",
-    "offlineNoDataHint": "Ste offline a nemáte uložené žiadne údaje. Otvorte aplikáciu IPSC Score z plochy, alebo sa pripojte k internetu pre prihlásenie."
+    "offlineNoDataHint": "Ste offline a nemáte uložené žiadne údaje. Otvorte aplikáciu IPSC Score z plochy, alebo sa pripojte k internetu pre prihlásenie.",
+    "trustNoTokenYet": "Zatiaľ nebol vygenerovaný žiaden trust token. Kliknutím na Rotovať ho vytvoríte.",
+    "trustLoadError": "Nepodarilo sa načítať informácie o trust tokeni",
+    "trustRotateError": "Nepodarilo sa rotovať trust token"
   },
   "tabs": {
     "matches": "Súťaže",
@@ -200,7 +210,8 @@
     "bulkDeleteCannotBeUndone": "Túto akciu nie je možné vrátiť späť.",
     "bulkDeleteAndMore_one": "...a ešte 1",
     "bulkDeleteAndMore_few": "...a ešte {{count}}",
-    "bulkDeleteAndMore_many": "...a ešte {{count}}"
+    "bulkDeleteAndMore_many": "...a ešte {{count}}",
+    "levelBadge": "L{{level}}"
   },
   "stages": {
     "title": "Situácie",
@@ -269,7 +280,12 @@
     "rounds": "Náboje",
     "points": "Body",
     "noBriefing": "Briefing nebol zadaný.",
-    "showDetails": "Zobraziť detaily situácie"
+    "showDetails": "Zobraziť detaily situácie",
+    "parTimeBadge": "Par {{seconds}}s",
+    "configShotsSuffix": " výstrelov",
+    "configFireSuffix": " streľba",
+    "configArrowsSuffix": " šípov/sada",
+    "configPointsSuffix": " b/zásah"
   },
   "shooters": {
     "title": "Databáza strelcov",
@@ -499,7 +515,8 @@
     "printedReset": "Zoznam vytlačených resetovaný",
     "unprintedPrompt_one": "{{count}} nový výsledok — vytlačiť súhrn?",
     "unprintedPrompt_few": "{{count}} nové výsledky — vytlačiť súhrn?",
-    "unprintedPrompt_many": "{{count}} nových výsledkov — vytlačiť súhrn?"
+    "unprintedPrompt_many": "{{count}} nových výsledkov — vytlačiť súhrn?",
+    "shot": "Výstrel"
   },
   "scoringTypes": {
     "comstock": "Comstock",
@@ -572,7 +589,9 @@
     "close": "Zatvoriť",
     "summaryNotAvailable": "Súhrn nie je k dispozícii",
     "backToResults": "Späť na výsledky",
-    "penaltiesDeducted": "Odpočítané penále"
+    "penaltiesDeducted": "Odpočítané penále",
+    "progress": "Priebeh",
+    "proceduralsHeader": "P"
   },
   "import": {
     "modalTitle": "Importovať {{entity}} z CSV",
@@ -644,7 +663,14 @@
       "errorsWord": "chýb",
       "createdCol": "Vytvorené",
       "skippedCol": "Preskočené",
-      "categoryCol": "Kategória"
+      "categoryCol": "Kategória",
+      "importFailedFallback": "Import zlyhal",
+      "importFailedToast": "Import zlyhal: {{message}}",
+      "inspectFailed": "Kontrola zlyhala",
+      "tableError": "Chyba: {{message}}",
+      "errorsCount": "({{count}} chýb)",
+      "shooterImportErrors": "Chyby importu strelcov ({{count}})",
+      "andMore": "...a {{count}} ďalších"
     }
   },
   "settings": {
@@ -656,7 +682,26 @@
     "themeLight": "Svetlý",
     "themeDark": "Tmavý",
     "themeEink": "Vysoký kontrast",
-    "themeAriaLabel": "Výber motívu"
+    "themeAriaLabel": "Výber motívu",
+    "auditLog": "Audit log",
+    "auditLogDescription": "Zobraziť nedávne administratívne a bodovacie akcie zaznamenané v audit logu.",
+    "viewAuditLog": "Zobraziť audit log",
+    "auditLogTitle": "Audit log",
+    "auditLogTime": "Čas",
+    "auditLogActor": "Aktér",
+    "auditLogAction": "Akcia",
+    "auditLogTarget": "Cieľ",
+    "auditLogIp": "IP",
+    "auditLogMeta": "Detaily",
+    "auditLogFilterAction": "Filtrovať podľa akcie...",
+    "auditLogFilterRole": "Rola",
+    "auditLogRoleAll": "Všetky",
+    "auditLogLoadMore": "Načítať ďalšie",
+    "auditLogNoEntries": "Žiadne záznamy v audit logu.",
+    "auditLogError": "Nepodarilo sa načítať audit log.",
+    "auditLogTotal": "Celkom {{count}} záznamov",
+    "auditLogErrorFallback": "Nepodarilo sa načítať",
+    "themeToggleAria": "Prepínať motív"
   },
   "matchDetail": {
     "back": "← Späť",
@@ -664,7 +709,10 @@
     "totalShots": "Celkom výstrelov",
     "maxPoints": "Max. bodov",
     "paperTargets": "Papierové terče",
-    "steelTargets": "Kovové terče"
+    "steelTargets": "Kovové terče",
+    "levelBadge": "L{{level}}",
+    "stageSummary": "{{paper}} P / {{steel}} S / {{noShoot}} NS{{npmSuffix}} • {{rounds}} náb • {{points}} b",
+    "stageSummaryNpmSuffix": " / {{npm}} NPM"
   },
   "database": {
     "title": "Databáza",
@@ -680,7 +728,10 @@
     "importConfirm": "Nahradiť všetky dáta?",
     "importWarning": "Týmto sa nahradia VŠETKY existujúce dáta zálohou. Túto akciu nie je možné vrátiť späť.",
     "file": "Súbor:",
-    "confirmButton": "Nahradiť všetky dáta"
+    "confirmButton": "Nahradiť všetky dáta",
+    "unitsByte": "B",
+    "unitsKb": "KB",
+    "unitsMb": "MB"
   },
   "offline": {
     "mode": "Offline",
@@ -762,7 +813,6 @@
   "squads": {
     "publicTitle": "Squady",
     "noCurrentMatch": "Žiadna aktívna súťaž. Squady sa zobrazia po nastavení aktívnej súťaže.",
-    "autoRefresh": "Automaticky obnovené o {{time}}",
     "loading": "Načítavajú sa squady...",
     "loadError": "Nepodarilo sa načítať squady. Skúste to znova.",
     "retry": "Skúsiť znova",
@@ -801,6 +851,7 @@
     "title": "Pomoc",
     "subtitle": "Ako používať IPSCScore",
     "close": "Zavrieť pomoc",
+    "sidebarAria": "Sekcie pomoci",
     "zoomImage": "Kliknutím zväčšíte",
     "viewInApp": "Otvoriť v aplikácii",
     "openSection": "Otvoriť túto sekciu v aplikácii",
@@ -810,16 +861,26 @@
     "retry": "Skúsiť znova",
     "sections": {
       "overview": "Prehľad",
-      "matches": "Preteky",
-      "stages": "Etapy a situácie",
-      "scoringOverview": "Zadávanie výsledkov",
-      "scoringDesktop": "Zadávanie na počítači",
-      "scoringMobile": "Zadávanie v mobile",
+      "matches": "Súťaže",
+      "stages": "Situácie",
+      "scoringOverview": "Bodovanie",
+      "scoringDesktop": "Bodovanie na počítači",
+      "scoringMobile": "Bodovanie v mobile",
       "registration": "Registrácia a strelci",
-      "squadding": "Skupiny a družstvá",
+      "squadding": "Rozdelenie do squad-ov",
       "dq": "Diskvalifikácia (B-out)",
       "results": "Výsledky",
-      "output": "Výstupy a exporty"
+      "output": "Výstupy a exporty",
+      "settings": "Nastavenia",
+      "database": "Databáza a zálohy",
+      "qrCodes": "QR kódy a zdieľanie",
+      "audit": "Audit log"
     }
+  },
+  "csvImport": {
+    "columnAlpha": "Alpha (A)",
+    "columnCharlie": "Charlie (C)",
+    "columnDelta": "Delta (D)",
+    "missingMatchId": "Chýba ID súťaže pre tento typ importu"
   }
 }

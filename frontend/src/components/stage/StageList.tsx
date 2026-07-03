@@ -76,7 +76,7 @@ export default function StageList() {
                   <span className="font-mono text-blue-600 text-lg">#{stage.stage_number}</span>
                   <span className="font-semibold dark:text-white">{stage.name}</span>
                   <Badge color="indigo">{getScoringTypeLabel(stage.scoring_type, t)}</Badge>
-                  {stage.par_time && <Badge color="yellow">Par {stage.par_time}s</Badge>}
+                  {stage.par_time && <Badge color="yellow">{t('stages.parTimeBadge', { seconds: stage.par_time })}</Badge>}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-200 space-x-3">
                   {stage.paper_targets > 0 && <span>{t('stages.paper')}: {stage.paper_targets}</span>}
@@ -90,11 +90,11 @@ export default function StageList() {
                     <span className="text-xs text-gray-400">
                       {stage.config.number_of_strings && `${t('stages.configNumberOfStrings')}: ${stage.config.number_of_strings}`}
                       {stage.config.num_targets && ` ${t('stages.configNumTargets')}: ${stage.config.num_targets}`}
-                      {stage.config.shots_per_string && ` • ${stage.config.shots_per_string} shots`}
-                      {stage.config.fire_type && ` • ${stage.config.fire_type} fire`}
+                      {stage.config.shots_per_string && ` • ${stage.config.shots_per_string}${t('stages.configShotsSuffix')}`}
+                      {stage.config.fire_type && ` • ${stage.config.fire_type}${t('stages.configFireSuffix')}`}
                       {stage.config.variant && ` • ${stage.config.variant}`}
-                      {stage.config.arrows_per_end && ` • ${stage.config.arrows_per_end} arrows/end`}
-                      {stage.config.point_value && ` • ${stage.config.point_value}pts/hit`}
+                      {stage.config.arrows_per_end && ` • ${stage.config.arrows_per_end}${t('stages.configArrowsSuffix')}`}
+                      {stage.config.point_value && ` • ${stage.config.point_value}${t('stages.configPointsSuffix')}`}
                     </span>
                   )}
                 </div>

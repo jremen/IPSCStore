@@ -69,7 +69,7 @@ export default function ScoringNav() {
   return (
     <div className="scoring-nav-root">
       {/* Stage selector tabs — hidden on mobile (use Header picker instead) */}
-      <div className="hidden sm:flex overflow-x-auto border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-1 no-print" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="hidden shrink-0 sm:flex overflow-x-auto border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-1 no-print" style={{ WebkitOverflowScrolling: 'touch' }}>
         {stages.map((stage) => (
           <button
             key={stage.id}

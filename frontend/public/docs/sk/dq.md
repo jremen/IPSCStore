@@ -1,6 +1,6 @@
 # Diskvalifikácia (B-out)
 
-Diskvalifikácia strelca ho odstráni z pretekov: všetky jeho skóre v etapách sa vynulujú a objaví sa v DQ zozname vo výsledkoch.
+Diskvalifikácia strelca ho odstráni zo súťaže: všetky jeho skóre v situáciách sa vynulujú a objaví sa v DQ zozname vo výsledkoch.
 
 ## Ako diskvalifikovať strelca
 
@@ -16,14 +16,14 @@ DQ modal ponúka zoznam preddefinovaných dôvodov (porušenia pravidiel, bezpe�
 
 ## Efekt na výsledky
 
-- Všetky skóre v etapách pre strelca sa nastavia na nulu.
-- Strelec je pridaný do DQ tabuľky naspodku každého zobrazenia výsledkov (podľa divízie, celkovo, podľa etapy, kategórie, štítku).
+- Všetky skóre v situáciách pre strelca sa nastavia na nulu.
+- Strelec je pridaný do DQ tabuľky naspodku každého zobrazenia výsledkov (podľa divízie, celkovo, podľa situácie, kategórie, štítku).
 - Dôvod DQ sa zobrazí vedľa mena strelca v DQ tabuľkách.
 
 ![DQ tabuľka výsledkov](/docs/screenshots/results-dq-table.png)
 
 ## Kto môže diskvalifikovať
 
-Ktokoľvek s prístupom k pretekom môže diskvalifikovať — na túto akciu nie je žiadna adminská brána. Ak potrebujete DQ iba pre administrátorov, obráťte sa na hostiteľa.
+Ktokoľvek s prístupom k súťaži môže diskvalifikovať — na túto akciu nie je žiadna adminská brána. Ak potrebujete DQ iba pre administrátorov, obráťte sa na hostiteľa.
 
 **Prejsť v aplikácii:** [Prejsť na zadávanie](app-tab:scoring)

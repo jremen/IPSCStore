@@ -39,8 +39,8 @@ export default function WinMSSImportModal({ show, onClose }: { show: boolean; on
       addToast(t('settings.english') === 'English' ? 'WinMSS import completed' : 'WinMSS import dokončený', 'success');
       await fetchMatches();
     } catch (err: any) {
-      setError(err.message || 'Import failed');
-      addToast(`Import failed: ${err.message}`, 'error');
+      setError(err.message || t('import.winMss.importFailedFallback'));
+      addToast(t('import.winMss.importFailedToast', { message: err.message }), 'error');
     } finally {
       setImporting(false);
     }
@@ -98,7 +98,7 @@ export default function WinMSSImportModal({ show, onClose }: { show: boolean; on
                         const data = await api.inspectWinMSS(input.files[0]) as Record<string, any>;
                         setInspectData(data);
                       } catch (err: any) {
-                        setError(err.message || 'Inspect failed');
+                        setError(err.message || t('import.winMss.inspectFailed'));
                       } finally {
                         setInspecting(false);
                       }
@@ -155,9 +155,9 @@ export default function WinMSSImportModal({ show, onClose }: { show: boolean; on
                     </pre>
                   </details>
                 )}
-                {tableData.error && (
-                  <p className="text-xs text-red-500 mt-1">Error: {tableData.error}</p>
-                )}
+                  {tableData.error && (
+                    <p className="text-xs text-red-500 mt-1">{t('import.winMss.tableError', { message: tableData.error })}</p>
+                  )}
               </div>
             ))}
             <div className="flex gap-2 mt-4">
@@ -247,7 +247,7 @@ export default function WinMSSImportModal({ show, onClose }: { show: boolean; on
                 <TableRow>
                   <TableCell>{t('import.winMss.shootersRow')}</TableCell>
                   <TableCell>{result.shooters.created}</TableCell>
-                  <TableCell>{result.shooters.skipped}{result.shooters.errors.length > 0 ? ` (${result.shooters.errors.length} errors)` : ''}</TableCell>
+                  <TableCell>{result.shooters.skipped}{result.shooters.errors.length > 0 ? ` ${t('import.winMss.errorsCount', { count: result.shooters.errors.length })}` : ''}</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell>{t('import.winMss.registrationsRow')}</TableCell>
@@ -295,13 +295,13 @@ export default function WinMSSImportModal({ show, onClose }: { show: boolean; on
 
             {result.shooters.errors.length > 0 && (
               <Alert color="failure">
-                <p className="font-medium mb-1">Shooter import errors ({result.shooters.errors.length})</p>
+                <p className="font-medium mb-1">{t('import.winMss.shooterImportErrors', { count: result.shooters.errors.length })}</p>
                 <ul className="list-disc list-inside text-sm">
                   {result.shooters.errors.slice(0, 20).map((e, i) => (
                     <li key={i}>{e}</li>
                   ))}
                   {result.shooters.errors.length > 20 && (
-                    <li>...and {result.shooters.errors.length - 20} more</li>
+                    <li>{t('import.winMss.andMore', { count: result.shooters.errors.length - 20 })}</li>
                   )}
                 </ul>
               </Alert>

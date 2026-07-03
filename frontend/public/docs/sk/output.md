@@ -7,25 +7,25 @@ Aplikácia dokáže exportovať výsledky v niekoľkých formátoch. Otvorte zá
 ## CSV
 
 - **CSV výsledkov** — všetci strelci s ich celkovým percentuálnym podielom, divíziou a kategóriou.
-- **CSV registrácií** — zo záložky Preteky, exportuje zoznam registrácií pre preteky.
+- **CSV registrácií** — zo záložky Súťaže, exportuje zoznam registrácií pre súťaž.
 - **CSV strelcov** — zo záložky Strelci, exportuje globálnu databázu strelcov.
 
 CSV súbory sa otvárajú v Exceli, Numbers alebo akejkoľvek tabuľkovej aplikácii.
 
 ## PDF
 
-- **Hárky skóre** — zo záložky Etapy, hárky skóre pre každú etapu pripravené na tlač.
-- **Zoznam družstiev** — z modalu družstiev, pridelenie družstiev pre potreby strelnice.
+- **Bodovacie hárky** — zo záložky Situácie, bodovacie hárky pre každú situáciu pripravené na tlač.
+- **Zoznam squad-ov** — z modalu squadding, pridelenie squad-ov pre potreby strelnice.
 - **Výsledky** — formátované PDF výsledkov, pripravené na tlač a vyvesenie na strelnici.
 
 ## JSON
 
-- **Export pretekov** — zo záložky Preteky, jeden JSON súbor s celými pretekmi (etapy, registrácie, skóre, výsledky). Užitočné na zdieľanie nastavenia pretekov s iným zariadením.
-- **Import pretekov** — opak: nahradí lokálne preteky obsahom JSON súboru.
+- **Export súťaže** — zo záložky Súťaže, jeden JSON súbor s celou súťažou (situácie, registrácie, skóre, výsledky). Užitočné na zdieľanie nastavenia súťaže s iným zariadením.
+- **Import súťaže** — opak: nahradí lokálnu súťaž obsahom JSON súboru.
 
 ## Import WinMSS
 
-Ak máte existujúcu databázu WinMSS, môžete importovať `.mdb` súbor z **Nastavenia → Databáza**. Preteky, strelci, registrácie a skóre sa importujú.
+Ak máte existujúcu databázu WinMSS, môžete importovať `.mdb` súbor z **Nastavenia → Databáza**. Súťaže, strelci, registrácie a skóre sa importujú.
 
 ## Zálohovanie databázy
 

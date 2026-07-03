@@ -27,7 +27,7 @@ export default function MatchDetail() {
         <h2 className="text-xl font-bold dark:text-white">{currentMatch.name}</h2>
         <Badge color={currentMatch.organization === 'IPSC' ? 'info' : 'purple'}>{currentMatch.organization}</Badge>
         <Badge color="gray">{currentMatch.firearm_type}</Badge>
-        {currentMatch.match_level ? <Badge color="indigo">{`L${currentMatch.match_level}`}</Badge> : null}
+        {currentMatch.match_level ? <Badge color="indigo">{t('matchDetail.levelBadge', { level: currentMatch.match_level })}</Badge> : null}
       </div>
 
       <p className="text-sm text-gray-500 mb-4">{formatDate(currentMatch.date)} • {currentMatch.shooter_count} {t('matches.shooters').toLowerCase()}</p>
@@ -55,7 +55,14 @@ export default function MatchDetail() {
                 <Badge color="indigo" className="ml-2">{stage.scoring_type}</Badge>
               </div>
               <div className="text-sm dark:text-white">
-                {stage.paper_targets}&nbsp;P / {stage.steel_targets}&nbsp;S / {stage.no_shoot_targets > 0 ? '✓' : '—'}&nbsp;NS{stage.npm_targets > 0 ? ` / ${stage.npm_targets} NPM` : ''} • {stage.min_rounds} rnds • {stage.max_points} pts
+                {t('matchDetail.stageSummary', {
+                  paper: stage.paper_targets,
+                  steel: stage.steel_targets,
+                  noShoot: stage.no_shoot_targets > 0 ? '✓' : '—',
+                  npmSuffix: stage.npm_targets > 0 ? t('matchDetail.stageSummaryNpmSuffix', { npm: stage.npm_targets }) : '',
+                  rounds: stage.min_rounds,
+                  points: stage.max_points,
+                })}
               </div>
             </div>
           </Card>

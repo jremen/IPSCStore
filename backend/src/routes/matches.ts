@@ -10,7 +10,7 @@ matchRoutes.get('/', async (c) => {
     SELECT m.id, m.name, m.date, m.organization, m.firearm_type, m.match_level, m.is_current, m.created_at,
            (SELECT COUNT(*) FROM match_registrations mr WHERE mr.match_id = m.id) AS shooter_count
     FROM matches m
-    ORDER BY m.date DESC
+    ORDER BY m.date DESC, m.created_at DESC
   `;
   return c.json(matches.map(m => ({ ...m, shooter_count: Number(m.shooter_count), match_level: m.match_level ?? null })));
 });

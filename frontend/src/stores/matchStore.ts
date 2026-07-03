@@ -24,6 +24,13 @@ interface MatchActions {
   unmarkCurrent: () => Promise<void>;
 }
 
+function sortMatches(matches: Match[]): Match[] {
+  return [...matches].sort((a, b) => {
+    if (a.date !== b.date) return (b.date ?? '').localeCompare(a.date ?? '');
+    return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+  });
+}
+
 export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
   matches: [],
   currentMatch: null,
@@ -38,7 +45,7 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
     let cachedData: Match[] | null = null;
     try {
       const cached = await offlineDB.getCachedMatches();
-      if (cached.length > 0) cachedData = cached;
+      if (cached.length > 0) cachedData = sortMatches(cached);
     } catch { /* IDB error — proceed to network path */ }
 
     if (cachedData) {
@@ -50,9 +57,10 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
     if (shouldAttemptApiCall()) {
       try {
         const matches = await api.getMatches();
-        const runningMatch = matches.find(m => m.is_current);
-        set({ matches, runningMatch, loading: false });
-        offlineDB.cacheMatches(matches).catch(() => {});
+        const sorted = sortMatches(matches);
+        const runningMatch = sorted.find(m => m.is_current);
+        set({ matches: sorted, runningMatch, loading: false });
+        offlineDB.cacheMatches(sorted).catch(() => {});
       } catch {
         // API failed — keep cached data if available, otherwise show error
         if (!cachedData) {
@@ -77,14 +85,14 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
 
   createMatch: async (data) => {
     const match = await api.createMatch(data);
-    set((state) => ({ matches: [match, ...state.matches] }));
+    set((state) => ({ matches: sortMatches([match, ...state.matches]) }));
     return match;
   },
 
   updateMatch: async (id, data) => {
     const updated = await api.updateMatch(id, data);
     set((state) => ({
-      matches: state.matches.map((m) => (m.id === id ? updated : m)),
+      matches: sortMatches(state.matches.map((m) => (m.id === id ? updated : m))),
       currentMatch: state.currentMatch?.id === id ? { ...state.currentMatch, ...updated } : state.currentMatch,
     }));
   },
@@ -92,7 +100,7 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
   deleteMatch: async (id) => {
     await api.deleteMatch(id);
     set((state) => ({
-      matches: state.matches.filter((m) => m.id !== id),
+      matches: sortMatches(state.matches.filter((m) => m.id !== id)),
       currentMatch: state.currentMatch?.id === id ? null : state.currentMatch,
     }));
   },
@@ -100,7 +108,7 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
   bulkDeleteMatches: async (ids) => {
     const result = await api.bulkDeleteMatches(ids);
     set((state) => ({
-      matches: state.matches.filter((m) => !ids.includes(m.id)),
+      matches: sortMatches(state.matches.filter((m) => !ids.includes(m.id))),
       currentMatch: state.currentMatch && ids.includes(state.currentMatch.id) ? null : state.currentMatch,
     }));
     return result;

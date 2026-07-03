@@ -480,4 +480,24 @@ export const api = {
   }> => request('/api/local-backup/restore-folder', { method: 'POST', body: JSON.stringify({ folder }) }),
 
   exportLocalFullBackup: (): Promise<Blob> => requestBlob('/api/local-backup/export-full'),
+
+  // Audit Log
+  getAuditLog: (params: {
+    limit?: number;
+    offset?: number;
+    action?: string;
+    actor_role?: string;
+    from?: string;
+    to?: string;
+  } = {}): Promise<import('../types/audit').AuditLogResponse> => {
+    const q = new URLSearchParams();
+    if (params.limit != null) q.set('limit', String(params.limit));
+    if (params.offset != null) q.set('offset', String(params.offset));
+    if (params.action) q.set('action', params.action);
+    if (params.actor_role) q.set('actor_role', params.actor_role);
+    if (params.from) q.set('from', params.from);
+    if (params.to) q.set('to', params.to);
+    const qs = q.toString();
+    return request(`/api/audit${qs ? '?' + qs : ''}`);
+  },
 };

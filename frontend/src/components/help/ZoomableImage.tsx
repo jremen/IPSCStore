@@ -1,4 +1,5 @@
 import { useState, ImgHTMLAttributes } from 'react';
+import { useTranslation } from 'react-i18next';
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
 
@@ -31,6 +32,7 @@ export default function ZoomableImage({
   index = 0,
   ...rest
 }: ZoomableImageProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   if (!src) return null;
 
@@ -38,12 +40,12 @@ export default function ZoomableImage({
   const openAt = images ? index : 0;
 
   return (
-    <span className="block my-3 not-prose">
+    <span className="block my-3 not-prose relative z-99999999">
       <button
         type="button"
         className="block cursor-zoom-in rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 hover:opacity-90 transition-opacity text-left w-full"
         onClick={() => setOpen(true)}
-        title="Click to zoom"
+        title={t('help.zoomImage')}
       >
         <img
           src={src}
@@ -58,6 +60,7 @@ export default function ZoomableImage({
         close={() => setOpen(false)}
         index={openAt}
         slides={slides}
+        styles={{root: {"--yarl__portal_zindex": "999999999"}}}
       />
     </span>
   );

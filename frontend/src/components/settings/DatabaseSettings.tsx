@@ -157,9 +157,9 @@ export default function DatabaseSettings() {
   };
 
   const formatBytes = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (bytes < 1024) return `${bytes} ${t('database.unitsByte')}`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} ${t('database.unitsKb')}`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} ${t('database.unitsMb')}`;
   };
 
   return (

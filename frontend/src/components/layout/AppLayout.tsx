@@ -17,12 +17,16 @@ import StageLoginPage from '../auth/StageLoginPage';
 import PublicResultsView from '../results/PublicResultsView';
 import PublicSquadsView from '../squads/PublicSquadsView';
 import { shouldAttemptApiCall } from '../../services/connectivity';
+import { useTranslation } from 'react-i18next';
 import { useOfflineStatus } from '../../hooks/useOfflineStatus';
 import { useOfflineSync } from '../../hooks/useOfflineSync';
 import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
 import MenuActionListener from '../shared/MenuActionListener';
+import { useScoringStore } from '../../stores/scoringStore';
+import { useStageStore } from '../../stores/stageStore';
 
 export default function AppLayout() {
+  const { t } = useTranslation();
   const activeTab = useUIStore((s) => s.activeTab);
   const activeMatchId = useUIStore((s) => s.activeMatchId);
   const setActiveMatch = useUIStore((s) => s.setActiveMatch);
@@ -36,6 +40,7 @@ export default function AppLayout() {
   const logout = useAuthStore((s) => s.logout);
   const sessionValidated = useRef(false);
   const [sessionRestoring, setSessionRestoring] = useState(true);
+  const prevActiveMatchId = useRef<string | null>(null);
 
   // Offline support hooks — always active
   useOfflineStatus();
@@ -134,7 +139,7 @@ export default function AppLayout() {
           logout();
         }
       })();
-    } else if (isAuthenticated && isAdmin && !activeMatchId) {
+    } else if (isAuthenticated && isAdmin && !activeMatchId && activeTab !== 'matches') {
       // Admin: auto-select the running match when entering any tab with no match selected.
       // Previously this was restricted to scoring/results, but Stages and
       // Registration also need the current match to render anything useful.
@@ -162,6 +167,15 @@ export default function AppLayout() {
     }
   }, [domainMode, isAuthenticated, isAdmin, activeTab, activeMatchId, authenticatedMatchId, setActiveMatch, logout]);
 
+  // Reset scoring/stage data when the active match changes
+  useEffect(() => {
+    if (activeMatchId && activeMatchId !== prevActiveMatchId.current) {
+      useScoringStore.getState().resetScoringProgress();
+      useStageStore.getState().resetStages();
+    }
+    prevActiveMatchId.current = activeMatchId;
+  }, [activeMatchId]);
+
   // Domain mode: vysledky.local → show public results (no login needed)
   if (domainMode === 'results') {
     return <PublicResultsView />;
@@ -179,7 +193,7 @@ export default function AppLayout() {
     if (sessionRestoring) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-          <div className="text-sm text-gray-500 dark:text-gray-400">Restoring session…</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('layout.restoringSession')}</div>
         </div>
       );
     }

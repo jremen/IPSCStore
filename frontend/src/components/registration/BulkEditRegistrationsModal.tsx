@@ -57,7 +57,7 @@ export default function BulkEditRegistrationsModal({ show, onClose, selectedIds,
         setTimeout(handleClose, 1500);
       }
     } catch (err: any) {
-      setResult({ updated: 0, failed: [{ id: '', name: '', reason: err.message || 'Unknown error' }] });
+      setResult({ updated: 0, failed: [{ id: '', name: '', reason: err.message || t('common.unknownError') }] });
     } finally {
       setLoading(false);
     }

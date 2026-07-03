@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button } from 'flowbite-react';
+import { Alert, Modal, ModalHeader, ModalBody, ModalFooter, Button } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { useQRCode } from '../../hooks/useQRCode';
 import { useEscClose } from '../../hooks/useEscClose';
@@ -20,6 +20,7 @@ export default function ScorerTrustModal({ show, onClose }: ScorerTrustModalProp
   const [trustToken, setTrustToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [rotating, setRotating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [sessions, setSessions] = useState<any[]>([]);
   const [showSessions, setShowSessions] = useState(false);
@@ -31,13 +32,21 @@ export default function ScorerTrustModal({ show, onClose }: ScorerTrustModalProp
     if (!show || !adminToken) return;
     (async () => {
       setLoading(true);
+      setError(null);
       try {
         const info = await api.auth.getScorerTrustInfo(adminToken);
-        setTrustToken(info.trustToken);
+        if (info.error) {
+          setError(info.error);
+        } else {
+          setTrustToken(info.trustToken);
+          if (!info.trustToken) {
+            setError(t('auth.trustNoTokenYet'));
+          }
+        }
         const sess = await api.auth.getActiveScorerSessions(adminToken);
         setSessions(sess);
-      } catch {
-        // Failed to fetch trust info
+      } catch (err: any) {
+        setError(err?.message || t('auth.trustLoadError'));
       }
       setLoading(false);
     })();
@@ -55,12 +64,17 @@ export default function ScorerTrustModal({ show, onClose }: ScorerTrustModalProp
     if (!adminToken) return;
     if (!confirm(t('auth.trustRotateConfirm'))) return;
     setRotating(true);
+    setError(null);
     try {
       const result = await api.auth.rotateScorerTrust(adminToken);
-      setTrustToken(result.trustToken);
-      setSessions([]);
-    } catch (err) {
-      console.error('Failed to rotate trust token:', err);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setTrustToken(result.trustToken);
+        setSessions([]);
+      }
+    } catch (err: any) {
+      setError(err?.message || t('auth.trustRotateError'));
     }
     setRotating(false);
   };
@@ -94,6 +108,12 @@ export default function ScorerTrustModal({ show, onClose }: ScorerTrustModalProp
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {t('auth.trustDescription')}
             </p>
+
+            {error && (
+              <Alert color="failure">
+                {error}
+              </Alert>
+            )}
 
             {/* QR code */}
             <div className="flex justify-center">

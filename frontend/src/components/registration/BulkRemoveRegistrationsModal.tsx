@@ -28,7 +28,7 @@ export default function BulkRemoveRegistrationsModal({ show, onClose, registrati
         setTimeout(onClose, 1500);
       }
     } catch (err: any) {
-      setResult({ removed: 0, failed: [{ id: '', name: '', reason: err.message || 'Unknown error' }] });
+      setResult({ removed: 0, failed: [{ id: '', name: '', reason: err.message || t('common.unknownError') }] });
     } finally {
       setLoading(false);
     }

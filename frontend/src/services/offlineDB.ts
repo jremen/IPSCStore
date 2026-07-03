@@ -406,7 +406,11 @@ export async function cacheMatches(matches: any[]): Promise<void> {
 
 export async function getCachedMatches(): Promise<any[]> {
   const { store } = await getStore('matches');
-  return promisify<any[]>(store.getAll());
+  const all = await promisify<any[]>(store.getAll());
+  return all.sort((a, b) => {
+    if (a.date !== b.date) return (b.date ?? '').localeCompare(a.date ?? '');
+    return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+  });
 }
 
 export async function getCachedCurrentMatch(): Promise<any | null> {

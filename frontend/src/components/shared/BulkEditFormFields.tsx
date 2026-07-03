@@ -152,7 +152,7 @@ export default function BulkEditFormFields({ form, onChange, showSquad = false, 
                 sizing="sm"
                 value={form.squad}
                 onChange={(v) => update({ squad: v })}
-                placeholder="Squad #"
+                placeholder={t('registration.squadPlaceholder')}
               />
             )}
           </div>

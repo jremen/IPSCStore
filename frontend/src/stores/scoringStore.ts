@@ -75,6 +75,7 @@ interface ScoringActions {
   setOfflineMode: (offline: boolean) => void;
   refreshPendingCount: () => Promise<void>;
   updateRegistrationLocal: (registrationId: string, patch: Partial<RegistrationWithShooter>) => void;
+  resetScoringProgress: () => void;
 }
 
 /** Add a scored entry to the current scoringProgress in the store (used after offline saves) */
@@ -512,4 +513,8 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
       r.id === registrationId ? { ...r, ...patch } : r,
     ),
   })),
+
+  resetScoringProgress: () => set({
+    scoringProgress: null, registrations: [], currentScore: null, currentRegistrationId: null, squadFilter: null,
+  }),
 }));

@@ -2425,7 +2425,8 @@ function calculateIDPAScore(input) {
   const total_time = input.time + points_down + penalty_seconds;
   return {
     raw_points: points_down,
-    penalty_points: penalty_seconds,
+    penalty_points: 0,
+    // IDPA has no penalty points — all penalties are time additions
     net_points: 0,
     // not used for IDPA
     hit_factor: 0,
@@ -5841,7 +5842,7 @@ matchRoutes.get("/", async (c) => {
     SELECT m.id, m.name, m.date, m.organization, m.firearm_type, m.match_level, m.is_current, m.created_at,
            (SELECT COUNT(*) FROM match_registrations mr WHERE mr.match_id = m.id) AS shooter_count
     FROM matches m
-    ORDER BY m.date DESC
+    ORDER BY m.date DESC, m.created_at DESC
   `;
   return c.json(matches.map((m) => ({ ...m, shooter_count: Number(m.shooter_count), match_level: m.match_level ?? null })));
 });
@@ -18851,12 +18852,14 @@ async function rotateTrustToken() {
   const token = crypto4.randomBytes(TOKEN_BYTES).toString("hex");
   const rotatedAt = (/* @__PURE__ */ new Date()).toISOString();
   await sql`
-    UPDATE app_settings SET value = ${token}, updated_at = now()
-    WHERE key = 'scorer_trust_token'
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('scorer_trust_token', ${token}, now())
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
   `;
   await sql`
-    UPDATE app_settings SET value = ${rotatedAt}, updated_at = now()
-    WHERE key = 'scorer_trust_token_rotated_at'
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('scorer_trust_token_rotated_at', ${rotatedAt}, now())
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
   `;
   await sql`DELETE FROM scorer_sessions WHERE 1=1`;
   return token;
@@ -19196,6 +19199,7 @@ authRoutes.get("/me", async (c) => {
     if (scorerSession) {
       return c.json({ role: "scorer", stageId: null, matchId: scorerSession.match_id, isLocalNetwork: false, domainMode });
     }
+    return c.json({ error: "Invalid or expired session token." }, 401);
   }
   return c.json({ role: "anonymous", stageId: null, isLocalNetwork: false, domainMode });
 });
@@ -19667,6 +19671,42 @@ matchExportRoutes.post("/matches/import", async (c) => {
   });
 });
 
+// ../backend/src/routes/audit.ts
+init_client();
+var auditLogRoutes = new Hono2();
+auditLogRoutes.get("/audit", async (c) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(c.req.query("limit") || "100", 10), 1), 500);
+    const offset = Math.max(parseInt(c.req.query("offset") || "0", 10), 0);
+    const actionFilter = c.req.query("action") || "";
+    const roleFilter = c.req.query("actor_role") || "";
+    const from = c.req.query("from") || "";
+    const to = c.req.query("to") || "";
+    const conds = [];
+    if (actionFilter) conds.push(sql`action ILIKE ${"%" + actionFilter + "%"}`);
+    if (roleFilter) conds.push(sql`actor_role = ${roleFilter}`);
+    if (from) conds.push(sql`at >= ${from}::timestamptz`);
+    if (to) conds.push(sql`at <= ${to}::timestamptz`);
+    const whereSql = conds.length > 0 ? sql`WHERE ${conds.reduce((acc, c2, i) => i === 0 ? c2 : sql`${acc} AND ${c2}`)}` : sql``;
+    const [entries, countResult] = await Promise.all([
+      sql`SELECT id, actor_role, actor_token_id, action, target_table, target_id, ip, at, meta
+          FROM audit_log ${whereSql}
+          ORDER BY at DESC
+          LIMIT ${limit} OFFSET ${offset}`,
+      sql`SELECT COUNT(*) as total FROM audit_log ${whereSql}`
+    ]);
+    return c.json({
+      entries,
+      total: Number(countResult[0]?.total ?? 0),
+      limit,
+      offset
+    });
+  } catch (err) {
+    console.error("[Audit] Failed to read audit log:", err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // ../backend/src/app.ts
 init_env();
 var app = new Hono2();
@@ -19777,6 +19817,9 @@ app.use("/api/import", authMiddleware);
 app.use("/api/import", requireAdmin);
 app.route("/api/import", importRoutes);
 app.route("/api/import", winmssImportRoutes);
+app.use("/api/audit", authMiddleware);
+app.use("/api/audit", requireAdmin);
+app.route("/api", auditLogRoutes);
 app.use("/api/matches/import", authMiddleware);
 app.use("/api/matches/import", requireAdmin);
 app.use("/api/matches/:id/export", authMiddleware);

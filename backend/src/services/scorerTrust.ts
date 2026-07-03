@@ -19,12 +19,14 @@ export async function rotateTrustToken(): Promise<string> {
   const token = crypto.randomBytes(TOKEN_BYTES).toString('hex');
   const rotatedAt = new Date().toISOString();
   await sql`
-    UPDATE app_settings SET value = ${token}, updated_at = now()
-    WHERE key = 'scorer_trust_token'
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('scorer_trust_token', ${token}, now())
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
   `;
   await sql`
-    UPDATE app_settings SET value = ${rotatedAt}, updated_at = now()
-    WHERE key = 'scorer_trust_token_rotated_at'
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('scorer_trust_token_rotated_at', ${rotatedAt}, now())
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
   `;
   // Auto-kick: invalidate all existing scorer sessions so devices must rescan QR
   await sql`DELETE FROM scorer_sessions WHERE 1=1`;

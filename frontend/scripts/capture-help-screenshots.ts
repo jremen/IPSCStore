@@ -272,6 +272,62 @@ const SHOTS: Shot[] = [
       await waitForContent(page, 'By Division|Podľa divízie');
     },
   },
+  // New help sections — desktop
+  {
+    name: 'settings-modal.png',
+    viewport: DESKTOP,
+    setup: async (page) => {
+      // Click the ⚙️ icon in the header (admin only, but login() already handled auth)
+      const settingsBtn = page.locator('button[title*="Settings"], button[title*="Nastavenia"]').first();
+      if (await settingsBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await settingsBtn.click();
+        await waitForContent(page, 'Settings|Nastavenia', 8000);
+        await page.waitForTimeout(800);
+      } else {
+        throw new Error('Settings button not visible');
+      }
+    },
+  },
+  {
+    name: 'qr-modal.png',
+    viewport: DESKTOP,
+    setup: async (page) => {
+      // Click the 🏆 Results QR badge in the LAN URL area.
+      // LanUrlBadge only renders when domainUrls is non-null (e.g. a *.local domain).
+      // On localhost this may not be available; the shot will fail gracefully.
+      const btn = page.locator('button[title*="public results"], button[title*="verejné výsledky"]').first();
+      if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await btn.click();
+        await waitForContent(page, 'Scan to connect|Naskenujte pre pripojenie', 8000);
+        await page.waitForTimeout(1000);
+      } else {
+        throw new Error('QR badge not visible (domainUrls likely null on localhost)');
+      }
+    },
+  },
+  {
+    name: 'audit-log-modal.png',
+    viewport: DESKTOP,
+    setup: async (page) => {
+      // Open Settings, then click "View Audit Log"
+      const settingsBtn = page.locator('button[title*="Settings"], button[title*="Nastavenia"]').first();
+      if (await settingsBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await settingsBtn.click();
+        await waitForContent(page, 'Settings|Nastavenia', 8000);
+        await page.waitForTimeout(500);
+      } else {
+        throw new Error('Settings button not visible');
+      }
+      const auditBtn = page.getByRole('button', { name: /View Audit Log|Zobraziť audit log/i }).first();
+      if (await auditBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await auditBtn.click();
+        await waitForContent(page, 'Audit Log|Audit log', 8000);
+        await page.waitForTimeout(1000);
+      } else {
+        throw new Error('View Audit Log button not visible');
+      }
+    },
+  },
   // Mobile — scorer-style
   {
     name: 'scoring-mobile-ipsc.png',

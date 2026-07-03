@@ -29,7 +29,7 @@ function columnHeader(col: ColumnKey, t: (key: string, opts?: any) => string): s
     delta: t('results.delta'),
     miss: t('results.miss'),
     noShootHits: t('results.noShootHits'),
-    procedurals: 'P',
+    procedurals: t('results.proceduralsHeader'),
     matchPercent: t('results.matchPercent'),
     matchPoints: t('results.points'),
     stagePercent: t('results.stagePercent'),
@@ -87,7 +87,7 @@ export default function ResultsTable({ results, scored, columns, showDqBadge = t
               {columns.map(col => (
                 <TableHeadCell key={col}>{columnHeader(col, t)}</TableHeadCell>
               ))}
-              {scored && <TableHeadCell>Progres</TableHeadCell>}
+              {scored && <TableHeadCell>{t('results.progress')}</TableHeadCell>}
             </TableRow>
           </TableHead>
           <TableBody>

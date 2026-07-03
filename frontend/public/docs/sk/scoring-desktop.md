@@ -1,13 +1,13 @@
-# Zadávanie na počítači
+# Bodovanie na počítači
 
-Keď sa prihlásite ako administrátor v prehliadači na počítači, alebo použijete desktopovú aplikáciu, zadávanie výsledkov používa dvojstĺpcový dizajn s pravým bočným panelom.
+Keď sa prihlásite ako administrátor v prehliadači na počítači, alebo použijete desktopovú aplikáciu, bodovanie používa dvojstĺpcový dizajn s pravým bočným panelom.
 
 ![Hárok zadávania na počítači, IPSC rozloženie](/docs/screenshots/scoring-desktop-ipsc.png)
 
 ## Rozloženie
 
-- **Horná lišta** — šípka späť, aktuálna etapa, aktuálny strelec, šípky Ďalej/Späť.
-- **Ľavý stĺpec** — papierové terče v 2-stĺpcovej mriežke. Každý terč má tlačidlá Alpha/Charlie/Delta/Miss. Agregované zónové vstupy navrchu umožňujú zadať počet zásahov pre celú etapu naraz.
+- **Horná lišta** — šípka späť, aktuálna situácia, aktuálny strelec, šípky Ďalej/Späť.
+- **Ľavý stĺpec** — papierové terče v 2-stĺpcovej mriežke. Každý terč má tlačidlá Alpha/Charlie/Delta/Miss. Agregované zónové vstupy navrchu umožňujú zadať počet zásahov pre celú situáciu naraz.
 - **Pravý bočný panel** — oceľové terče (Hit/Miss pre každý tanier), NPM terče, no-shoot zásahy a procedurálne (PE, FTSA atď.).
 - **Spodok** — vstup času, par time (iba Fixed Time) a tlačidlo **DQ**.
 - **Živý náhľad** — malý chip v pravom dolnom rohu zobrazuje aktuálne raw / penalty / net / HF pre aktívneho strelca.
@@ -15,7 +15,7 @@ Keď sa prihlásite ako administrátor v prehliadači na počítači, alebo pou�
 ## Čo sa mení podľa typu bodovania
 
 - **Comstock / Virginia / Fixed Time / Hit Factor / Chrono** — pozri snímku vyššie.
-- **IDPA** — papierové terče stále majú tlačidlá A/C/D/M, ale farby a body sú iné (0/−1/−3/−5). Bočný panel zobrazuje päť penalizačných stepperov (PE, HNT, FTN, FP, FTDR).
+- **IDPA** — papierové terče stále majú tlačidlá A/C/D/M, ale farby a body sú iné (0/−1/−3/−5). IDPA penalizačné steppery (PE, HNT, FTN, FP, FTDR) sú v ľavom stĺpci pod papierovými terčami. Vstup času a živý náhľad (body dole + celkový čas) sú v pravom stĺpci.
 
 ![Zadávanie na počítači, IDPA](/docs/screenshots/scoring-desktop-idpa.png)
 
@@ -34,4 +34,4 @@ Ne-administratívny zadávač vidí po zadaní zásahov **súhrnné zobrazenie**
 
 ![Súhrnné zobrazenie skóre](/docs/screenshots/scoring-desktop-summary.png)
 
-**Vykonať v aplikácii:** [Prejsť na zadávanie](app-tab:scoring)
+**Vykonať v aplikácii:** [Prejsť na bodovanie](app-tab:scoring)

@@ -33,6 +33,7 @@ interface StageActions {
   deleteStage: (id: string) => Promise<void>;
   uploadImage: (stageId: string, file: File) => Promise<void>;
   removeImage: (stageId: string) => Promise<void>;
+  resetStages: () => void;
 }
 
 export const useStageStore = create<StageState & StageActions>((set) => ({
@@ -110,5 +111,9 @@ export const useStageStore = create<StageState & StageActions>((set) => ({
     set((state) => ({
       stages: state.stages.map((s) => (s.id === stageId ? { ...s, image_path: null } : s)),
     }));
+  },
+
+  resetStages: () => {
+    set({ stages: [], currentStage: null });
   },
 }));

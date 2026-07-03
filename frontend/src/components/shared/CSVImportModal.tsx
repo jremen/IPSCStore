@@ -39,9 +39,9 @@ const COLUMN_DEFINITIONS: Record<string, { key: string; labelKey: string; requir
     { key: 'shooter_last_name', labelKey: 'shooters.lastName', required: true },
     { key: 'stage_number', labelKey: 'stages.number', required: true },
     { key: 'time', labelKey: 'scoring.time', required: true },
-    { key: 'alpha', labelKey: 'Alpha (A)', required: false },
-    { key: 'charlie', labelKey: 'Charlie (C)', required: false },
-    { key: 'delta', labelKey: 'Delta (D)', required: false },
+    { key: 'alpha', labelKey: 'csvImport.columnAlpha', required: false },
+    { key: 'charlie', labelKey: 'csvImport.columnCharlie', required: false },
+    { key: 'delta', labelKey: 'csvImport.columnDelta', required: false },
     { key: 'miss', labelKey: 'scoring.misses', required: false },
     { key: 'no_shoot_hits', labelKey: 'scoring.noShootTargets', required: false },
     { key: 'steel_hits', labelKey: 'scoring.steelTargets', required: false },
@@ -148,7 +148,7 @@ export default function CSVImportModal({ show, onClose, type, matchId, onImportC
       } else if (type === 'scores' && matchId) {
         res = await api.importScores(matchId, selectedFile, { hasHeader, columnMapping });
       } else {
-        throw new Error('Missing match ID for this import type');
+        throw new Error(t('csvImport.missingMatchId'));
       }
       setResult(res);
       setStep('result');

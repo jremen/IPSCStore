@@ -15,7 +15,7 @@ When you sign in as an admin on a desktop browser, or use the desktop app, the s
 ## What changes per scoring type
 
 - **Comstock / Virginia / Fixed Time / Hit Factor / Chrono** — see the screenshot above.
-- **IDPA** — the paper targets still have A/C/D/M buttons but the colors and points are different (0/−1/−3/−5). The sidebar shows the five penalty steppers (PE, HNT, FTN, FP, FTDR).
+- **IDPA** — the paper targets still have A/C/D/M buttons but the colors and points are different (0/−1/−3/−5). IDPA penalty steppers (PE, HNT, FTN, FP, FTDR) appear below the paper targets in the left column. Time input and the live preview (points down + total time) are in the right column.
 
 ![Desktop scoring, IDPA](/docs/screenshots/scoring-desktop-idpa.png)
 

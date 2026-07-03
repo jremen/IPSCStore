@@ -1,26 +1,26 @@
-# Etapy a situácie
+# Situácie
 
-Etapa (nazývaná aj „situácia" alebo „course of fire") je jedno samostatne hodnotené cvičenie. Každá etapa má typ bodovania, počet terčov a voliteľný popis a obrázok.
+Situácia (nazývaná aj „course of fire") je jedno samostatne hodnotené cvičenie. Každá situácia má typ bodovania, počet terčov a voliteľný popis a obrázok.
 
-## Vytvorenie etapy
+## Vytvorenie situácie
 
-Otvorte záložku **Etapy** pre aktuálne preteky a kliknite na **+ Pridať etapu**.
+Otvorte záložku **Situácie** pre aktuálnu súťaž a kliknite na **+ Pridať situáciu**.
 
-![Formulár etapy](/docs/screenshots/stage-form-modal.png)
+![Formulár situácie](/docs/screenshots/stage-form-modal.png)
 
-Etapa obsahuje:
+### Situácia obsahuje
 
-- **Názov** — Používa sa všade, kde sa etapa zobrazuje.
+- **Názov** — Používa sa všade, kde sa situácia zobrazuje.
 - **Typ bodovania** — Pozri [Typy bodovania](#typy-bodovania) nižšie.
 - **Terče** — Počet papierových, oceľových, no-shoot a NPM terčov.
 - **Zásahy na papier** — Koľko zásahov sa registruje na každý papierový terč.
 - **Par time** — Iba pre `Fixed Time`.
-- **Konfigurácia** — Polia špecifické pre daný typ (počet strín, typ kurzu, typ streľby atď.).
-- **Briefing** — Voľný text s popisom etapy, zobrazuje sa zadávačom.
+- **Konfigurácia** — Polia špecifické pre daný typ (počet kôl, typ kurzu, typ streľby atď.).
+- **Briefing** — Voľný text s popisom situácie, zobrazuje sa zadávačom.
 
-Obrázok etapy (schéma priebehu) môžete nahrať samostatne zo zoznamu etáp.
+Obrázok situácie (schéma priebehu) môžete nahrať samostatne zo zoznamu situácií.
 
-**Vykonať v aplikácii:** [Vytvoriť novú etapu](app-action:new-stage)
+**Vykonať v aplikácii:** [Vytvoriť novú situáciu](app-action:new-stage)
 
 ## Typy bodovania
 
@@ -31,12 +31,12 @@ Aplikácia podporuje 13 typov bodovania. Niektoré zdieľajú rovnaké rozložen
 | IPSC | Comstock, Virginia Count, Fixed Time, Chrono | Čas + zásahy + najlepší z |
 | Všeobecné | Hit Factor | Čas + zásahy, radené podľa HF |
 | IDPA | IDPA (Vickers Count) | Down-zone body + časovo-aditívne penalizácie |
-| Oceľ | Action Steel | Struny oceľových terčov, drop worst |
+| Oceľ | Action Steel | Streľba oceľových terčov v kolách |
 | Multi-Gun | Multi-Gun | Čas + neutralizácia jednotlivých terčov |
 | Presnosť | Long Range (F-Class, PRS), Bullseye | Kruhy alebo hit/miss na terč |
-| Lukostreľba | Archery | Kruhy, X sa počíta ako 10 |
+| Lukostreľba | Archery | Medzinárodné kruhy, X sa počíta ako 10 |
 | Rimfire | NRL22 | Hit/miss na terč, nastaviteľné body |
-| ISSF | ISSF | Kruhy, typ kurzu určuje počet výstrelov |
+| ISSF Malorážka | ISSF | Medzinárodné kruhy, typ kurzu určuje počet výstrelov |
 
 ### Comstock / Virginia / Fixed Time / Hit Factor / Chrono
 
@@ -47,7 +47,7 @@ Aplikácia podporuje 13 typov bodovania. Niektoré zdieľajú rovnaké rozložen
 - Procedurálne a FTSA penalizácie sú bežné.
 - Virginia Count pridáva penalizácie za extra výstrel, extra zásah a stacking.
 
-Pozrite si stránky [Zadávanie na počítači](app-tab:scoring) a [Zadávanie v mobile](app-tab:scoring) pre snímky obrazovky.
+Pozrite si stránky [Bodovanie na počítači](app-tab:scoring) a [Bodovanie v mobile](app-tab:scoring) pre snímky obrazovky.
 
 ### IDPA
 
@@ -57,9 +57,9 @@ Pozrite si stránky [Zadávanie na počítači](app-tab:scoring) a [Zadávanie v
 
 ### Action Steel
 
-- Časové vstupy pre každú strunu (predvolene 5 strún).
+- Časové vstupy pre každé kolo (predvolene 5 kôl).
 - Hit tap pre každý tanier.
-- Nastaviteľné: drop worst, penalizácia za miss, miss cap pre stop-plate.
+- Nastaviteľné: vypustiť najhoršie kolo, penalizácia za miss, miss cap pre stop-plate.
 
 ### Multi-Gun
 
@@ -67,18 +67,18 @@ Pozrite si stránky [Zadávanie na počítači](app-tab:scoring) a [Zadávanie v
 - Prepínač neutralizácie pre každý terč.
 - Penalizačné sekundy (FTN, miss, no-shoot, procedurálne) sa pripočítavajú k času.
 
-### Bullseye / ISSF / Archery
+### Bullseye / ISSF / Lukostreľba
 
 - Skóre v kruhoch pre každý výstrel.
 - Typ kurzu určuje počet výstrelov.
 
-### NRL22 / Long Range (PRS)
+### NRL22 / Ďalekonosná puška (PRS)
 
 - Hit tap pre každý terč.
 - Nastaviteľné body za zásah.
 
-## PDF hárok skóre
+## PDF bodovací hárok
 
-V zozname etáp kliknite na ikonu tlače a vygenerujte PDF hárok skóre pre potreby rozhodcu na palebnej čiare.
+V zozname situácií kliknite na ikonu tlače a vygenerujte PDF bodovací hárok pre potreby rozhodcu na palebnej čiare.
 
-**Prejsť v aplikácii:** [Záložka Etapy](app-tab:stages)
+**Prejsť v aplikácii:** [Záložka Situácie](app-tab:stages)

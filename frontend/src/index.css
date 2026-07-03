@@ -4,6 +4,7 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 @custom-variant eink (&:where(.eink, .eink *));
+@plugin "@tailwindcss/typography";
 
 /* Print styles — black & white only */
 @media print {

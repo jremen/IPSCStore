@@ -96,3 +96,39 @@ In Tailwind 4, the `!important` modifier is a **suffix**, not a prefix:
 - **Wrong (Tailwind 3 syntax)**: `!pr-0`, `!w-4`, `!p-0`
 
 This applies to all utility classes that need the `!important` override.
+
+## Versioning policy
+
+All four `package.json` files in this monorepo MUST share the same version:
+- `package.json` (root, workspace manifest)
+- `frontend/package.json`
+- `backend/package.json`
+- `electron/package.json` — source of truth, read by `electron-builder` and `app.getVersion()` in `electron/src/menu.ts:25`
+
+`electron/dist-backend/package.json` is build output and is **not** versioned.
+
+### Bump levels
+
+| Change type | Bump | Example |
+|---|---|---|
+| Bug fix, typo fix, **i18n / translation update** | patch (`2.0.x`) | `2.5.3 → 2.5.4` |
+| New feature, code refactor, performance improvement | minor (`2.x.0`) | `2.5.4 → 2.6.0` |
+| Major application improvement (breaking/architectural) | major (`x.0.0`) | `2.6.0 → 3.0.0` |
+
+### 9-cap rule (non-standard)
+
+A point release may not exceed 9. The next patch after `x.y.9` bumps the next higher segment instead:
+
+- `2.5.9 + patch → 2.6.0`  (not `2.5.10`)
+- `2.9.9 + patch → 3.0.0`  (cascades to major)
+- `2.9.9 + minor → 3.0.0`  (cascades to major)
+
+### How to bump
+
+```bash
+npm run version:patch   # interactive if no level given
+npm run version:minor
+npm run version:major
+node scripts/version-bump.mjs           # fully interactive
+node scripts/version-bump.mjs patch --dry-run   # preview only
+The script edits the four files and prints a diff. It does not commit or tag — do that yourself after review.

@@ -229,10 +229,11 @@ export function parsePscFiles(matchDef: any, matchScores: any): ParsedPscData {
     const scoringRaw = pickFirst(s, 'stage_scoring', 'stage_scoring_method', 'scoring', 'scoringMethod') || '';
     const scoringType = parsePscScoringMethod(scoringRaw);
 
+    const sourceStageNumber = safeNum(pickFirst(s, 'stage_number', 'stageNumber')) || (i + 1);
     stages.push({
       id: stageId,
-      stage_number: i + 1,
-      name: pickFirst(s, 'stage_name', 'stageName', 'name') || `Stage ${i + 1}`,
+      stage_number: sourceStageNumber,
+      name: pickFirst(s, 'stage_name', 'stageName', 'name') || `Stage ${sourceStageNumber}`,
       scoring_type: scoringType,
       paper_targets: paperTargets,
       steel_targets: steelTargets,
@@ -446,21 +447,24 @@ export function parsePscFiles(matchDef: any, matchScores: any): ParsedPscData {
           warnings.push(`Stage #${stageNumber}, shooter ${shooterUuid.slice(0, 8)}: computed rawpts ${calcResult.raw_points} ≠ reported ${rawpts}`);
         }
       } else {
+        warnings.push(`Stage #${stageNumber}, shooter ${shooterUuid.slice(0, 8)}: no ts data, hit distribution estimated`);
+        if (stage.paper_targets === 0 && stage.paper_targets * stage.hits_per_paper > 0) {
+          warnings.push(`Stage #${stageNumber}, shooter ${shooterUuid.slice(0, 8)}: stage has hits but 0 paper targets — data inconsistency`);
+        }
         const totalHitsPaper = stage.paper_targets * stage.hits_per_paper;
         const rawPointsFromSteel = poph * 5;
         const rawPointsFromPaper = Math.max(0, rawpts - rawPointsFromSteel);
-        const randomSource = () => generateId();
+        const idGen = () => generateId();
         distributedHits(
           rawPointsFromPaper,
           totalHitsPaper,
           stage.paper_targets,
-          stage.hits_per_paper,
           popm,
           stage.steel_targets,
           poph,
           scoreId,
           targetRows,
-          randomSource,
+          idGen,
         );
 
         penaltyPoints = proceduralCount * 10 + popm * 10;
@@ -523,7 +527,6 @@ export function parsePscFiles(matchDef: any, matchScores: any): ParsedPscData {
     paperPoints: number,
     totalPaperSlots: number,
     paperTargetCount: number,
-    hpp: number,
     steelMissCount: number,
     steelTargetCount: number,
     steelHitCount: number,
@@ -531,7 +534,7 @@ export function parsePscFiles(matchDef: any, matchScores: any): ParsedPscData {
     targets: ImportedTargetScore[],
     idGen: () => string,
   ) {
-    if (totalPaperSlots > 0) {
+    if (totalPaperSlots > 0 && paperTargetCount > 0) {
       const hitsPerTarget = Math.floor(totalPaperSlots / paperTargetCount);
       const extra = totalPaperSlots % paperTargetCount;
 
@@ -553,6 +556,8 @@ export function parsePscFiles(matchDef: any, matchScores: any): ParsedPscData {
     }
 
     for (let i = 0; i < steelTargetCount; i++) {
+      const isHit = i < steelHitCount;
+      const isMiss = !isHit && (i < steelHitCount + steelMissCount);
       targets.push({
         id: idGen(),
         stage_score_id: stageScoreId,
@@ -561,9 +566,9 @@ export function parsePscFiles(matchDef: any, matchScores: any): ParsedPscData {
         alpha: 0,
         charlie: 0,
         delta: 0,
-        miss: i < steelMissCount ? 1 : 0,
+        miss: isMiss ? 1 : 0,
         no_shoot_hits: 0,
-        steel_hit: i < steelHitCount,
+        steel_hit: isHit,
       });
     }
   }

@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { Button } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
 import { divisionLabel } from '../../utils/constants';
@@ -7,7 +6,6 @@ import type { ShooterStageSummariesResponse, ShooterSummaryTarget } from '../../
 import type { Stage } from '../../types/stage';
 import type { ScoreInput } from '../../types/scoring';
 import type { PowerFactor } from '../../types/shooter';
-import { calculatePreview, calculateIDPAPreview } from '../../utils/scoring';
 import { formatTimeDisplay } from '../../utils/timeFormat';
 
 interface ShooterSummaryViewProps {
@@ -66,7 +64,6 @@ function mapScore(sc: ShooterStageSummariesResponse['stages'][0]['score']): Scor
 
 function StageSummaryCard({
   stageData,
-  powerFactor,
 }: {
   stageData: ShooterStageSummariesResponse['stages'][0];
   powerFactor: PowerFactor;
@@ -75,39 +72,6 @@ function StageSummaryCard({
 
   const stage = mapStage(stageData.stage);
   const score = mapScore(stageData.score);
-
-  const isIPSC = ['comstock', 'virginia', 'fixed_time', 'chrono', 'hit_factor'].includes(stage.scoring_type);
-  const isIDPA = stage.scoring_type === 'idpa';
-
-  const preview = useMemo(() => {
-    if (isIPSC) {
-      return calculatePreview(
-        score.targets.map((t) => ({ ...t, hits_per_paper: stage.hits_per_paper })),
-        score.time,
-        stage.scoring_type as any,
-        powerFactor,
-        stageData.score.procedural_count,
-        stageData.score.ftsa_count,
-        stageData.score.extra_shot_count,
-        stageData.score.extra_hit_count,
-        stageData.score.stacking_count,
-        stageData.score.overtime_shot_count,
-      );
-    }
-    if (isIDPA && score.time != null) {
-      const sd = stageData.score.score_data || {};
-      return calculateIDPAPreview({
-        targets: score.targets.map((t) => ({ ...t, hits_per_paper: stage.hits_per_paper })),
-        time: score.time,
-        penalty_pe: sd.penalty_pe ?? 0,
-        penalty_hnt: sd.penalty_hnt ?? 0,
-        penalty_ftn: sd.penalty_ftn ?? 0,
-        penalty_fp: sd.penalty_fp ?? 0,
-        penalty_ftdr: sd.penalty_ftdr ?? 0,
-      });
-    }
-    return null;
-  }, [score, stage, isIPSC, isIDPA, stageData, powerFactor]);
 
   const steelTargets = score.targets.filter((t: ShooterSummaryTarget) => t.target_type === 'steel');
   const totalAlpha = score.targets.reduce((s: number, t: ShooterSummaryTarget) => s + t.alpha, 0) + steelTargets.filter(t => t.steel_hit === true).length;

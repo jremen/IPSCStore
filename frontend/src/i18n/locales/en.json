@@ -186,6 +186,24 @@
     "exportSuccess": "Match exported successfully",
     "exportError": "Failed to export match",
     "matchIdConflict": "A match with this ID already exists in the database",
+    "import": {
+      "json": {
+        "dropHere": "Drop the .json file here",
+        "dragDrop": "Drag & drop an IPSCScore .json file here",
+        "orBrowse": "or click to browse — accepts .json files"
+      },
+      "psc": {
+        "description": "Import a match from a Practiscore .psc file (ZIP with match definitions and scores).",
+        "dropHere": "Drop the .psc file here",
+        "dragDrop": "Drag & drop a Practiscore .psc file here",
+        "orBrowse": "or click to browse — accepts .psc files"
+      }
+    },
+    "exportModalTitle": "Export Match",
+    "exportFormatChoice": "Choose export format:",
+    "exportFormatNative": "Native IPSCScore (.json)",
+    "exportFormatPsc": "Practiscore (.psc)",
+    "exportingPsc": "Generating .psc file...",
     "filterFirearmType": "Firearm type",
     "filterLevel": "Level",
     "filterDateFrom": "From date",

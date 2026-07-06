@@ -19,6 +19,8 @@ import { resultsRoutes } from './routes/results.js';
 import { uploadRoutes } from './routes/uploads.js';
 import { importRoutes } from './routes/import.js';
 import { winmssImportRoutes } from './routes/winmssImport.js';
+import { pscImportRoutes } from './routes/pscImport.js';
+import { pscExportRoutes } from './routes/pscExport.js';
 import { authRoutes } from './routes/auth.js';
 import { backupRoutes } from './routes/backup.js';
 import { localBackupRoutes } from './routes/localBackup.js';
@@ -189,9 +191,15 @@ app.route('/api', auditLogRoutes);
 // ─── Match Export/Import: admin only ───
 app.use('/api/matches/import', authMiddleware);
 app.use('/api/matches/import', requireAdmin);
+app.use('/api/matches/import-psc', authMiddleware);
+app.use('/api/matches/import-psc', requireAdmin);
 app.use('/api/matches/:id/export', authMiddleware);
 app.use('/api/matches/:id/export', requireAdmin);
+app.use('/api/matches/:id/export-psc', authMiddleware);
+app.use('/api/matches/:id/export-psc', requireAdmin);
 app.route('/api', matchExportRoutes);
+app.route('/api', pscImportRoutes);
+app.route('/api', pscExportRoutes);
 
 // ─── Manifest & Static Serving ───
 

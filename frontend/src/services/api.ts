@@ -265,6 +265,7 @@ export const api = {
 
   // Match Export/Import
   exportMatch: (id: string): Promise<Blob> => requestBlob(`/api/matches/${id}/export`),
+  exportMatchPsc: (id: string): Promise<Blob> => requestBlob(`/api/matches/${id}/export-psc`),
   importMatch: async (file: File): Promise<{ success: boolean; match_id: string; counts: any }> => {
     const form = new FormData();
     form.append('file', file);
@@ -272,6 +273,19 @@ export const api = {
     const token = getAuthToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;
     const res = await fetch(`${API_BASE}/api/matches/import`, { method: 'POST', body: form, headers });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  },
+  importMatchPsc: async (file: File): Promise<{ success: boolean; match_id: string; counts: any; warnings?: string[]; synced_shooters?: boolean }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const headers: Record<string, string> = {};
+    const token = getAuthToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE}/api/matches/import-psc`, { method: 'POST', body: form, headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || `HTTP ${res.status}`);

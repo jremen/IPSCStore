@@ -9,10 +9,10 @@ import { formatDate } from '../../utils/constants';
 import { FIREARM_TYPES, MATCH_LEVELS } from '../../utils/constants';
 import type { FirearmType, MatchLevel } from '../../types/match';
 import MatchDetail from './MatchDetail';
-import WinMSSImport from '../settings/WinMSSImport';
 import DeleteMatchModal from './DeleteMatchModal';
 import CreateMatchModal from './CreateMatchModal';
 import ImportMatchModal from './ImportMatchModal';
+import ExportMatchModal from './ExportMatchModal';
 import BulkDeleteMatchesModal from './BulkDeleteMatchesModal';
 import SelectAllCheckbox from '../shared/SelectAllCheckbox';
 import BulkActionToolbar from '../shared/BulkActionToolbar';
@@ -29,10 +29,11 @@ export default function MatchList() {
   const activeMatchId = useUIStore((s) => s.activeMatchId);
   const setActiveMatch = useUIStore((s) => s.setActiveMatch);
   const addToast = useUIStore((s) => s.addToast);
-  const { handleExport, exporting } = useMatchExport();
+  const { exporting } = useMatchExport();
   const { t } = useTranslation();
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showExport, setShowExport] = useState<string | null>(null); // matchId
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showBulkDelete, setShowBulkDelete] = useState(false);
   const [search, setSearch] = useState('');
@@ -92,8 +93,7 @@ export default function MatchList() {
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h2 className="text-xl font-bold dark:text-white">{t('matches.count', { count: matches.length })}</h2>
           <div className="flex gap-2">
-            <WinMSSImport />
-            <Button size="sm" color="light" onClick={() => setShowImport(true)}><TbFileUpload /> {t('matches.importMatch')}</Button>
+            <Button size="sm" color="light" onClick={() => setShowImport(true)}><TbFileUpload className="mr-2" /> {t('matches.importMatch')}</Button>
             <Button size="sm" color="green" onClick={() => setShowCreate(true)}>{t('matches.newMatch')}</Button>
           </div>
         </div>
@@ -254,7 +254,7 @@ export default function MatchList() {
                         disabled={exporting}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleExport(m.id, m.name);
+                          setShowExport(m.id);
                         }}
                       >
                         <TbFileExport />
@@ -273,6 +273,14 @@ export default function MatchList() {
       <DeleteMatchModal show={deleteTarget !== null} onClose={() => setDeleteTarget(null)} matchId={deleteTarget} />
       <CreateMatchModal show={showCreate} onClose={() => setShowCreate(false)} />
       <ImportMatchModal show={showImport} onClose={() => setShowImport(false)} onImported={fetchMatches} />
+      {showExport && (
+        <ExportMatchModal
+          show={true}
+          onClose={() => setShowExport(null)}
+          matchId={showExport}
+          matchName={matches.find((m: any) => m.id === showExport)?.name || ''}
+        />
+      )}
       <BulkDeleteMatchesModal
         show={showBulkDelete}
         onClose={() => setShowBulkDelete(false)}

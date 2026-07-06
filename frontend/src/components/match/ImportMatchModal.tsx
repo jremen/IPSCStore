@@ -1,12 +1,12 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Spinner, Alert, Table, TableHead, TableBody, TableRow, TableCell, TableHeadCell } from 'flowbite-react';
-import { useDropzone } from 'react-dropzone';
 import { useTranslation } from 'react-i18next';
 import { useMatchExport } from '../../hooks/useMatchExport';
 import { useEscClose } from '../../hooks/useEscClose';
 import { api } from '../../services/api';
 import { useUIStore } from '../../stores/uiStore';
 import { useMatchStore } from '../../stores/matchStore';
+import FileDropzone from './FileDropzone';
 
 type TabType = 'json' | 'winmss' | 'psc';
 
@@ -36,7 +36,6 @@ export default function ImportMatchModal({ show, onClose, onImported }: ImportMa
   // JSON tab state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState('');
-  const fileRef = useRef<HTMLInputElement>(null);
 
   // WinMSS tab state
   const [winmssImporting, setWinmssImporting] = useState(false);
@@ -59,13 +58,6 @@ export default function ImportMatchModal({ show, onClose, onImported }: ImportMa
   }, []);
 
   // ── JSON tab handlers ──
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setSelectedFile(file);
-    setError('');
-    if (file) detectTab(file.name);
-  };
-
   const handleJsonConfirm = async () => {
     if (!selectedFile) return;
     try {
@@ -84,9 +76,7 @@ export default function ImportMatchModal({ show, onClose, onImported }: ImportMa
   };
 
   // ── WinMSS tab handlers ──
-  const handleWinMssImport = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (!file) return;
+  const handleWinMssImport = useCallback(async (file: File) => {
     setWinmssImporting(true);
     setWinmssError(null);
     setWinmssResult(null);
@@ -104,23 +94,27 @@ export default function ImportMatchModal({ show, onClose, onImported }: ImportMa
     }
   }, [addToast, fetchMatches, t]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: handleWinMssImport,
-    accept: {
-      'application/x-msaccess': ['.mdb', '.accdb'],
-      'application/octet-stream': ['.mdb', '.accdb'],
-    },
-    multiple: false,
-    disabled: winmssImporting || winmssInspecting,
-  });
+  const handleWinMssInspect = useCallback(async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.mdb,.accdb';
+    input.onchange = async () => {
+      if (input.files?.[0]) {
+        setWinmssInspecting(true);
+        try {
+          const data = await api.inspectWinMSS(input.files[0]) as Record<string, any>;
+          setWinmssInspectData(data);
+        } catch (err: any) {
+          setWinmssError(err.message || '');
+        } finally {
+          setWinmssInspecting(false);
+        }
+      }
+    };
+    input.click();
+  }, []);
 
   // ── PSC tab handlers ──
-  const handlePscFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setPscFile(file);
-    setError('');
-  };
-
   const handlePscConfirm = async () => {
     if (!pscFile) return;
     try {
@@ -175,12 +169,13 @@ export default function ImportMatchModal({ show, onClose, onImported }: ImportMa
         {activeTab === 'json' && (
           <div>
             <p className="mb-3">{t('matches.importMatchDescription')}</p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".json"
-              onChange={handleFileChange}
-              className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
+            <FileDropzone
+              accept={{ 'application/json': ['.json'] }}
+              onFileSelected={(file) => { setSelectedFile(file); setError(''); detectTab(file.name); }}
+              disabled={importing}
+              dropHint={t('matches.import.json.dropHere')}
+              dragHint={t('matches.import.json.dragDrop')}
+              browseHint={t('matches.import.json.orBrowse')}
             />
             {selectedFile && (
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{selectedFile.name}</p>
@@ -196,48 +191,21 @@ export default function ImportMatchModal({ show, onClose, onImported }: ImportMa
         {activeTab === 'winmss' && (
           <div>
             {!winmssImporting && !winmssInspecting && !winmssResult && !winmssInspectData && !winmssError && (
-              <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-                  ${isDragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}
-              >
-                <input {...getInputProps()} />
-                <div className="text-4xl mb-3">📁</div>
-                <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
-                  {isDragActive ? t('import.winMss.dropHere') : t('import.winMss.dragDropMdb')}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  {t('import.winMss.orBrowse')}
-                </p>
-                <div className="mt-4">
-                  <Button
-                    size="xs"
-                    color="light"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.accept = '.mdb,.accdb';
-                      input.onchange = async () => {
-                        if (input.files?.[0]) {
-                          setWinmssInspecting(true);
-                          try {
-                            const data = await api.inspectWinMSS(input.files[0]) as Record<string, any>;
-                            setWinmssInspectData(data);
-                          } catch (err: any) {
-                            setWinmssError(err.message || '');
-                          } finally {
-                            setWinmssInspecting(false);
-                          }
-                        }
-                      };
-                      input.click();
-                    }}
-                  >
-                    {t('import.winMss.inspectButton')}
-                  </Button>
-                </div>
-              </div>
+              <FileDropzone
+                accept={{
+                  'application/x-msaccess': ['.mdb', '.accdb'],
+                  'application/octet-stream': ['.mdb', '.accdb'],
+                }}
+                onFileSelected={handleWinMssImport}
+                disabled={winmssImporting || winmssInspecting}
+                dropHint={t('import.winMss.dropHere')}
+                dragHint={t('import.winMss.dragDropMdb')}
+                browseHint={t('import.winMss.orBrowse')}
+                extraButton={{
+                  label: t('import.winMss.inspectButton'),
+                  onClick: handleWinMssInspect,
+                }}
+              />
             )}
 
             {winmssImporting && (
@@ -304,14 +272,18 @@ export default function ImportMatchModal({ show, onClose, onImported }: ImportMa
                   <p className="font-medium">{t('import.winMss.importFailed')}</p>
                   <p className="text-sm mt-1">{winmssError}</p>
                 </Alert>
-                <div
-                  {...getRootProps()}
-                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-                    ${isDragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}
-                >
-                  <input {...getInputProps()} />
-                  <p className="text-gray-600 dark:text-gray-400">{t('import.winMss.tryAgain')}</p>
-                </div>
+                <FileDropzone
+                  accept={{
+                    'application/x-msaccess': ['.mdb', '.accdb'],
+                    'application/octet-stream': ['.mdb', '.accdb'],
+                  }}
+                  onFileSelected={handleWinMssImport}
+                  disabled={winmssImporting || winmssInspecting}
+                  dropHint={t('import.winMss.dropHere')}
+                  dragHint={t('import.winMss.dragDropMdb')}
+                  browseHint={t('import.winMss.tryAgain')}
+                  icon={undefined}
+                />
               </div>
             )}
 
@@ -373,12 +345,17 @@ export default function ImportMatchModal({ show, onClose, onImported }: ImportMa
         {/* ── PSC tab ── */}
         {activeTab === 'psc' && (
           <div>
-            <p className="mb-3">{t('matches.import.pscDescription')}</p>
-            <input
-              type="file"
-              accept=".psc"
-              onChange={handlePscFileChange}
-              className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
+            <p className="mb-3">{t('matches.import.psc.description')}</p>
+            <FileDropzone
+              accept={{
+                'application/zip': ['.psc'],
+                'application/octet-stream': ['.psc'],
+              }}
+              onFileSelected={(file) => { setPscFile(file); setError(''); }}
+              disabled={importing}
+              dropHint={t('matches.import.psc.dropHere')}
+              dragHint={t('matches.import.psc.dragDrop')}
+              browseHint={t('matches.import.psc.orBrowse')}
             />
             {pscFile && (
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{pscFile.name}</p>

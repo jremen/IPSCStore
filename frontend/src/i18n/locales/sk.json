@@ -194,7 +194,17 @@
     "exportError": "Export súťaže zlyhal",
     "matchIdConflict": "Súťaž s týmto ID už existuje v databáze",
     "import": {
-      "pscDescription": "Importujte súťaž z Practiscore .psc súboru (ZIP s definíciami súťaže a skóre)."
+      "json": {
+        "dropHere": "Vložte .json súbor sem",
+        "dragDrop": "Potiahnite a vložte IPSCScore .json súbor sem",
+        "orBrowse": "alebo kliknite pre výber — akceptuje .json súbory"
+      },
+      "psc": {
+        "description": "Importujte súťaž z Practiscore .psc súboru (ZIP s definíciami súťaže a skóre).",
+        "dropHere": "Vložte .psc súbor sem",
+        "dragDrop": "Potiahnite a vložte Practiscore .psc súbor sem",
+        "orBrowse": "alebo kliknite pre výber — akceptuje .psc súbory"
+      }
     },
     "exportModalTitle": "Exportovať súťaž",
     "exportFormatChoice": "Vyberte formát exportu:",

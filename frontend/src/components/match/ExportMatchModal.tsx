@@ -35,7 +35,7 @@ export default function ExportMatchModal({ show, onClose, matchId, matchName }: 
             color="light"
             onClick={handleNative}
             disabled={exporting}
-            className="!justify-start !px-4 !py-3"
+            className="justify-start px-4! py-6!"
           >
             <div className="text-left">
               <div className="font-semibold">{t('matches.exportFormatNative')}</div>
@@ -48,7 +48,7 @@ export default function ExportMatchModal({ show, onClose, matchId, matchName }: 
             color="light"
             onClick={handlePsc}
             disabled={exporting}
-            className="!justify-start !px-4 !py-3"
+            className="justify-start px-4! py-6!"
           >
             <div className="text-left">
               <div className="font-semibold">{t('matches.exportFormatPsc')}</div>

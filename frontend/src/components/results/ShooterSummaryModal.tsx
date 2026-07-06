@@ -156,12 +156,10 @@ function StageSummaryCard({
         )}
         <span className="dark:text-gray-300 font-semibold">{t('scoring.netPoints')}</span>
         <span className="font-mono text-right font-semibold dark:text-white">{stageData.score.net_points}</span>
-        {preview && 'hit_factor' in preview && (
           <>
             <span className="dark:text-gray-300">{t('scoring.hitFactor')}</span>
-            <span className="font-mono text-right dark:text-white">{(preview as any).hit_factor?.toFixed(4)}</span>
+            <span className="font-mono text-right dark:text-white">{stageData.score.hit_factor?.toFixed(4)}</span>
           </>
-        )}
         <span className="dark:text-gray-300">{t('scoring.stagePoints')}</span>
         <span className="font-mono text-right dark:text-white">{stageData.score.stage_points?.toFixed(2) ?? '—'}</span>
         <span className="dark:text-gray-300">{t('scoring.stagePercent')}</span>

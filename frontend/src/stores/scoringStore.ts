@@ -325,7 +325,7 @@ export const useScoringStore = create<ScoringState & ScoringActions>((set, get) 
     if (score.is_dnf) return alerts;
 
     const scoringType = stage.scoring_type;
-    const config = stage.config || {};
+    const _config = stage.config || {};
 
     // Zone-per-target types (IPSC, IDPA, Hit Factor)
     const zoneTypes = ['comstock', 'virginia', 'fixed_time', 'hit_factor', 'idpa'];

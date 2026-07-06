@@ -45,7 +45,7 @@ export default function ShooterListScreen({ show, onClose, onSelect }: ShooterLi
     : t('scoring.shooterList');
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-gray-50 dark:bg-gray-900">
+    <div className="fixed inset-0 z-1000 flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 shrink-0">
         <button

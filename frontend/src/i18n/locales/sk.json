@@ -193,6 +193,14 @@
     "exportSuccess": "Súťaž úspešne exportovaná",
     "exportError": "Export súťaže zlyhal",
     "matchIdConflict": "Súťaž s týmto ID už existuje v databáze",
+    "import": {
+      "pscDescription": "Importujte súťaž z Practiscore .psc súboru (ZIP s definíciami súťaže a skóre)."
+    },
+    "exportModalTitle": "Exportovať súťaž",
+    "exportFormatChoice": "Vyberte formát exportu:",
+    "exportFormatNative": "Natívny IPSCScore (.json)",
+    "exportFormatPsc": "Practiscore (.psc)",
+    "exportingPsc": "Generujem .psc súbor...",
     "filterFirearmType": "Typ zbrane",
     "filterLevel": "Úroveň",
     "filterDateFrom": "Od dátumu",

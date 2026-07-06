@@ -93,7 +93,7 @@ export default function MatchList() {
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h2 className="text-xl font-bold dark:text-white">{t('matches.count', { count: matches.length })}</h2>
           <div className="flex gap-2">
-            <Button size="sm" color="light" onClick={() => setShowImport(true)}><TbFileUpload /> {t('matches.importMatch')}</Button>
+            <Button size="sm" color="light" onClick={() => setShowImport(true)}><TbFileUpload className="mr-2" /> {t('matches.importMatch')}</Button>
             <Button size="sm" color="green" onClick={() => setShowCreate(true)}>{t('matches.newMatch')}</Button>
           </div>
         </div>

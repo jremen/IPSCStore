@@ -70,11 +70,31 @@ pscExportRoutes.get('/matches/:id/export-psc', async (c) => {
     targetScores,
   );
 
-  const zip = new JSZip();
-  zip.file('match_def.json', JSON.stringify(match_def));
-  zip.file('match_scores.json', JSON.stringify(match_scores));
+  const fixJson = (json: string) => json
+    .replace(/"match_pointsdownvalue":1(?=[,}])/, '"match_pointsdownvalue":1.0')
+    .replace(/"str":\[(\d+)\]/g, '"str":[$1.0]');
 
-  const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+  const zip = new JSZip();
+  zip.file('match_def.json', fixJson(JSON.stringify(match_def)));
+  zip.file('match_scores.json', fixJson(JSON.stringify(match_scores)));
+
+  const zipBuffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+
+  // Patch version-needed-to-extract from 1.0 to 2.0 in both local file headers and
+  // central directory entries. Practiscore's iOS export sets 2.0 for DEFLATE; JSZip
+  // sets 1.0 by default. Practiscore's parser may reject the lower version.
+  const buf = Buffer.from(zipBuffer);
+  for (let i = 0; i < buf.length - 4; i++) {
+    if (buf[i] === 0x50 && buf[i + 1] === 0x4b && buf[i + 2] === 0x03 && buf[i + 3] === 0x04) {
+      if (buf[i + 4] === 0x0a && buf[i + 5] === 0x00) {
+        buf[i + 4] = 0x14;
+      }
+    } else if (buf[i] === 0x50 && buf[i + 1] === 0x4b && buf[i + 2] === 0x01 && buf[i + 3] === 0x02) {
+      if (buf[i + 6] === 0x0a && buf[i + 7] === 0x00) {
+        buf[i + 6] = 0x14;
+      }
+    }
+  }
 
   const safeName = (match.name || 'match').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50);
   const date = new Date().toISOString().slice(0, 10);
@@ -85,7 +105,7 @@ pscExportRoutes.get('/matches/:id/export-psc', async (c) => {
 
   c.header('Content-Disposition', `attachment; filename="${safeName}-${date}.psc"`);
   c.header('Content-Type', 'application/zip');
-  return c.newResponse(zipBuffer as any, 200, {
+  return c.newResponse(buf as any, 200, {
     'Content-Disposition': `attachment; filename="${safeName}-${date}.psc"`,
     'Content-Type': 'application/zip',
   });

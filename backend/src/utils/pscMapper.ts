@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { calculateAggregatedScore } from './scoringCalc.js';
+import { calculateScore } from './scoringCalc.js';
 
 export type PowerFactor = 'major' | 'minor';
 
@@ -419,21 +419,27 @@ export function parsePscFiles(matchDef: any, matchScores: any): ParsedPscData {
         }
 
         const reg = registrationMap.get(shooterUuid)!;
-        const calcResult = calculateAggregatedScore({
-          total_alpha: totalAlpha + poph,
-          total_charlie: totalCharlie,
-          total_delta: totalDelta,
-          total_miss: totalPaperMiss + popm,
-          total_no_shoot: totalPaperNs,
-          total_steel: poph + popm,
-          steel_hit_count: poph,
+        // Use calculateScore (the same per-target calculator used by the PUT edit
+        // endpoint) instead of calculateAggregatedScore. This ensures imports and
+        // re-edits produce identical results.
+        const calcResult = calculateScore({
+          targets: targetRows.map(t => ({
+            target_type: t.target_type,
+            alpha: t.alpha,
+            charlie: t.charlie,
+            delta: t.delta,
+            miss: t.miss,
+            no_shoot_hits: t.no_shoot_hits,
+            steel_hit: t.steel_hit,
+            hits_per_paper: stage.hits_per_paper,
+          })),
+          time,
           procedural_count: proceduralCount,
           ftsa_count: 0,
           extra_shot_count: 0,
           extra_hit_count: 0,
           stacking_count: 0,
           overtime_shot_count: 0,
-          time,
           scoring_type: stage.scoring_type as any,
           power_factor: reg.power_factor,
         });
@@ -443,8 +449,8 @@ export function parsePscFiles(matchDef: any, matchScores: any): ParsedPscData {
         netPoints = Math.max(0, calcResult.net_points);
         hf = calcResult.hit_factor;
 
-        if (Math.abs(calcResult.raw_points - rawpts) > 1) {
-          warnings.push(`Stage #${stageNumber}, shooter ${shooterUuid.slice(0, 8)}: computed rawpts ${calcResult.raw_points} ≠ reported ${rawpts}`);
+        if (rawpts > 0 && Math.abs(calcResult.raw_points - rawpts) > 1) {
+          warnings.push(`Stage #${stageNumber}, shooter ${shooterUuid.slice(0, 8)}: PSC rawpts ${rawpts} ≠ recalculated ${calcResult.raw_points} (using recalculated)`);
         }
       } else {
         warnings.push(`Stage #${stageNumber}, shooter ${shooterUuid.slice(0, 8)}: no ts data, hit distribution estimated`);
@@ -602,30 +608,82 @@ export function buildPscExport(
   targetScores: any[],
 ): PscExportData {
   const matchUuid = match.id;
+  const deviceUdid = crypto.randomUUID();
 
   const matchDef: any = {
+    device_model: 'Web',
+    app_version: 'IPSCScore',
+    os_version: 'Web',
     match_id: matchUuid,
     match_name: match.name,
     match_type: 'uspsa_p',
     match_subtype: match.organization?.toLowerCase() === 'uspsa' ? 'uspsa' : 'ipsc',
-    match_date: (match.date || '').toString().slice(0, 10),
-    match_creationdate: new Date().toISOString().replace('T', ' ').slice(0, 23),
-    match_modifieddate: new Date().toISOString().replace('T', ' ').slice(0, 23),
-    match_secure: false,
+    match_usemaxstagetime: false,
+    match_meta: [
+      { k: 'classifiers', v: 'https://ipscresults.org/Images/stages', t: '2020-11-01 00:00:00.000' },
+      { k: 'library', v: 'library_ipsc', t: '2025-07-01 00:00:00.000' },
+    ],
+    match_docs: [
+      { url: 'https://drive.usercontent.google.com/download?id=1puySH1bSKuQdzdxUfB_uUbB5krOKzScZ', name: 'IPSC Handgun', file: '2025_IPSC_RulesHandgun.pdf', type: 'rules', chksum: '536cb692decf46c0122a8fd650ae53858a65ed99' },
+      { url: 'https://www.ipsc.org/production-division-list/', name: 'IPSC Production Division List', type: 'prodlist' },
+    ],
     match_pointsdownvalue: 1.0,
     match_steelmisspdcount: 0,
     match_maxteamresults: 3,
+    match_secure: false,
+    match_level: match.match_level || 'L1',
+    match_date: match.date instanceof Date
+      ? match.date.toISOString().slice(0, 10)
+      : (match.date || '').toString().slice(0, 10),
+    match_creationdate: new Date().toISOString().replace('T', ' ').slice(0, 23),
+    match_modifieddate: new Date(Date.now() + 1000).toISOString().replace('T', ' ').slice(0, 23),
     match_penalties: [],
     match_bonuses: [],
     match_cats: ['Open', 'Production', 'Production Optics', 'Optics', 'Standard', 'Classic', 'Revolver', 'PCC Optics', 'PCC Iron'],
     match_cls: ['U', 'D', 'C', 'B', 'A', 'M', 'G'],
-    match_ctgs: '["Grand Junior","Lady Grand Junior","Super Junior","Lady Super Junior","Junior","Lady Junior","Lady","Senior","Lady Senior","Super Senior","Grand Senior"]',
+    match_ctgs: '["Grand Junior","Lady Grand Junior","Super Junior","Lady Super Junior","Junior","Lady Junior","Lady","Senior","Lady Senior","Super Senior","Grand Senior","regular"]',
     match_chkins: ['Checked in', 'Paid', 'Staff', 'RO'],
-    match_procs: [{ 'uuid': 'EQRTwQ', 'name': '10.2.7 Failure to engage target' }],
+    match_procs: [
+      { 'uuid': 'EQRTwQ', 'name': '10.2.7 Failure to engage target' },
+      { 'uuid': 'v9pLTA', 'name': '2.2.1.5 Shortcut outside shooting area' },
+      { 'uuid': 's8g7Dn', 'name': '10.2.1 Shooting while beyond a Fault Line' },
+      { 'uuid': 's8g7Dm', 'name': '10.2.1.1 Shooting while beyond a Fault Line (per shot)' },
+      { 'uuid': '7wTzBw', 'name': '10.2.2 Fail to comply with WSB' },
+      { 'uuid': '8wTzB1', 'name': '10.2.2 Fail to comply with WSB (per shot)' },
+      { 'uuid': 'jkaZwk', 'name': '10.2.4 Failure to reload (per shot)' },
+      { 'uuid': 'kddJxe', 'name': '10.2.5 Cooper Tunnel' },
+      { 'uuid': 'whF4jn', 'name': '10.2.8 SHO/WHO touching the handgun with the other hand' },
+      { 'uuid': '6gWqZ7', 'name': '10.2.8.1 SHO/WHO support the handgun while shooting (per shot)' },
+      { 'uuid': 'dg5MRS', 'name': '10.2.8.2 SHO/WHO increase stability while shooting (per shot)' },
+      { 'uuid': 'xdnYza', 'name': '10.2.11 Shots over a barrier 1.8m tall (per shot)' },
+      { 'uuid': 'WEkBf8', 'name': '8.6.2 Assisting competitor' },
+      { 'uuid': 'bJQy4F', 'name': '8.7.2 Sighting aid during walkthrough' },
+      { 'uuid': 'eWtfmL', 'name': '10.2.9 Prohibited action (per shot)' },
+      { 'uuid': 'eWtfmK', 'name': '4.6.1 Rearrangement of stage equipment' },
+      { 'uuid': 'HsjtM2', 'name': '9.9.2 Miss on non-activated disappearing target' },
+      { 'uuid': 'GuAaQu', 'name': 'A.D4.17/A.D4a.17 Production/PO - first shot must be DA' },
+      { 'uuid': 'GsjtMt', 'name': '8.7.1 Sight picture and/or dry firing (after a warning)' },
+      { 'uuid': 'uBTRY2', 'name': '9.1.1 Approaching targets (after a warning)' },
+      { 'uuid': 'HkvzTR', 'name': '10.2.6 Creeping prior Start Signal (after a warning)' },
+      { 'uuid': 'ebYfyV', 'name': '8.7.1.1 PCC - Sight picture with unloaded firearm (after a warning)' },
+      { 'uuid': '7x3MQr', 'name': '8.7.1.2 PCC - Testing target sequence' },
+      { 'uuid': 'BeMf4a', 'name': '5.2.2 Handling without permission (DQ 10.5.1)', 'warn': true },
+      { 'uuid': 'x2TVQ1', 'name': '6.2.5.1 Distance from the body (to Open or no score)', 'warn': true },
+      { 'uuid': 'x2TVQF', 'name': '8.7.1 Sight picture and/or dry firing (Procedural)', 'warn': true },
+      { 'uuid': 'BgXQGK', 'name': '9.1.1 Approaching targets during scoring (Procedural)', 'warn': true },
+      { 'uuid': 'R8cMDc', 'name': '10.2.6 Creeping after the Standby command (Procedural)', 'warn': true },
+      { 'uuid': '5mRLuR', 'name': '5.2.1.2 Non-empty magwell or cocked handgun (DQ 10.6.1)', 'warn': true },
+      { 'uuid': '7NeDtm', 'name': '8.3.1.1 Moving away from the start location (DQ 10.6.1)', 'warn': true },
+      { 'uuid': 'zLG6ev', 'name': '8.7.3 Unauthorized presence on stage (DQ 10.6)', 'warn': true },
+      { 'uuid': 'XXTzeE', 'name': '9.7.8 Unauthorized handling of score sheets (DQ 10.6)', 'warn': true },
+      { 'uuid': 'xdNYz1', 'name': '5.2.1 PCC - Carry and storage (DQ 10.5.1)', 'warn': true },
+      { 'uuid': '5mRLu1', 'name': '5.2.1.2 PCC - Ammo on the gun (DQ 10.6.1)', 'warn': true },
+      { 'uuid': 'x2TVQ2', 'name': '8.7.1.1 PCC - Sight picture with unloaded firearm (Procedural)', 'warn': true },
+      { 'uuid': 'x2TVQ3', 'name': '8.7.1.2 PCC - Testing target sequence (Procedural)', 'warn': true },
+      { 'uuid': 'xdnYz2', 'name': '10.2.12 PCC - Using full auto (DQ)', 'warn': true },
+    ],
     match_stages: [],
     match_shooters: [],
-    match_meta: [],
-    match_docs: [],
   };
 
   for (const stage of stages) {
@@ -638,20 +696,15 @@ export function buildPscExport(
     );
     matchDef.match_stages.push({
       stage_uuid: stage.id,
-      stage_number: stage.stage_number,
+      stage_number: Number(stage.stage_number),
       stage_name: stage.name,
       stage_targets: stageTargets,
       stage_poppers: stage.steel_targets,
-      stage_plates: 0,
       stage_noshoots: stage.no_shoot_targets,
-      stage_minrounds: stage.min_rounds,
-      stage_maxpoints: stage.max_points,
-      stage_scoring: stage.scoring_type === 'comstock' ? 'Comstock' : 'Virginia',
       stage_strings: 1,
       stage_deleted: false,
       stage_classifier: false,
       stage_modified: false,
-      stage_type: '',
     });
   }
 
@@ -684,7 +737,6 @@ export function buildPscExport(
       sh_grd: 'U',
       sh_ctg: reg.category_override || reg.shooter?.category || '',
       sh_sq: reg.squad || 0,
-      sh_region: reg.shooter?.region || '',
     });
   }
   matchDef.match_shooters = pscShooters;
@@ -725,28 +777,28 @@ export function buildPscExport(
         no_shoot_hits: t.no_shoot_hits || 0,
       }));
 
+      const shooterId = reg.shooter_id || reg.shooter?.id;
+      const mod = new Date(Date.now() + pscStageScores.length * 10).toISOString().replace('T', ' ').slice(0, 23);
+
       const scoreEntry: any = {
-        shtr: reg.shooter_id || reg.shooter?.id,
-        mod: new Date().toISOString().replace('T', ' ').slice(0, 23),
+        shtr: shooterId,
+        mod,
         popm,
         poph,
-        proc_cnts: ss.procedural_count > 0 ? [{ 'EQRTwQ': ss.procedural_count }] : undefined,
-        rawpts: ss.raw_points || ss.net_points || 0,
-        str: [ss.time || 0],
+        ...(ss.procedural_count > 0 ? { proc: ss.procedural_count, proc_cnts: [{ 'EQRTwQ': ss.procedural_count }] } : {}),
+        rawpts: Number(ss.raw_points || ss.net_points || 0),
+        str: [Number(ss.time || 0)],
+        ...(ts.length > 0 ? { ts } : {}),
         aprv: !ss.is_dnf,
+        udid: deviceUdid,
+        dname: 'IPSCScore Web ' + deviceUdid.slice(-8),
       };
-      if (ss.procedural_count > 0) {
-        scoreEntry.proc = ss.procedural_count;
-      }
-      if (ts.length > 0) {
-        scoreEntry.ts = ts;
-      }
 
       pscStageScores.push(scoreEntry);
     }
 
     pscMatchScores.push({
-      stage_number: stage.stage_number,
+      stage_number: String(stage.stage_number),
       stage_uuid: stage.id,
       stage_stagescores: pscStageScores,
     });

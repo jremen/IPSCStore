@@ -96,6 +96,18 @@ function addScoredEntry(
   return { scored: [...progress.scored, { stage_id: stageId, registration_id: registrationId, squad }] };
 }
 
+const STAGE_PREFIX = 'ipscscore-active-stage-';
+
+/** Persist the selected stage ID for a given match to localStorage */
+export function setPersistedStageForMatch(matchId: string, stageId: string): void {
+  try { localStorage.setItem(`${STAGE_PREFIX}${matchId}`, stageId); } catch { /* quota exceeded */ }
+}
+
+/** Read a previously persisted stage ID for a given match */
+export function getPersistedStageForMatch(matchId: string): string | null {
+  try { return localStorage.getItem(`${STAGE_PREFIX}${matchId}`); } catch { return null; }
+}
+
 export const useScoringStore = create<ScoringState & ScoringActions>((set, get) => ({
   registrations: [],
   currentRegistrationId: null,

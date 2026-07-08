@@ -7,6 +7,7 @@ import { useConstLabels } from '../../hooks/useConstLabels';
 import ScoringSheet from './ScoringSheet';
 import ScoreSummarySheet from './ScoreSummarySheet';
 import ShooterListScreen from './ShooterListScreen';
+import RescoreConfirmModal from './shared/RescoreConfirmModal';
 import SquadFilterBar from './SquadFilterBar';
 import { TbChevronLeft, TbChevronRight } from "react-icons/tb";
 import { useScoringNav } from "../../hooks/useScoringNav";
@@ -29,7 +30,7 @@ export default function ScoringNav() {
   const stages = useStageStore((s) => s.stages);
   const { t } = useTranslation();
   const { categoryLabel, powerFactorLabel } = useConstLabels();
-  const {currentShooter, currentStage, performSave, handleSelectShooter, handleSummaryBack, handleConfirm, handleStageChange, canConfirm} = useScoringNav();
+  const {currentShooter, currentStage, performSave, handleSelectShooter, handleSummaryBack, handleConfirm, handleStageChange, canConfirm, showRescoreConfirm, handleRescoreConfirm, handleRescoreCancel, stageLoading, stageName, currentShooterName} = useScoringNav();
   const [showShooterList, setShowShooterList] = useState(false);
 
   useTabMenuAction('prev-shooter', () => prevShooter());
@@ -129,7 +130,7 @@ export default function ScoringNav() {
           <ScoringSheet stage={currentStage} score={currentScore} />
         ) : (
           <p className="p-4 text-gray-500 text-center mt-8">
-            {!activeStageId ? t('scoring.selectStage') : !currentRegistrationId ? t('scoring.selectShooter') : t('common.loading')}
+              {!activeStageId && stageLoading ? t('common.loading') : !activeStageId ? t('scoring.selectStage') : !currentRegistrationId ? t('scoring.selectShooter') : t('common.loading')}
           </p>
         )}
       </div>
@@ -144,6 +145,14 @@ export default function ScoringNav() {
           <Button color="gray" onClick={() => nextShooter()} className="min-h-11">{t('common.next')}<TbChevronRight className="size-6 ml-1" /></Button>
         </div>
       )}
+
+      <RescoreConfirmModal
+        show={showRescoreConfirm}
+        onClose={handleRescoreCancel}
+        onConfirm={handleRescoreConfirm}
+        shooterName={currentShooterName}
+        stageName={stageName}
+      />
     </div>
   );
 }

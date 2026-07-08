@@ -521,6 +521,9 @@
     "printedReset": "Printed list reset",
     "unprintedPrompt_one": "{{count}} new scored result — print summary?",
     "unprintedPrompt_other": "{{count}} new scored results — print summary?",
+    "rescoreTitle": "Re-score Shooter",
+    "rescoreDescription": "{{name}} has already been scored on {{stage}}. Overwrite the existing score?",
+    "rescoreConfirm": "Overwrite Score",
     "shot": "Shot"
   },
   "scoringTypes": {

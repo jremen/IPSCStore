@@ -534,6 +534,9 @@
     "unprintedPrompt_one": "{{count}} nový výsledok — vytlačiť súhrn?",
     "unprintedPrompt_few": "{{count}} nové výsledky — vytlačiť súhrn?",
     "unprintedPrompt_many": "{{count}} nových výsledkov — vytlačiť súhrn?",
+    "rescoreTitle": "Bodovať strelca znova",
+    "rescoreDescription": "{{name}} už bol bodovaný na {{stage}}. Prepísať existujúce skóre?",
+    "rescoreConfirm": "Prepísať skóre",
     "shot": "Výstrel"
   },
   "scoringTypes": {

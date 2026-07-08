@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../stores/uiStore';
 import { useMatchStore } from '../stores/matchStore';
-import { useScoringStore } from '../stores/scoringStore';
+import { useScoringStore, getPersistedStageForMatch, setPersistedStageForMatch } from '../stores/scoringStore';
 import { useStageStore } from '../stores/stageStore';
 import { useAuthStore } from '../stores/authStore';
 import { isScoreComplete } from '../utils/scoringValidation';
@@ -31,12 +31,15 @@ export function useScoringNav() {
   const setSquadFilter = useScoringStore((s) => s.setSquadFilter);
   const setShooterListSort = useScoringStore((s) => s.setShooterListSort);
   const reshuffleRandomOrder = useScoringStore((s) => s.reshuffleRandomOrder);
+  const isExistingScore = useScoringStore((s) => s.isExistingScore);
   const stages = useStageStore((s) => s.stages);
+  const stageLoading = useStageStore((s) => s.loading);
   const fetchStages = useStageStore((s) => s.fetchStages);
   const isAdmin = useAuthStore((s) => s.isAdmin);
   const isReadOnly = useScoringReadOnly();
   const { t } = useTranslation();
   const prevMatchIdRef = useRef<string | null>(null);
+  const [showRescoreConfirm, setShowRescoreConfirm] = useState(false);
 
   // For remote scorers: fall back to authenticatedMatchId when activeMatchId isn't set yet
   const runningMatchId = useMatchStore((s) => s.runningMatch?.id);
@@ -47,13 +50,13 @@ export function useScoringNav() {
 
   const currentShooter = registrations.find(r => r.id === currentRegistrationId);
 
-  // When the match changes, reset all scoring state so stale data from the old match
-  // doesn't cause race conditions (wrong registrations, missing stages, failed loadScore)
+  // When the match changes, reset scoring state and hydrate the persisted stage
   useEffect(() => {
     if (effectiveMatchId && effectiveMatchId !== prevMatchIdRef.current) {
       prevMatchIdRef.current = effectiveMatchId;
       selectShooter(null);
-      setActiveStageId(null);
+      const persisted = getPersistedStageForMatch(effectiveMatchId);
+      setActiveStageId(persisted);
       setScore(null);
       setSquadFilter(null);
       setShooterListSort('orig');
@@ -80,6 +83,24 @@ export function useScoringNav() {
       setActiveStageId(stages[0].id);
     }
   }, [stages, activeStageId, setActiveStageId]);
+
+  // Validate that activeStageId still exists in the current stages.
+  // Handles the case where the persisted stage was deleted or belongs to a different match.
+  useEffect(() => {
+    if (stages.length > 0 && activeStageId) {
+      const exists = stages.some((s) => s.id === activeStageId);
+      if (!exists) {
+        setActiveStageId(null);
+      }
+    }
+  }, [stages, activeStageId, setActiveStageId]);
+
+  // Persist the selected stage for this match so it survives tab switches / page reloads
+  useEffect(() => {
+    if (effectiveMatchId && activeStageId) {
+      setPersistedStageForMatch(effectiveMatchId, activeStageId);
+    }
+  }, [effectiveMatchId, activeStageId]);
 
   // Pre-cache all scores for the current stage when it changes (non-blocking)
   useEffect(() => {
@@ -153,13 +174,25 @@ export function useScoringNav() {
   };
 
   const handleConfirm = () => {
-    if (requiresSummary) {
+    if (isAdmin && isExistingScore) {
+      // Admin re-scoring an already-saved shooter — show confirmation dialog
+      setShowRescoreConfirm(true);
+    } else if (requiresSummary) {
       // Remote scorers: show summary sheet first
       setShowSummary(true);
     } else {
-      // Admin: save directly
+      // Admin saving a new score — save directly
       performSave();
     }
+  };
+
+  const handleRescoreConfirm = () => {
+    setShowRescoreConfirm(false);
+    performSave();
+  };
+
+  const handleRescoreCancel = () => {
+    setShowRescoreConfirm(false);
   };
 
   const handleSummaryBack = () => {
@@ -173,8 +206,26 @@ export function useScoringNav() {
 
     const currentStage = stages.find((s) => s.id === activeStageId);
   const canConfirm = currentScore && currentStage && isScoreComplete(currentStage, currentScore) && !isReadOnly;
+  const stageName = currentStage ? t('scoring.stage', { number: currentStage.stage_number }) : '';
+  const currentShooterName = currentShooter ? `${currentShooter.first_name} ${currentShooter.last_name}` : '';
 
-  
-  return {currentStage, showSummary, currentScore, performSave, currentShooter, handleSelectShooter, handleSummaryBack, handleConfirm, handleStageChange, canConfirm}
+  return {
+    currentStage,
+    showSummary,
+    currentScore,
+    performSave,
+    currentShooter,
+    handleSelectShooter,
+    handleSummaryBack,
+    handleConfirm,
+    handleStageChange,
+    canConfirm,
+    showRescoreConfirm,
+    handleRescoreConfirm,
+    handleRescoreCancel,
+    stageLoading,
+    stageName,
+    currentShooterName,
+  }
 
 }

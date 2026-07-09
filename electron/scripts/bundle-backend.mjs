@@ -21,6 +21,14 @@ const outDir = path.join(__dirname, '..', 'dist-backend');
 fs.mkdirSync(outDir, { recursive: true });
 fs.mkdirSync(path.join(outDir, 'db', 'migrations'), { recursive: true });
 
+// Stale .map files from prior builds (with sourcemap: true) are not
+// overwritten when sourcemap: false, so remove them explicitly.
+for (const file of fs.readdirSync(outDir)) {
+  if (file.endsWith('.map')) {
+    fs.unlinkSync(path.join(outDir, file));
+  }
+}
+
 console.log('[bundle-backend] Bundling backend with esbuild...');
 
 try {
@@ -48,7 +56,7 @@ try {
     // Minification (optional, disabled for debugging)
     minify: false,
     // Source maps for debugging
-    sourcemap: true,
+    sourcemap: false,
     // Define NODE_ENV for production
     define: {
       'process.env.NODE_ENV': '"production"',

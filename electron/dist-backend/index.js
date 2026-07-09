@@ -30828,4 +30828,3 @@ process.on("SIGTERM", async () => {
   await closeDb();
   process.exit(0);
 });
-//# sourceMappingURL=index.js.map

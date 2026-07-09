@@ -1,5 +1,5 @@
 -- Stage link tokens: single-use short-lived tokens for auto-login via QR codes.
--- Admin mints tokens; range officers redeem them via /hodnotenie?stageToken=...
+-- Admin mints tokens; range officers redeem them via /scoring?stageToken=...
 
 CREATE TABLE stage_link_tokens (
   id          TEXT PRIMARY KEY,                -- 32-byte random hex (256 bits)

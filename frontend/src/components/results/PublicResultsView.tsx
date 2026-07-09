@@ -102,7 +102,7 @@ export default function PublicResultsView() {
             {t('results.noCurrentMatch')}
           </p>
           <div className="text-sm text-gray-400 dark:text-gray-500">
-            vysledky.local
+            IP:3001/results
           </div>
           <div className="mt-4">
             <LanguageSelector />

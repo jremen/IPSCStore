@@ -30499,18 +30499,15 @@ app.use("*", corsMiddleware);
 app.use("*", requestLogger);
 app.use("*", securityHeaders);
 app.onError(errorHandler2);
-function getDomainMode(host, urlPath) {
-  if (!host) return "admin";
-  const hostname = host.split(":")[0].toLowerCase().trim();
+function getDomainMode(urlPath) {
   const normalizedPath = urlPath.toLowerCase();
-  if (hostname === "vysledky.local" || normalizedPath.startsWith("/vysledky")) return "results";
-  if (hostname === "hodnotenie.local" || normalizedPath.startsWith("/hodnotenie")) return "scoring";
-  if (hostname === "squads.local" || normalizedPath.startsWith("/squads")) return "squads";
+  if (normalizedPath.startsWith("/results")) return "results";
+  if (normalizedPath.startsWith("/scoring")) return "scoring";
+  if (normalizedPath.startsWith("/squads")) return "squads";
   return "admin";
 }
 app.use("*", async (c, next) => {
-  const host = c.req.header("host");
-  c.set("domainMode", getDomainMode(host, c.req.path));
+  c.set("domainMode", getDomainMode(c.req.path));
   await next();
 });
 app.get("/api/health", (c) => {
@@ -30623,22 +30620,15 @@ app.get("/manifest.json", async (c) => {
     try {
       const refererUrl = new URL(referer);
       const refererPath = refererUrl.pathname.toLowerCase();
-      const refererHost = refererUrl.hostname.toLowerCase();
-      if (refererPath.startsWith("/vysledky") || refererHost === "vysledky.local") {
+      if (refererPath.startsWith("/results")) {
         mode = "results";
-      } else if (refererPath.startsWith("/hodnotenie") || refererHost === "hodnotenie.local") {
+      } else if (refererPath.startsWith("/scoring")) {
         mode = "scoring";
-      } else if (refererPath.startsWith("/squads") || refererHost === "squads.local") {
+      } else if (refererPath.startsWith("/squads")) {
         mode = "squads";
       }
     } catch {
     }
-  }
-  if (!mode) {
-    const host = (c.req.header("host") || "").toLowerCase();
-    if (host.startsWith("hodnotenie.")) mode = "scoring";
-    else if (host.startsWith("vysledky.")) mode = "results";
-    else if (host.startsWith("squads.")) mode = "squads";
   }
   const frontendDistPath = process.env.FRONTEND_DIST_PATH;
   let manifest = {
@@ -30669,10 +30659,10 @@ app.get("/manifest.json", async (c) => {
     }
   }
   if (mode === "results") {
-    manifest.start_url = "/vysledky";
+    manifest.start_url = "/results";
     manifest.id = "ipscscore-results";
   } else if (mode === "scoring") {
-    manifest.start_url = "/hodnotenie";
+    manifest.start_url = "/scoring";
     manifest.id = "ipscscore-scoring";
   } else if (mode === "squads") {
     manifest.start_url = "/squads";

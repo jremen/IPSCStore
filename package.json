@@ -1,6 +1,6 @@
 {
   "name": "ipscscore",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "private": true,
   "description": "IPSC/USPSA scoring application",
   "workspaces": [
@@ -21,6 +21,7 @@
     "build:linux": "npm run build:backend && npm run build:frontend && cd electron && npm run build:linux",
     "build:linux-arm64": "npm run build:backend && npm run build:frontend && cd electron && npm run build:linux-arm64",
     "build:all": "npm run build:backend && npm run build:frontend && cd electron && npm run build:all",
+    "clean:build": "rm -rf frontend/dist backend/dist electron/dist electron/dist-backend electron/frontend-dist-bundled dist-electron",
     "version:patch": "node scripts/version-bump.mjs patch",
     "version:minor": "node scripts/version-bump.mjs minor",
     "version:major": "node scripts/version-bump.mjs major"

@@ -11,9 +11,9 @@ export function ScoringBaseUrlProvider() {
   const { domainUrls, loading } = useLanUrl();
 
   useEffect(() => {
-    if (!loading && domainUrls?.hodnotenie) {
-      // Strip /hodnotenie path to get just the origin (e.g. "http://192.168.1.5:3001")
-      const url = domainUrls.hodnotenie.replace(/\/hodnotenie\/?$/, '');
+    if (!loading && domainUrls?.scoring) {
+      // Strip /scoring path to get just the origin (e.g. "http://192.168.1.5:3001")
+      const url = domainUrls.scoring.replace(/\/scoring\/?$/, '');
       setScoringBaseUrl(url);
     }
   }, [domainUrls, loading]);

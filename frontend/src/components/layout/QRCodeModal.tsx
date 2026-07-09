@@ -23,7 +23,7 @@ export default function QRCodeModal({ show, onClose, mode }: QRCodeModalProps) {
 
   const isResults = mode === 'results';
   const isSquads = mode === 'squads';
-  const url = isResults ? (domainUrls?.vysledky ?? '') : isSquads ? (domainUrls?.squads ?? '') : (domainUrls?.hodnotenie ?? '');
+  const url = isResults ? (domainUrls?.results ?? '') : isSquads ? (domainUrls?.squads ?? '') : (domainUrls?.scoring ?? '');
   // On-screen label keeps the descriptive text; print/PDF uses the short name.
   const label = isResults ? t('header.qrResultsLabel') : isSquads ? t('header.qrSquadsLabel') : t('header.qrScoringLabel');
   const printLabel = isResults ? t('header.qrResultsLink') : isSquads ? t('header.qrSquadsLink') : t('header.qrScoringLink');

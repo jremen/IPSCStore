@@ -8,7 +8,7 @@ import type { RegistrationWithShooter, ScoringProgress } from '../types/scoring'
 import type { Stage } from '../types/stage';
 
 const DB_NAME = 'ipscscore-offline';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -33,6 +33,7 @@ export interface AuthSession {
   trustToken: string;
   matchId: string;
   role: 'scorer' | 'admin';
+  deviceId?: string;
   adminToken?: string;
   savedAt: number;
 }

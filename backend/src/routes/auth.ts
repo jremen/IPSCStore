@@ -10,6 +10,10 @@ import {
   revalidateSession,
   destroySession,
   listActiveSessions,
+  approveSession,
+  revokeSession,
+  getDeviceMode,
+  setDeviceMode,
 } from '../services/scorerTrust.js';
 
 export const authRoutes = new Hono<{
@@ -221,15 +225,24 @@ authRoutes.get('/admin-password-status', async (c) => {
 /**
  * POST /api/auth/scorer-trust
  * Public — validates trust token and issues a scorer session.
- * Body: { trustToken: string, deviceLabel?: string }
+ * Body: { trustToken: string, deviceLabel?: string, deviceId?: string }
  */
 authRoutes.post('/scorer-trust', async (c) => {
-  const { trustToken, deviceLabel } = await c.req.json();
+  const { trustToken, deviceLabel, deviceId } = await c.req.json();
   if (!trustToken) {
     return c.json({ error: 'trustToken is required.' }, 400);
   }
+  if (!deviceId) {
+    return c.json({ error: 'deviceId is required.' }, 400);
+  }
   try {
-    const result = await validateAndIssueSession(trustToken, deviceLabel || null);
+    const result = await validateAndIssueSession(trustToken, deviceLabel || null, deviceId);
+    if (result.pending) {
+      return c.json({
+        pending: true,
+        matchId: result.matchId,
+      });
+    }
     setCookie(c, 'scorer_trust_token', trustToken, {
       httpOnly: true,
       secure: false,
@@ -265,8 +278,9 @@ authRoutes.post('/scorer-revalidate', async (c) => {
   if (!trustToken) {
     return c.json({ error: 'Trust token required.' }, 401);
   }
+  const deviceId = body.deviceId as string | undefined;
 
-  const result = await revalidateSession(trustToken, sessionToken);
+  const result = await revalidateSession(trustToken, sessionToken, deviceId || null);
   if (!result) {
     deleteCookie(c, 'scorer_trust_token', { path: '/' });
     return c.json({ error: 'Trust token has been rotated. Please rescan the QR code.' }, 401);
@@ -284,8 +298,9 @@ authRoutes.post('/scorer-auto-login', async (c) => {
   if (!trustToken) {
     return c.json({ error: 'No trust cookie found.' }, 401);
   }
+  const { deviceId } = await c.req.json().catch(() => ({}));
   try {
-    const result = await validateAndIssueSession(trustToken, null);
+    const result = await validateAndIssueSession(trustToken, null, deviceId || null);
     return c.json({
       sessionToken: result.sessionToken,
       matchId: result.matchId,
@@ -371,6 +386,132 @@ authRoutes.get('/scorer-trust/sessions', async (c) => {
 
   const sessions = await listActiveSessions();
   return c.json(sessions);
+});
+
+/**
+ * POST /api/auth/scorer-trust/sessions/:id/approve
+ * Admin only — approves a pending scorer session.
+ */
+authRoutes.post('/scorer-trust/sessions/:id/approve', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required.' }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: 'Invalid or expired admin session.' }, 401);
+  }
+  const sessionId = c.req.param('id');
+  try {
+    await approveSession(sessionId);
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, err.status || 500);
+  }
+});
+
+/**
+ * DELETE /api/auth/scorer-trust/sessions/:id
+ * Admin only — revokes (deletes) a single scorer session.
+ */
+authRoutes.delete('/scorer-trust/sessions/:id', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required.' }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: 'Invalid or expired admin session.' }, 401);
+  }
+  const sessionId = c.req.param('id');
+  try {
+    await revokeSession(sessionId);
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, err.status || 500);
+  }
+});
+
+/**
+ * POST /api/auth/scorer-trust/sessions/cleanup-duplicates
+ * Admin only — deletes duplicate sessions where the same trust_token + device_label
+ * appears more than once within 1 hour (keeps the newer row).
+ */
+authRoutes.post('/scorer-trust/sessions/cleanup-duplicates', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required.' }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: 'Invalid or expired admin session.' }, 401);
+  }
+
+  const result = await sql`
+    DELETE FROM scorer_sessions a
+    USING scorer_sessions b
+    WHERE a.id <> b.id
+      AND a.match_id = b.match_id
+      AND a.trust_token = b.trust_token
+      AND a.device_label = b.device_label
+      AND a.device_label IS NOT NULL
+      AND a.created_at < b.created_at
+      AND b.created_at < a.created_at + interval '1 hour'
+  `;
+  return c.json({ deleted: result.count || 0 });
+});
+
+/**
+ * GET /api/auth/scorer-trust/mode
+ * Admin only — returns current device approval mode.
+ */
+authRoutes.get('/scorer-trust/mode', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required.' }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: 'Invalid or expired admin session.' }, 401);
+  }
+  const mode = await getDeviceMode();
+  return c.json({ mode });
+});
+
+/**
+ * PUT /api/auth/scorer-trust/mode
+ * Admin only — sets device approval mode (silent | pending).
+ */
+authRoutes.put('/scorer-trust/mode', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Authentication required.' }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: 'Invalid or expired admin session.' }, 401);
+  }
+  const { mode } = await c.req.json();
+  if (!['silent', 'pending'].includes(mode)) {
+    return c.json({ error: 'mode must be "silent" or "pending".' }, 400);
+  }
+  await setDeviceMode(mode);
+  return c.json({ success: true, mode });
 });
 
 // ─── Auth info ────────────────────────────────────────────────────────────────

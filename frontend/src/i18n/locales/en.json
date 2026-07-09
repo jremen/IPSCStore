@@ -126,7 +126,18 @@
     "offlineNoDataHint": "You are offline and there is no cached data. Open the IPSC Score app from your home screen, or reconnect to the internet to log in.",
     "trustNoTokenYet": "No trust token has been generated yet. Click Rotate to create one.",
     "trustLoadError": "Failed to load trust info",
-    "trustRotateError": "Failed to rotate trust token"
+    "trustRotateError": "Failed to rotate trust token",
+    "trustDeviceModeLabel": "Device approval mode",
+    "trustDeviceModeSilent": "Silent (auto-approve)",
+    "trustDeviceModePending": "Require approval",
+    "trustPending": "Pending approval",
+    "trustApprove": "Approve",
+    "trustRevoke": "Revoke",
+    "trustRevokeConfirm": "Revoke device \"{{device}}\"? They will need to rescan the QR code.",
+    "trustDeviceId": "Device ID",
+    "trustPendingHint": "Waiting for range master approval. Ask them to approve your device from the trust token settings.",
+    "trustCleanupDuplicates": "Clean up duplicates",
+    "trustCleanupResult": "Removed {{count}} duplicate(s)"
   },
   "tabs": {
     "matches": "Matches",

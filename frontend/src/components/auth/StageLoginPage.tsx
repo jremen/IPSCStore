@@ -1,21 +1,23 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, TextInput, Button, Alert } from 'flowbite-react';
 import { useTranslation } from 'react-i18next';
-import { useAuthStore } from '../../stores/authStore';
+import { getOrCreateDeviceId, useAuthStore } from '../../stores/authStore';
 import { isOnlineSync } from '../../services/connectivity';
 import LanguageSelector from '../settings/LanguageSelector';
 
 export default function StageLoginPage() {
+  const { t } = useTranslation();
   const loginWithTrustToken = useAuthStore((s) => s.loginWithTrustToken);
   const autoLogin = useAuthStore((s) => s.autoLogin);
   const loading = useAuthStore((s) => s.loading);
   const error = useAuthStore((s) => s.error);
   const isLocalNetwork = useAuthStore((s) => s.isLocalNetwork);
-  const { t } = useTranslation();
+  const pendingApproval = useAuthStore((s) => s.pendingApproval);
   const [pasteMode, setPasteMode] = useState(false);
   const [pastedUrl, setPastedUrl] = useState('');
   const [pasteError, setPasteError] = useState('');
   const [autoLoginAttempted, setAutoLoginAttempted] = useState(false);
+  const deviceID = getOrCreateDeviceId();
 
   const isStandalone = useMemo(() => {
     if (typeof window === 'undefined') return false;
@@ -74,8 +76,15 @@ export default function StageLoginPage() {
   }, [pastedUrl, loginWithTrustToken, t]);
 
   const handleCheckLogin = useCallback(async () => {
-    await autoLogin();
-  }, [autoLogin]);
+    if (pendingApproval) {
+      const trustToken = localStorage.getItem('auth_trust_token');
+      if (trustToken) {
+        await loginWithTrustToken(trustToken);
+      }
+    } else {
+      await autoLogin();
+    }
+  }, [autoLogin, loginWithTrustToken, pendingApproval]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
@@ -95,6 +104,15 @@ export default function StageLoginPage() {
             {error}
           </Alert>
         )}
+
+        {pendingApproval && (
+          <Alert color="warning" className="mb-4">
+            {t('auth.trustPendingHint')}
+            <br /><br />
+            <p className="font-medium text-xl">{t('auth.trustDeviceId')}:&nbsp;{deviceID.substring(0,8)}…</p>
+          </Alert>
+        )}
+
 
         {/* Offline + not PWA → guide user to open the installed app */}
         {isOffline && !isStandalone && (

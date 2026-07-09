@@ -183,22 +183,22 @@ export const api = {
     },
 
     // Scorer trust
-    redeemScorerTrust: async (trustToken: string, deviceLabel?: string): Promise<{ sessionToken: string; matchId: string; error?: string }> => {
+    redeemScorerTrust: async (trustToken: string, deviceLabel?: string, deviceId?: string): Promise<{ sessionToken: string; matchId: string; pending?: boolean; error?: string }> => {
       try {
         return await request('/api/auth/scorer-trust', {
           method: 'POST',
-          body: JSON.stringify({ trustToken, deviceLabel }),
+          body: JSON.stringify({ trustToken, deviceLabel, deviceId }),
         });
       } catch (err: any) {
         return { error: err.message, sessionToken: '', matchId: '' };
       }
     },
-    revalidateScorerSession: async (trustToken: string, sessionToken: string): Promise<{ matchId: string; sessionToken: string; error?: string }> => {
+    revalidateScorerSession: async (trustToken: string, sessionToken: string, deviceId?: string): Promise<{ matchId: string; sessionToken: string; error?: string }> => {
       try {
         return await request('/api/auth/scorer-revalidate', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${sessionToken}` },
-          body: JSON.stringify({ trustToken }),
+          body: JSON.stringify({ trustToken, deviceId }),
         });
       } catch (err: any) {
         return { error: err.message, matchId: '', sessionToken: '' };
@@ -214,9 +214,12 @@ export const api = {
         return { success: true };
       }
     },
-    scorerAutoLogin: async (): Promise<{ sessionToken: string; matchId: string; error?: string }> => {
+    scorerAutoLogin: async (deviceId?: string): Promise<{ sessionToken: string; matchId: string; error?: string }> => {
       try {
-        return await request('/api/auth/scorer-auto-login', { method: 'POST' });
+        return await request('/api/auth/scorer-auto-login', {
+          method: 'POST',
+          body: JSON.stringify({ deviceId }),
+        });
       } catch (err: any) {
         return { error: err.message, sessionToken: '', matchId: '' };
       }
@@ -240,13 +243,63 @@ export const api = {
         return { trustToken: '', rotatedAt: '', error: err.message };
       }
     },
-    getActiveScorerSessions: async (adminToken: string): Promise<Array<{ id: string; device_label: string | null; created_at: string; last_used_at: string }>> => {
+    getActiveScorerSessions: async (adminToken: string): Promise<Array<{ id: string; device_label: string | null; device_id: string | null; approved_at: string | null; created_at: string; last_used_at: string }>> => {
       try {
         return await request('/api/auth/scorer-trust/sessions', {
           headers: { 'Authorization': `Bearer ${adminToken}` },
         });
       } catch {
         return [];
+      }
+    },
+    approveScorerSession: async (adminToken: string, sessionId: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        return await request(`/api/auth/scorer-trust/sessions/${sessionId}/approve`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${adminToken}` },
+        });
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    },
+    revokeScorerSession: async (adminToken: string, sessionId: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        return await request(`/api/auth/scorer-trust/sessions/${sessionId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${adminToken}` },
+        });
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    },
+    getScorerDeviceMode: async (adminToken: string): Promise<{ mode: string; error?: string }> => {
+      try {
+        return await request('/api/auth/scorer-trust/mode', {
+          headers: { 'Authorization': `Bearer ${adminToken}` },
+        });
+      } catch (err: any) {
+        return { mode: '', error: err.message };
+      }
+    },
+    cleanupDuplicateScorerSessions: async (adminToken: string): Promise<{ deleted: number; error?: string }> => {
+      try {
+        return await request('/api/auth/scorer-trust/sessions/cleanup-duplicates', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${adminToken}` },
+        });
+      } catch (err: any) {
+        return { deleted: 0, error: err.message };
+      }
+    },
+    setScorerDeviceMode: async (adminToken: string, mode: 'silent' | 'pending'): Promise<{ success: boolean; error?: string }> => {
+      try {
+        return await request('/api/auth/scorer-trust/mode', {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${adminToken}` },
+          body: JSON.stringify({ mode }),
+        });
+      } catch (err: any) {
+        return { success: false, error: err.message };
       }
     },
   },

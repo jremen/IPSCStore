@@ -132,7 +132,18 @@
     "offlineNoDataHint": "Ste offline a nemáte uložené žiadne údaje. Otvorte aplikáciu IPSC Score z plochy, alebo sa pripojte k internetu pre prihlásenie.",
     "trustNoTokenYet": "Zatiaľ nebol vygenerovaný žiaden trust token. Kliknutím na Rotovať ho vytvoríte.",
     "trustLoadError": "Nepodarilo sa načítať informácie o trust tokeni",
-    "trustRotateError": "Nepodarilo sa rotovať trust token"
+    "trustRotateError": "Nepodarilo sa rotovať trust token",
+    "trustDeviceModeLabel": "Režim schvaľovania zariadení",
+    "trustDeviceModeSilent": "Tichý (automaticky schváliť)",
+    "trustDeviceModePending": "Vyžadovať schválenie",
+    "trustPending": "Čaká na schválenie",
+    "trustApprove": "Schváliť",
+    "trustRevoke": "Zrušiť",
+    "trustRevokeConfirm": "Zrušiť zariadenie \"{{device}}\"? Bude musieť znova naskenovať QR kód.",
+    "trustDeviceId": "ID zariadenia",
+    "trustPendingHint": "Čaká sa na schválenie rozhodcom. Požiadajte ho, aby schválil vaše zariadenie v nastaveniach trust tokenu.",
+    "trustCleanupDuplicates": "Vyčistiť duplicity",
+    "trustCleanupResult": "Odstránených {{count}} duplicitných záznamov"
   },
   "tabs": {
     "matches": "Súťaže",

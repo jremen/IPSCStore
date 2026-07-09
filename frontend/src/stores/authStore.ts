@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { api } from '../services/api';
 import { isBackendReachable, isNetworkError } from '../services/connectivity';
 import { saveAuthSession, getAuthSession, clearAuthSession } from '../services/offlineDB';
+import { generateDeviceId } from '../utils/deviceId';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -10,6 +11,8 @@ interface AuthState {
   scorerSessionToken: string | null;
   authenticatedMatchId: string | null;
   trustToken: string | null;
+  deviceId: string | null;
+  pendingApproval: boolean;
   isLocalNetwork: boolean;
   domainMode: 'results' | 'scoring' | 'squads' | 'admin';
   loading: boolean;
@@ -32,6 +35,16 @@ const SESSION_KEY = 'auth_scorer_token';
 const MATCH_KEY = 'auth_match_id';
 const ADMIN_KEY = 'admin_token';
 const ROLE_KEY = 'auth_role';
+export const DEVICE_ID_KEY = 'scorer_device_id';
+
+export function getOrCreateDeviceId(): string {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = generateDeviceId();
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
 
 function clearScorerLocalStorage() {
   localStorage.removeItem(TRUST_KEY);
@@ -48,6 +61,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   scorerSessionToken: null,
   authenticatedMatchId: null,
   trustToken: null,
+  deviceId: null,
+  pendingApproval: false,
   isLocalNetwork: false,
   domainMode: 'admin',
   loading: false,
@@ -101,13 +116,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   loginWithTrustToken: async (trustToken: string) => {
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, pendingApproval: false });
     try {
       const deviceLabel = navigator.userAgent;
-      const response = await api.auth.redeemScorerTrust(trustToken, deviceLabel);
+      const deviceId = getOrCreateDeviceId();
+      const response = await api.auth.redeemScorerTrust(trustToken, deviceLabel, deviceId);
 
       if (response.error) {
         set({ loading: false, error: response.error });
+        return false;
+      }
+
+      if (response.pending) {
+        set({
+          deviceId,
+          pendingApproval: true,
+          authenticatedMatchId: response.matchId,
+          trustToken,
+          loading: false,
+          error: null,
+        });
+        localStorage.setItem(TRUST_KEY, trustToken);
+        localStorage.setItem(MATCH_KEY, response.matchId);
         return false;
       }
 
@@ -117,6 +147,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         scorerSessionToken: sessionToken,
         authenticatedMatchId: matchId,
         trustToken,
+        deviceId,
+        pendingApproval: false,
         loading: false,
         error: null,
       });
@@ -126,7 +158,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.setItem(MATCH_KEY, matchId);
       localStorage.setItem(ROLE_KEY, 'scorer');
 
-      saveAuthSession({ sessionToken, trustToken, matchId, role: 'scorer' }).catch(() => {});
+      saveAuthSession({ sessionToken, trustToken, matchId, deviceId, role: 'scorer' }).catch(() => {});
 
       return true;
     } catch (err: any) {
@@ -148,11 +180,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         localStorage.setItem(SESSION_KEY, idbSession.sessionToken);
         localStorage.setItem(MATCH_KEY, idbSession.matchId);
         localStorage.setItem(ROLE_KEY, 'scorer');
+        if (idbSession.deviceId) {
+          localStorage.setItem(DEVICE_ID_KEY, idbSession.deviceId);
+        }
         set({
           isAuthenticated: true,
           scorerSessionToken: idbSession.sessionToken,
           authenticatedMatchId: idbSession.matchId,
           trustToken: idbSession.trustToken,
+          deviceId: idbSession.deviceId || null,
           loading: false,
           error: null,
         });
@@ -166,11 +202,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // If offline, trust localStorage (or IDB-mirrored state)
     if (!navigator.onLine || !(await isBackendReachable())) {
       const matchId = localStorage.getItem(MATCH_KEY);
+      const deviceId = getOrCreateDeviceId();
       set({
         isAuthenticated: true,
         scorerSessionToken: sessionToken,
         authenticatedMatchId: matchId,
         trustToken,
+        deviceId,
         loading: false,
         error: null,
       });
@@ -179,10 +217,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     // Revalidate session with server (requires BOTH tokens)
     try {
-      const result = await api.auth.revalidateScorerSession(trustToken, sessionToken);
+      const deviceId = getOrCreateDeviceId();
+      const result = await api.auth.revalidateScorerSession(trustToken, sessionToken, deviceId);
       if (result.error) {
         clearScorerLocalStorage();
-        set({ loading: false, error: 'Trust revoked. Please rescan the QR code.', trustToken: null, scorerSessionToken: null, authenticatedMatchId: null, isAuthenticated: false });
+        set({ loading: false, error: 'Trust revoked. Please rescan the QR code.', trustToken: null, scorerSessionToken: null, authenticatedMatchId: null, isAuthenticated: false, pendingApproval: false });
         return false;
       }
 
@@ -192,6 +231,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         scorerSessionToken: newSessionToken,
         authenticatedMatchId: result.matchId,
         trustToken,
+        deviceId,
+        pendingApproval: false,
         loading: false,
         error: null,
       });
@@ -201,18 +242,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // Mirror to IDB
-      saveAuthSession({ sessionToken: newSessionToken, trustToken, matchId: result.matchId, role: 'scorer' }).catch(() => {});
+      saveAuthSession({ sessionToken: newSessionToken, trustToken, matchId: result.matchId, deviceId, role: 'scorer' }).catch(() => {});
 
       return true;
     } catch (err: any) {
       // Network error: trust local state, don't destroy session
       if (isNetworkError(err) || !navigator.onLine) {
         const matchId = localStorage.getItem(MATCH_KEY);
+        const deviceId = getOrCreateDeviceId();
         set({
           isAuthenticated: true,
           scorerSessionToken: sessionToken,
           authenticatedMatchId: matchId,
           trustToken,
+          deviceId,
           loading: false,
           error: null,
         });
@@ -220,7 +263,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       // Real server error (e.g. 401): clear session
       clearScorerLocalStorage();
-      set({ loading: false, error: 'Trust revoked. Please rescan the QR code.', trustToken: null, scorerSessionToken: null, authenticatedMatchId: null, isAuthenticated: false });
+      set({ loading: false, error: 'Trust revoked. Please rescan the QR code.', trustToken: null, scorerSessionToken: null, authenticatedMatchId: null, isAuthenticated: false, pendingApproval: false });
       return false;
     }
   },
@@ -231,7 +274,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      const result = await api.auth.scorerAutoLogin();
+      const deviceId = getOrCreateDeviceId();
+      const result = await api.auth.scorerAutoLogin(deviceId);
       if (result.error) {
         set({ loading: false, error: 'No active session found. Please scan the QR code in your camera app and return to this app.' });
         return false;
@@ -241,6 +285,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true,
         scorerSessionToken: result.sessionToken,
         authenticatedMatchId: result.matchId,
+        deviceId,
         loading: false,
         error: null,
       });
@@ -249,7 +294,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.setItem(MATCH_KEY, result.matchId);
       localStorage.setItem(ROLE_KEY, 'scorer');
 
-      saveAuthSession({ sessionToken: result.sessionToken, trustToken: '', matchId: result.matchId, role: 'scorer' }).catch(() => {});
+      saveAuthSession({ sessionToken: result.sessionToken, trustToken: '', matchId: result.matchId, deviceId, role: 'scorer' }).catch(() => {});
 
       return true;
     } catch {
@@ -270,6 +315,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       scorerSessionToken: null,
       authenticatedMatchId: null,
       trustToken: null,
+      deviceId: null,
+      pendingApproval: false,
       error: null,
     });
   },
@@ -283,7 +330,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const idbSession = await getAuthSession().catch(() => null);
     if (!idbSession) return false;
 
-    const { sessionToken, trustToken, matchId, role, adminToken } = idbSession;
+    const { sessionToken, trustToken, matchId, role, adminToken, deviceId } = idbSession;
 
     if (role === 'admin' && adminToken) {
       localStorage.setItem(ADMIN_KEY, adminToken);
@@ -302,11 +349,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.setItem(SESSION_KEY, sessionToken);
       localStorage.setItem(MATCH_KEY, matchId);
       localStorage.setItem(ROLE_KEY, 'scorer');
+      if (deviceId) {
+        localStorage.setItem(DEVICE_ID_KEY, deviceId);
+      }
       set({
         isAuthenticated: true,
         scorerSessionToken: sessionToken,
         authenticatedMatchId: matchId,
         trustToken,
+        deviceId: deviceId || null,
       });
       get().checkLocalNetwork();
       return true;

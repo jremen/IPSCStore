@@ -26832,10 +26832,11 @@ function parsePscFiles(matchDef, matchScores) {
     const maxPoints = safeNum(pickFirst(s, "stage_maxpoints", "stage_max_points", "maxPoints", "max_points")) || paperTargets * 10 + steelTargets * 5;
     const scoringRaw = pickFirst(s, "stage_scoring", "stage_scoring_method", "scoring", "scoringMethod") || "";
     const scoringType = parsePscScoringMethod(scoringRaw);
+    const sourceStageNumber = safeNum(pickFirst(s, "stage_number", "stageNumber")) || i + 1;
     stages.push({
       id: stageId,
-      stage_number: i + 1,
-      name: pickFirst(s, "stage_name", "stageName", "name") || `Stage ${i + 1}`,
+      stage_number: sourceStageNumber,
+      name: pickFirst(s, "stage_name", "stageName", "name") || `Stage ${sourceStageNumber}`,
       scoring_type: scoringType,
       paper_targets: paperTargets,
       steel_targets: steelTargets,
@@ -27030,21 +27031,24 @@ function parsePscFiles(matchDef, matchScores) {
           warnings.push(`Stage #${stageNumber}, shooter ${shooterUuid.slice(0, 8)}: computed rawpts ${calcResult.raw_points} \u2260 reported ${rawpts}`);
         }
       } else {
+        warnings.push(`Stage #${stageNumber}, shooter ${shooterUuid.slice(0, 8)}: no ts data, hit distribution estimated`);
+        if (stage.paper_targets === 0 && stage.paper_targets * stage.hits_per_paper > 0) {
+          warnings.push(`Stage #${stageNumber}, shooter ${shooterUuid.slice(0, 8)}: stage has hits but 0 paper targets \u2014 data inconsistency`);
+        }
         const totalHitsPaper = stage.paper_targets * stage.hits_per_paper;
         const rawPointsFromSteel = poph * 5;
         const rawPointsFromPaper = Math.max(0, rawpts - rawPointsFromSteel);
-        const randomSource = () => generateId();
+        const idGen = () => generateId();
         distributedHits(
           rawPointsFromPaper,
           totalHitsPaper,
           stage.paper_targets,
-          stage.hits_per_paper,
           popm,
           stage.steel_targets,
           poph,
           scoreId,
           targetRows,
-          randomSource
+          idGen
         );
         penaltyPoints = proceduralCount * 10 + popm * 10;
         netPoints = Math.max(0, rawpts - penaltyPoints);
@@ -27097,8 +27101,8 @@ function parsePscFiles(matchDef, matchScores) {
       }
     }
   }
-  function distributedHits(paperPoints, totalPaperSlots, paperTargetCount, hpp, steelMissCount, steelTargetCount, steelHitCount, stageScoreId, targets, idGen) {
-    if (totalPaperSlots > 0) {
+  function distributedHits(paperPoints, totalPaperSlots, paperTargetCount, steelMissCount, steelTargetCount, steelHitCount, stageScoreId, targets, idGen) {
+    if (totalPaperSlots > 0 && paperTargetCount > 0) {
       const hitsPerTarget = Math.floor(totalPaperSlots / paperTargetCount);
       const extra = totalPaperSlots % paperTargetCount;
       for (let i = 0; i < paperTargetCount; i++) {
@@ -27118,6 +27122,8 @@ function parsePscFiles(matchDef, matchScores) {
       }
     }
     for (let i = 0; i < steelTargetCount; i++) {
+      const isHit = i < steelHitCount;
+      const isMiss = !isHit && i < steelHitCount + steelMissCount;
       targets.push({
         id: idGen(),
         stage_score_id: stageScoreId,
@@ -27126,9 +27132,9 @@ function parsePscFiles(matchDef, matchScores) {
         alpha: 0,
         charlie: 0,
         delta: 0,
-        miss: i < steelMissCount ? 1 : 0,
+        miss: isMiss ? 1 : 0,
         no_shoot_hits: 0,
-        steel_hit: i < steelHitCount
+        steel_hit: isHit
       });
     }
   }
@@ -29425,9 +29431,30 @@ async function rotateTrustToken() {
     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
   `;
   await sql`DELETE FROM scorer_sessions WHERE 1=1`;
+  eventBroadcaster.broadcast({
+    type: "scorer:session:rotated",
+    payload: {}
+  });
   return token;
 }
-async function validateAndIssueSession(trustToken, deviceLabel) {
+async function getDeviceMode() {
+  const [row] = await sql`
+    SELECT value FROM app_settings WHERE key = 'scorer_device_mode'
+  `;
+  return row?.value || "silent";
+}
+async function setDeviceMode(mode) {
+  await sql`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('scorer_device_mode', ${mode}, now())
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+  `;
+  await eventBroadcaster.broadcast({
+    type: "scorer:device:mode-changed",
+    payload: { mode }
+  });
+}
+async function validateAndIssueSession(trustToken, deviceLabel, deviceId) {
   if (!trustToken) {
     throw Object.assign(new Error("Trust token is required."), { status: 400 });
   }
@@ -29447,20 +29474,105 @@ async function validateAndIssueSession(trustToken, deviceLabel) {
       { status: 409 }
     );
   }
+  const mode = await getDeviceMode();
+  if (deviceId) {
+    const [existing] = await sql`
+      SELECT id, session_token, approved_at
+      FROM scorer_sessions
+      WHERE match_id = ${match2.id} AND device_id = ${deviceId}
+    `;
+    if (existing) {
+      const isPending2 = !existing.approved_at;
+      await sql`
+        UPDATE scorer_sessions
+        SET trust_token = ${trustToken},
+            device_label = ${deviceLabel || null},
+            last_used_at = now()
+        WHERE id = ${existing.id}
+      `;
+      await eventBroadcaster.broadcast({
+        type: "scorer:session:created",
+        payload: { sessionId: existing.id, matchId: match2.id, deviceId, pending: isPending2 }
+      });
+      return { sessionToken: existing.session_token, matchId: match2.id, pending: isPending2 };
+    }
+  }
+  if (deviceId && deviceLabel) {
+    const [heuristic] = await sql`
+      SELECT id, session_token, approved_at
+      FROM scorer_sessions
+      WHERE match_id = ${match2.id}
+        AND trust_token = ${trustToken}
+        AND device_label = ${deviceLabel}
+        AND device_id IS DISTINCT FROM ${deviceId}
+        AND last_used_at > now() - interval '5 minutes'
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+    if (heuristic) {
+      await sql`
+        UPDATE scorer_sessions
+        SET device_id = ${deviceId},
+            device_label = ${deviceLabel || null},
+            trust_token = ${trustToken},
+            last_used_at = now()
+        WHERE id = ${heuristic.id}
+      `;
+      const isPending2 = !heuristic.approved_at;
+      await eventBroadcaster.broadcast({
+        type: "scorer:session:created",
+        payload: { sessionId: heuristic.id, matchId: match2.id, deviceId, pending: isPending2, heuristic: true }
+      });
+      return { sessionToken: heuristic.session_token, matchId: match2.id, pending: isPending2 };
+    }
+  }
   const sessionToken = crypto6.randomUUID();
+  const approvedAt = mode === "silent" ? (/* @__PURE__ */ new Date()).toISOString() : null;
   await sql`
-    INSERT INTO scorer_sessions (match_id, trust_token, session_token, device_label)
-    VALUES (${match2.id}, ${trustToken}, ${sessionToken}, ${deviceLabel || null})
+    INSERT INTO scorer_sessions (match_id, trust_token, session_token, device_label, device_id, approved_at)
+    VALUES (${match2.id}, ${trustToken}, ${sessionToken}, ${deviceLabel || null}, ${deviceId || null}, ${approvedAt})
   `;
-  return { sessionToken, matchId: match2.id };
+  const isPending = mode === "pending";
+  await eventBroadcaster.broadcast({
+    type: "scorer:session:created",
+    payload: { matchId: match2.id, deviceId, pending: isPending }
+  });
+  return { sessionToken, matchId: match2.id, pending: isPending };
 }
-async function revalidateSession(trustToken, sessionToken) {
+async function approveSession(sessionId) {
+  const result = await sql`
+    UPDATE scorer_sessions SET approved_at = now()
+    WHERE id = ${sessionId}::uuid AND approved_at IS NULL
+  `;
+  if (result.count === 0) {
+    throw Object.assign(new Error("Session not found or already approved."), { status: 404 });
+  }
+  await eventBroadcaster.broadcast({
+    type: "scorer:session:approved",
+    payload: { sessionId }
+  });
+}
+async function revokeSession(sessionId) {
+  const result = await sql`DELETE FROM scorer_sessions WHERE id = ${sessionId}::uuid`;
+  if (result.count === 0) {
+    throw Object.assign(new Error("Session not found."), { status: 404 });
+  }
+  await eventBroadcaster.broadcast({
+    type: "scorer:session:revoked",
+    payload: { sessionId }
+  });
+}
+async function revalidateSession(trustToken, sessionToken, deviceId) {
   const [session] = await sql`
-    SELECT id, match_id, trust_token
+    SELECT id, match_id, trust_token, approved_at, device_id
     FROM scorer_sessions
     WHERE session_token = ${sessionToken}
   `;
   if (!session) return null;
+  if (session.device_id && deviceId && session.device_id !== deviceId) {
+    return null;
+  }
+  if (!session.approved_at) return null;
   const [row] = await sql`
     SELECT value FROM app_settings WHERE key = 'scorer_trust_token'
   `;
@@ -29479,9 +29591,9 @@ async function destroySession(sessionToken) {
 }
 async function listActiveSessions() {
   return sql`
-    SELECT id, device_label, created_at, last_used_at
+    SELECT id, device_label, device_id, approved_at, created_at, last_used_at
     FROM scorer_sessions
-    ORDER BY last_used_at DESC
+    ORDER BY approved_at NULLS FIRST, last_used_at DESC
   `;
 }
 
@@ -29635,12 +29747,21 @@ authRoutes.get("/admin-password-status", async (c) => {
   return c.json({ hasPassword });
 });
 authRoutes.post("/scorer-trust", async (c) => {
-  const { trustToken, deviceLabel } = await c.req.json();
+  const { trustToken, deviceLabel, deviceId } = await c.req.json();
   if (!trustToken) {
     return c.json({ error: "trustToken is required." }, 400);
   }
+  if (!deviceId) {
+    return c.json({ error: "deviceId is required." }, 400);
+  }
   try {
-    const result = await validateAndIssueSession(trustToken, deviceLabel || null);
+    const result = await validateAndIssueSession(trustToken, deviceLabel || null, deviceId);
+    if (result.pending) {
+      return c.json({
+        pending: true,
+        matchId: result.matchId
+      });
+    }
     setCookie(c, "scorer_trust_token", trustToken, {
       httpOnly: true,
       secure: false,
@@ -29668,7 +29789,8 @@ authRoutes.post("/scorer-revalidate", async (c) => {
   if (!trustToken) {
     return c.json({ error: "Trust token required." }, 401);
   }
-  const result = await revalidateSession(trustToken, sessionToken);
+  const deviceId = body.deviceId;
+  const result = await revalidateSession(trustToken, sessionToken, deviceId || null);
   if (!result) {
     deleteCookie(c, "scorer_trust_token", { path: "/" });
     return c.json({ error: "Trust token has been rotated. Please rescan the QR code." }, 401);
@@ -29680,8 +29802,9 @@ authRoutes.post("/scorer-auto-login", async (c) => {
   if (!trustToken) {
     return c.json({ error: "No trust cookie found." }, 401);
   }
+  const { deviceId } = await c.req.json().catch(() => ({}));
   try {
-    const result = await validateAndIssueSession(trustToken, null);
+    const result = await validateAndIssueSession(trustToken, null, deviceId || null);
     return c.json({
       sessionToken: result.sessionToken,
       matchId: result.matchId
@@ -29744,6 +29867,105 @@ authRoutes.get("/scorer-trust/sessions", async (c) => {
   }
   const sessions = await listActiveSessions();
   return c.json(sessions);
+});
+authRoutes.post("/scorer-trust/sessions/:id/approve", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Authentication required." }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: "Invalid or expired admin session." }, 401);
+  }
+  const sessionId = c.req.param("id");
+  try {
+    await approveSession(sessionId);
+    return c.json({ success: true });
+  } catch (err) {
+    return c.json({ error: err.message }, err.status || 500);
+  }
+});
+authRoutes.delete("/scorer-trust/sessions/:id", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Authentication required." }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: "Invalid or expired admin session." }, 401);
+  }
+  const sessionId = c.req.param("id");
+  try {
+    await revokeSession(sessionId);
+    return c.json({ success: true });
+  } catch (err) {
+    return c.json({ error: err.message }, err.status || 500);
+  }
+});
+authRoutes.post("/scorer-trust/sessions/cleanup-duplicates", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Authentication required." }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: "Invalid or expired admin session." }, 401);
+  }
+  const result = await sql`
+    DELETE FROM scorer_sessions a
+    USING scorer_sessions b
+    WHERE a.id <> b.id
+      AND a.match_id = b.match_id
+      AND a.trust_token = b.trust_token
+      AND a.device_label = b.device_label
+      AND a.device_label IS NOT NULL
+      AND a.created_at < b.created_at
+      AND b.created_at < a.created_at + interval '1 hour'
+  `;
+  return c.json({ deleted: result.count || 0 });
+});
+authRoutes.get("/scorer-trust/mode", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Authentication required." }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: "Invalid or expired admin session." }, 401);
+  }
+  const mode = await getDeviceMode();
+  return c.json({ mode });
+});
+authRoutes.put("/scorer-trust/mode", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return c.json({ error: "Authentication required." }, 401);
+  }
+  const adminToken = authHeader.slice(7);
+  const [adminSession] = await sql`
+    SELECT id FROM admin_sessions WHERE token = ${adminToken} AND expires_at > now()
+  `;
+  if (!adminSession) {
+    return c.json({ error: "Invalid or expired admin session." }, 401);
+  }
+  const { mode } = await c.req.json();
+  if (!["silent", "pending"].includes(mode)) {
+    return c.json({ error: 'mode must be "silent" or "pending".' }, 400);
+  }
+  await setDeviceMode(mode);
+  return c.json({ success: true, mode });
 });
 authRoutes.get("/me", async (c) => {
   const authHeader = c.req.header("Authorization");

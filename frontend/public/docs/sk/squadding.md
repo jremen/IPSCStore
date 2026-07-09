@@ -31,6 +31,6 @@ Zmeny sa prepláchnu pri zatvorení modalu, s offline podporou pre nespoľahliv�
 
 ## Verejné zobrazenie squad-ov
 
-Ak hostíte aplikáciu na doméne ako `squads.local`, ktokoľvek na lokálnej sieti môže otvoriť read-only zobrazenie squad-ov na `/squads`. Automaticky sa obnovuje každých 30 sekúnd.
+Ktokoľvek na lokálnej sieti môže otvoriť read-only zobrazenie squad-ov na `/squads` (napr. `http://192.168.1.5:3001/squads`). Automaticky sa obnovuje každých 30 sekúnd.
 
 **Prejsť v aplikácii:** [Záložka Registrácia](app-tab:registration)

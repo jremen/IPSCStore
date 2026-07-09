@@ -63,11 +63,8 @@ function generateCert(certsDir: string, certPath: string, keyPath: string, lanIp
 
   // Subject Alternative Names — critical for modern browsers
   const sanList = [
-    { type: 2, value: 'hodnotenie.local' },   // DNS
-    { type: 2, value: 'vysledky.local' },
-    { type: 2, value: 'squads.local' },
     { type: 2, value: 'localhost' },
-    { type: 7, ip: '127.0.0.1' },              // IP
+    { type: 7, ip: '127.0.0.1' },
   ];
 
   // Add the actual LAN IP if provided and not a loopback

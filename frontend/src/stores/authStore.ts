@@ -421,11 +421,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const pathname = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
 
     let domainMode: 'results' | 'scoring' | 'squads' | 'admin' = 'admin';
-    if (hostname === 'vysledky.local' || hostname.endsWith('.vysledky.local') || pathname.startsWith('/vysledky')) {
+    if (pathname.startsWith('/results')) {
       domainMode = 'results';
-    } else if (hostname === 'hodnotenie.local' || hostname.endsWith('.hodnotenie.local') || pathname.startsWith('/hodnotenie')) {
+    } else if (pathname.startsWith('/scoring')) {
       domainMode = 'scoring';
-    } else if (hostname === 'squads.local' || hostname.endsWith('.squads.local') || pathname.startsWith('/squads')) {
+    } else if (pathname.startsWith('/squads')) {
       domainMode = 'squads';
     }
 

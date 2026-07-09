@@ -9,7 +9,7 @@ interface StageDetailsViewProps {
 }
 
 /**
- * Fullscreen read-only stage details view used by the /hodnotenie scoring view.
+ * Fullscreen read-only stage details view used by the /scoring scoring view.
  * Shows paper/steel/no-shoot/NPM target counts, min rounds, max points,
  * the written stage briefing, and the stage image (if uploaded).
  *

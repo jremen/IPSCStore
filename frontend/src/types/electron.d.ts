@@ -11,9 +11,8 @@ declare global {
       getApiBaseUrl: () => string;
       isElectron: () => boolean;
       getLanIp: () => string;
-      /** Direct IP+path URLs such as http://192.168.1.5:3001/vysledky */
-      getDomainUrls: () => { vysledky: string; hodnotenie: string; squads: string };
-      isPort80Active: () => boolean;
+      /** Direct IP+path URLs such as http://192.168.1.5:3001/results */
+      getDomainUrls: () => { results: string; scoring: string; squads: string };
       /** Subscribe to native menu actions. Returns an unsubscribe function. */
       onMenuAction: (callback: (action: string, payload?: any) => void) => () => void;
       /** Report renderer state to the main process so menu items can be enabled/disabled. */

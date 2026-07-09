@@ -51,8 +51,6 @@ The app is designed for use on a local network at a shooting range: multiple ran
 │  │ :5173     │  │  :3001       │  │  :5432         │  │
 │  └──────────┘  └──────────────┘  └────────────────┘  │
 │                                                       │
-│  mDNS: vysledky.local (results)                       │
-│        hodnotenie.local (scoring)                      │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -60,22 +58,18 @@ Without Electron, the same stack runs via **Docker Compose** or directly with `n
 
 ---
 
-## Local Domain Names
+## LAN Access
 
-The Electron app advertises two **mDNS/Bonjour** `.local` domains on the LAN so devices on the range can discover the server by name instead of IP address:
+The backend listens on **port 3001**. Devices on the same Wi-Fi can reach:
 
-| Domain | Purpose | Auth Required |
-|--------|---------|---------------|
-| **vysledky.local** | Public results view | No — auto-refreshes every 30s |
-| **hodnotenie.local** | Stage scoring login | Yes — stage password |
-| **localhost:3001** | Admin access | Yes — admin password |
+| URL | Purpose | Auth Required |
+|-----|---------|---------------|
+| `http://<lan-ip>:3001/` | Admin interface | Yes — admin password |
+| `http://<lan-ip>:3001/results` | Public results view | No — auto-refreshes every 30s |
+| `http://<lan-ip>:3001/scoring` | Stage scoring login | Yes — stage password |
+| `http://<lan-ip>:3001/squads` | Public squads view | No |
 
-- `vysledky.local` (Slovak for "results") lands on the public results page — no login needed, live-updating.
-- `hodnotenie.local` (Slovak for "scoring") lands on the stage login page for range officers.
-- **Android** doesn't support mDNS natively — use `http://<IP>:3001` instead.
-- **Windows** requires Bonjour Print Services for `.local` resolution.
-
-The backend determines the domain mode from the `Host` header (`getDomainMode()` in `app.ts`), injects `window.__DOMAIN_MODE__` into the HTML, and the frontend routes accordingly.
+The backend determines the mode from the URL path (`getDomainMode()` in `app.ts`) and the frontend routes accordingly.
 
 ---
 
@@ -92,7 +86,7 @@ The backend determines the domain mode from the `Host` header (`getDomainMode()`
 | PDF Export | jsPDF + jspdf-autotable (client-side) |
 | CSV | csv-parse (server import), server-generated CSV export |
 | Desktop | Electron 34 + electron-builder |
-| mDNS | dnssd-advertise (Bonjour/Avahi) |
+
 | Dev | Docker Compose (hot reload for frontend & backend) |
 
 ---
@@ -228,7 +222,7 @@ IPSCScore/
 │   │   ├── preload.ts         # Preload script (exposes getDomainUrls)
 │   │   ├── pg-manager.ts     # Embedded PostgreSQL start/stop/seed
 │   │   ├── db-config-dialog.ts # DB config UI
-│   │   ├── port80.ts         # Port 80 redirect (macOS only)
+
 │   │   └── logger.ts         # File logging
 │   ├── scripts/
 │   │   ├── afterPack.js       # Thins universal PG binaries per architecture
@@ -257,9 +251,9 @@ These files contain the core domain logic — bugs here directly affect scoring 
 | `backend/src/routes/scoring.ts` | Score save (transaction-wrapped) + stage recalculation using SQL window functions for atomic ranking. |
 | `frontend/src/utils/scoring.ts` | Client-side mirror of `scoringCalc.ts` for live score preview before saving. |
 | `frontend/src/components/scoring/ScoringSheet.tsx` | Mobile-first per-shooter score entry — the core scoring UI. |
-| `backend/src/app.ts` | Domain mode detection, HTML injection for `.local` routing. |
+| `backend/src/app.ts` | Domain mode detection based on URL path. |
 | `electron/src/pg-manager.ts` | Embedded PostgreSQL lifecycle — start, stop, seed data import on first launch. |
-| `electron/src/main.ts` | Electron main process — window management, mDNS advertising, PG lifecycle. |
+| `electron/src/main.ts` | Electron main process — window management, PG lifecycle. |
 | `backend/src/utils/winmssMapper.ts` | WinMSS `.mdb` data mapping — aggregated score handling, tag/region resolution. |
 
 ---
@@ -328,8 +322,8 @@ Three access levels, determined by domain or login:
 
 | Access | How | What They Can Do |
 |--------|-----|-----------------|
-| **Public** | `vysledky.local` or any URL | View results only, no login needed |
-| **Stage Officer** | `hodnotenie.local` + stage password | Enter/edit scores for assigned stage |
+| **Public** | `http://<lan-ip>:3001/results` or any URL | View results only, no login needed |
+| **Stage Officer** | `http://<lan-ip>:3001/scoring` + stage password | Enter/edit scores for assigned stage |
 | **Admin** | `localhost:3001` + admin password | Full access: create matches, register shooters, manage stages, change settings |
 
 - Admin auth uses password + bcrypt-hashed token stored in `admin_sessions` table (24h expiry).
@@ -362,7 +356,7 @@ On first launch, `pg-manager.ts` initializes a PostgreSQL data directory, starts
 
 The `afterPack` hook thins universal Mach-O binaries per-architecture so `@electron/universal` can merge them correctly for macOS universal builds.
 
-mDNS advertising (`dnssd-advertise`) starts after the backend is ready, making the app discoverable as `vysledky.local` and `hodnotenie.local` on the LAN.
+The LAN URL is displayed in the admin header UI for mobile access.
 
 ---
 
@@ -381,8 +375,6 @@ The app supports **English** and **Slovak** via i18next:
 - PostgreSQL DLLs must be in the **same directory** as the EXEs (not `lib/`).
 - `pg_ctl start -w` can hang — the app uses `waitReady()` TCP check instead.
 - Always use `execFile` (not `exec`) to avoid `cmd.exe` quoting issues.
-- mDNS requires Bonjour Print Services on Windows.
-- Port 80 redirect is macOS-only.
 - Windows ARM64 can run x64 binaries through emulation (requires enabling).
 
 ---

@@ -88,9 +88,9 @@ export default function ScorerTrustModal({ show, onClose }: ScorerTrustModalProp
     setSettingMode(false);
   };
 
-  // Build QR URL: ${origin}/hodnotenie?trustToken=${token}
-  const qrUrl = trustToken && domainUrls?.hodnotenie
-    ? `${domainUrls.hodnotenie}?trustToken=${trustToken}`
+  // Build QR URL: ${origin}/scoring?trustToken=${token}
+  const qrUrl = trustToken && domainUrls?.scoring
+    ? `${domainUrls.scoring}?trustToken=${trustToken}`
     : null;
   const qr = useQRCode(qrUrl, { width: 512, margin: 2 });
 

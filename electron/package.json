@@ -1,6 +1,6 @@
 {
   "name": "ipscscore",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "private": true,
   "description": "IPSC/USPSA Scoring Desktop Application",
   "author": "IPSCScore",
@@ -17,7 +17,7 @@
     "download-pg:win-arm64": "bash scripts/download-pg.sh win-arm64",
     "download-pg:linux": "bash scripts/download-pg.sh linux-x64",
     "download-pg:linux-arm64": "bash scripts/download-pg.sh linux-arm64",
-    "postinstall": "node scripts/postinstall.mjs",
+
     "build:mac": "npm run build:all-deps && npm run bundle-backend && npm run download-pg:mac && electron-builder --mac",
     "build:win": "npm run build:all-deps && npm run bundle-backend && npm run download-pg:win && electron-builder --win --x64",
     "build:win-arm64": "npm run build:all-deps && npm run bundle-backend && npm run download-pg:win-arm64 && electron-builder --win --arm64",
@@ -29,7 +29,6 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",
-    "dnssd-advertise": "^1.1.4",
     "node-forge": "^1.3.1"
   },
   "devDependencies": {

@@ -1,10 +1,10 @@
 # QR codes & sharing
 
-When the app is running with a reachable domain (e.g. `squads.local` or a network URL), the admin header shows a **LAN URL badge** with links to three QR code screens. These let spectators and scorers access the app from their own devices without typing URLs.
+When the app is running with a reachable network URL, the admin header shows a **LAN URL badge** with links to three QR code screens. These let spectators and scorers access the app from their own devices without typing URLs.
 
 ## LAN URL badge
 
-The badge shows the app's network address (e.g. `192.168.1.5:5173`). Click it to copy the URL to your clipboard — paste it into a phone browser on the same Wi-Fi to open the app.
+The badge shows the app's network address (e.g. `192.168.1.5:3001`). Click it to copy the URL to your clipboard — paste it into a phone browser on the same Wi-Fi to open the app.
 
 The three buttons next to it generate dedicated QR codes:
 
@@ -12,13 +12,13 @@ The three buttons next to it generate dedicated QR codes:
 
 ![Results QR modal](/docs/screenshots/qr-modal.png)
 
-QR code for the **public results** page at `/vysledky`. Anyone who scans it sees a read-only view of the current match's results, accessible from any device on the same network.
+QR code for the **public results** page at `/results`. Anyone who scans it sees a read-only view of the current match's results, accessible from any device on the same network.
 
 Use **Print** or **Download PDF** from the QR modal to create an A4 poster for the range.
 
 ## 🎯 Scorer Access QR
 
-QR code for the **scorer / range master scoring** page at `/hodnotenie`. Scanning the QR opens browser and automatically redeems a **trust token**, giving one‑tap access to scoring without a password.
+QR code for the **scorer / range master scoring** page at `/scoring`. Scanning the QR opens browser and automatically redeems a **trust token**, giving one‑tap access to scoring without a password.
 
 The Scorer Trust modal shows:
 

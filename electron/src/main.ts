@@ -4,7 +4,7 @@ import os from 'os';
 import fs from 'fs/promises';
 import { spawn, ChildProcess } from 'child_process';
 import { PgManager } from './pg-manager.js';
-import { setupPort80Redirect, removePort80Redirect, isPort80RedirectActive } from './port80.js';
+
 import { initLogger, log, logError, flushLog, getLogPath } from './logger.js';
 import { showDatabaseUrlDialog } from './db-config-dialog.js';
 import { buildMenu, setMainWindow, setupMenuIpc, updateMenuState } from './menu.js';
@@ -47,7 +47,6 @@ process.on('unhandledRejection', (reason: any) => {
 let mainWindow: BrowserWindow | null = null;
 let pgManager: PgManager | null = null;
 let backendProcess: ChildProcess | Electron.UtilityProcess | null = null;
-let mDnsStopFunctions: (() => void)[] = [];
 
 /**
  * Resolve the path to the backend dist directory.
@@ -100,68 +99,6 @@ function killBackend(): void {
     }
     backendProcess = null;
   }
-}
-
-/**
- * Start mDNS advertising for .local domain names.
- * Uses dnssd-advertise which registers custom hostnames in mDNS,
- * so vysledky.local and hodnotenie.local resolve to this machine's IP.
- * Also advertises DNS-SD services so the app appears in Bonjour browsers.
- */
-function startMDns(port: number): void {
-  try {
-    const { advertise } = require('dnssd-advertise');
-
-    // Advertise results service (vysledky.local)
-    const stop1 = advertise({
-      name: 'IPSC Score - Results',
-      type: 'http',
-      protocol: 'tcp',
-      port,
-      hostname: 'vysledky',
-    });
-    mDnsStopFunctions.push(stop1);
-    log('[mDNS] Advertised: vysledky.local');
-
-    // Advertise scoring service (hodnotenie.local)
-    const stop2 = advertise({
-      name: 'IPSC Score - Scoring',
-      type: 'http',
-      protocol: 'tcp',
-      port,
-      hostname: 'hodnotenie',
-    });
-    mDnsStopFunctions.push(stop2);
-    log('[mDNS] Advertised: hodnotenie.local');
-
-    // Advertise squads service (squads.local)
-    const stop3 = advertise({
-      name: 'IPSC Score - Squads',
-      type: 'http',
-      protocol: 'tcp',
-      port,
-      hostname: 'squads',
-    });
-    mDnsStopFunctions.push(stop3);
-    log('[mDNS] Advertised: squads.local');
-  } catch (err) {
-    logError('[mDNS] Failed to start mDNS advertising', err);
-  }
-}
-
-/**
- * Stop mDNS advertising.
- */
-function stopMDns(): void {
-  for (const stop of mDnsStopFunctions) {
-    try {
-      stop();
-    } catch {
-      // Ignore errors during shutdown
-    }
-  }
-  mDnsStopFunctions = [];
-  log('[mDNS] Services unregistered');
 }
 
 /**
@@ -342,10 +279,10 @@ function startBackend(port: number): Promise<void> {
 /**
  * Create the main browser window.
  */
-function createWindow(port: number, lanIp: string, port80Active: boolean): void {
+function createWindow(port: number, lanIp: string): void {
   const isDev = process.env.ELECTRON_DEV === 'true';
   const isDebug = process.argv.includes('--debug') || process.argv.includes('--devtools');
-  const baseUrl = port80Active ? `http://${lanIp}` : `http://${lanIp}:${port}`;
+  const baseUrl = `http://${lanIp}:${port}`;
 
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -363,12 +300,10 @@ function createWindow(port: number, lanIp: string, port80Active: boolean): void 
   // Set environment variables for the preload script
   process.env.ELECTRON_API_URL = `http://localhost:${port}`;
   process.env.ELECTRON_LAN_IP = lanIp;
-  process.env.ELECTRON_PORT80 = port80Active ? '1' : '0';
 
-  // Expose direct IP-based URLs with path prefixes. This works on every
-  // platform and device, including Android, which cannot resolve .local domains.
-  process.env.ELECTRON_VYSLEDKY_URL = `${baseUrl}/vysledky`;
-  process.env.ELECTRON_HODNOTENIE_URL = `${baseUrl}/hodnotenie`;
+  // Expose direct IP-based URLs with path prefixes.
+  process.env.ELECTRON_RESULTS_URL = `${baseUrl}/results`;
+  process.env.ELECTRON_SCORING_URL = `${baseUrl}/scoring`;
   process.env.ELECTRON_SQUADS_URL = `${baseUrl}/squads`;
 
   if (isDev) {
@@ -570,14 +505,7 @@ async function main(): Promise<void> {
   });
 
   // Create the browser window
-  // Try to set up port 80 redirect so .local domains work without port number
-  const port80Active = await setupPort80Redirect(port);
-  createWindow(port, lanIp, port80Active);
-
-  // Start mDNS advertising for .local domains
-  // Advertise port 80 if redirect is active, otherwise port 3001
-  const mDnsPort = port80Active ? 80 : port;
-  startMDns(mDnsPort);
+  createWindow(port, lanIp);
 
   // Show LAN access info in console and log
   log('');
@@ -586,8 +514,8 @@ async function main(): Promise<void> {
   log(`  http://localhost:${port}`);
   log('');
   log('  Mobile devices can connect to:');
-  log(`  ${process.env.ELECTRON_VYSLEDKY_URL}   (public results)`);
-  log(`  ${process.env.ELECTRON_HODNOTENIE_URL}  (range master scoring)`);
+  log(`  ${process.env.ELECTRON_RESULTS_URL}   (public results)`);
+  log(`  ${process.env.ELECTRON_SCORING_URL}  (range master scoring)`);
   log(`  ${process.env.ELECTRON_SQUADS_URL}      (squads)`);
   log('========================================');
   log('');
@@ -622,7 +550,7 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (mainWindow === null) {
     const port = parseInt(process.env.PORT || '3001', 10);
-    createWindow(port, process.env.ELECTRON_LAN_IP || getLanIp(), isPort80RedirectActive());
+    createWindow(port, process.env.ELECTRON_LAN_IP || getLanIp());
   } else {
     setMainWindow(mainWindow);
     buildMenu();
@@ -631,14 +559,6 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   log('[Main] Shutting down...');
-
-  // Stop mDNS advertising
-  stopMDns();
-
-  // Remove port 80 redirect
-  removePort80Redirect().catch((err) => {
-    logError('[Main] Error removing port 80 redirect', err);
-  });
 
   // Kill the backend process
   killBackend();

@@ -58,9 +58,9 @@ export default function AppLayout() {
     }
   }, []);
 
-  // PWA fix: if opened at root (/) in standalone mode, redirect to /hodnotenie
+  // PWA fix: if opened at root (/) in standalone mode, redirect to /scoring
   // This handles existing PWA installations with start_url: '/' (installed from /)
-  // After redirect, the user is on /hodnotenie where domainMode='scoring' → StageLoginPage
+  // After redirect, the user is on /scoring where domainMode='scoring' → StageLoginPage
   useEffect(() => {
     const isStandalone = typeof window !== 'undefined' && (
       window.matchMedia('(display-mode: standalone)').matches ||
@@ -68,7 +68,7 @@ export default function AppLayout() {
       window.navigator.standalone === true
     );
     if (isStandalone && window.location.pathname === '/') {
-      window.location.replace('/hodnotenie');
+      window.location.replace('/scoring');
       return;
     }
     (async () => {
@@ -176,12 +176,12 @@ export default function AppLayout() {
     prevActiveMatchId.current = activeMatchId;
   }, [activeMatchId]);
 
-  // Domain mode: vysledky.local → show public results (no login needed)
+  // Domain mode: /results → show public results (no login needed)
   if (domainMode === 'results') {
     return <PublicResultsView />;
   }
 
-  // Domain mode: squads.local → show public squads (no login needed)
+  // Domain mode: /squads → show public squads (no login needed)
   if (domainMode === 'squads') {
     return <PublicSquadsView />;
   }
@@ -197,7 +197,7 @@ export default function AppLayout() {
         </div>
       );
     }
-    // Domain mode: hodnotenie.local → always show stage login (never admin)
+    // Domain mode: /scoring → always show stage login (never admin)
     if (domainMode === 'scoring') {
       return <StageLoginPage />;
     }

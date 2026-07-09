@@ -4,13 +4,13 @@
 - **TTL**: 5 hours default (configurable in modal: 1h / 4h / 5h / 8h)
 - **Usage**: Single-use (each scan consumes the token)
 - **Pill behavior**: The existing `🎯 Scoring` pill now opens a per-stage picker instead of showing a single bare `/hodnotenie` QR
-- **Fallback**: Bare `/hodnotenie` URL still works — range officer enters password manually if they don't have a tokenized QR
+- **Fallback**: Bare `/scoring` URL still works — range officer enters password manually if they don't have a tokenized QR
 
 ## The mechanism
 
 1. **Admin** clicks `🎯 Scoring` pill in the header → opens the new **stage picker modal** showing all stages with passwords set
 2. Admin clicks **Generate QR** for a stage → server mints a short-lived single-use token bound to that stage → modal displays the QR + URL + expiry
-3. **Range officer** scans the QR → opens `http://<lan-ip>:3001/hodnotenie?stageToken=<token>` on their phone
+3. **Range officer** scans the QR → opens `http://<lan-ip>:3001/scoring?stageToken=<token>` on their phone
 4. `StageLoginPage` detects the `?stageToken=...` in the URL on mount → calls `POST /api/auth/stage-link-redeem` → gets back a real session token → calls `authStore.loginWithToken(...)` → lands on the scoring screen for that stage, no password prompt
 5. URL is cleaned up via `history.replaceState` so the token doesn't leak via referer
 6. If the token is invalid/expired/already-used, the user sees a brief error and falls through to the normal password form
@@ -92,5 +92,5 @@
 
 ## GrayMatter writes (post-implementation)
 
-- Stage link token pattern: server mints short-lived single-use bearer token; `/hodnotenie?stageToken=...` auto-redeems on mount
+- Stage link token pattern: server mints short-lived single-use bearer token; `/scoring?stageToken=...` auto-redeems on mount
 - Auto-login flow: `StageLoginPage` detects query param, calls `redeemStageLinkToken`, then `authStore.loginWithToken`. Falls back to password form on error. URL cleaned via `history.replaceState`

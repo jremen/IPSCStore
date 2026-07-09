@@ -31,6 +31,6 @@ The changes are flushed when you close the modal, with offline support for unrel
 
 ### Public squads view
 
-If you host the app on a domain like `squads.local`, anyone on the local network can open a read-only squads view at `/squads`. It auto-refreshes every 30 seconds.
+Anyone on the local network can open a read-only squads view at `/squads` (e.g. `http://192.168.1.5:3001/squads`). It auto-refreshes every 30 seconds.
 
 **To do this in the app:** [Go to Registration](app-tab:registration)

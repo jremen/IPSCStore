@@ -24,7 +24,8 @@
     "build:linux": "npm run build:all-deps && npm run bundle-backend && npm run download-pg:linux && electron-builder --linux --x64",
     "build:linux-arm64": "npm run build:all-deps && npm run bundle-backend && npm run download-pg:linux-arm64 && electron-builder --linux --arm64",
     "build:all": "npm run build:all-deps && npm run bundle-backend && npm run download-pg:mac && electron-builder --mac && npm run download-pg:win && electron-builder --win --x64",
-    "build:all-deps": "cd ../backend && npm run build && cd ../frontend && rm -rf dist && npm run build",
+    "build:all-deps": "cd ../backend && npm run build && cd ../frontend && rm -rf dist && npm run build && cd ../electron && npm run build && npm run copy-frontend-dist",
+    "copy-frontend-dist": "rm -rf frontend-dist-bundled && cp -R ../frontend/dist frontend-dist-bundled",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -10,7 +10,7 @@ files:
   - dist/**/*
 
 extraResources:
-  - from: ../frontend/dist
+  - from: frontend-dist-bundled
     to: frontend-dist
     filter:
       - "**/*"

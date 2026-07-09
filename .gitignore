@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-electron/
+electron/frontend-dist-bundled/
 electron/resources/pg
 electron/resources/seed-data.dump
 .env

@@ -40,7 +40,7 @@ process.on('unhandledRejection', (reason: any) => {
       `An unexpected error occurred: ${reason instanceof Error ? reason.message : String(reason)}\n\nLog file: ${getLogPath()}`
     );
   }
-  // Don't quit — some rejections are non-fatal (e.g., mDNS socket errors)
+  // Don't quit — some rejections are non-fatal (e.g., database socket errors)
   // If the app is truly broken, the user can close it manually.
 });
 

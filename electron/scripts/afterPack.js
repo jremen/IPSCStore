@@ -99,11 +99,13 @@ async function thinMacBinaries(context) {
       try {
         if (!fs.statSync(filePath).isFile()) continue;
 
-        const fileInfo = execSync(`file "${filePath}"`, { encoding: 'utf-8' });
+        const fileInfo = execSync(`file -b "${filePath}"`, { encoding: 'utf-8' });
         // Only thin universal (fat) Mach-O binaries
         if (!fileInfo.includes('universal')) continue;
 
-        execSync(`lipo -thin ${lipoArch} -output "${filePath}" "${filePath}"`, { stdio: 'pipe' });
+        const tmpFile = filePath + '.thin';
+        execSync(`lipo -thin ${lipoArch} -output "${tmpFile}" "${filePath}"`, { stdio: 'pipe' });
+        fs.renameSync(tmpFile, filePath);
         console.log(`[afterPack]   Thinned: ${subdir}/${file} → ${lipoArch}`);
         thinned++;
       } catch (e) {

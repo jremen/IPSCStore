@@ -36,7 +36,7 @@ export default function StageDetailsView({ show, onClose, stage }: StageDetailsV
     : t('stages.stageDetails');
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-gray-50 dark:bg-gray-900">
+    <div className="fixed inset-0 z-999 flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* Header — pinned */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 shrink-0">
         <button

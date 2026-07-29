@@ -163,8 +163,18 @@ export default function DatabaseSettings() {
   };
 
   return (
-    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+    <div className="relative border-t border-gray-200 dark:border-gray-700 pt-4">
       <div className="flex flex-col h-full space-y-4">
+
+        {(importing || exporting) && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg bg-gray-800/50 dark:text-white">
+            <Spinner size="lg" />
+            <h3 className="text-xl">
+              {importing ? t('database.importing') : t('database.exporting')}
+            </h3>
+            <p className="text-sm text-gray-200">{t('database.busyWait')}</p>
+          </div>
+        )}
         <h3 className="text-lg font-semibold dark:text-white">{t('database.title')}</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400">{t('database.description')}</p>
 

@@ -148,6 +148,24 @@ if [ -n "$EDB_OS" ]; then
     if [ "$PLATFORM" = "win-x64" ] || [ "$PLATFORM" = "win-arm64" ]; then
       find "$EXTRACTED_DIR/bin" -maxdepth 1 -name '*.dll' -exec cp {} "$PG_BIN_DIR/" \;
       echo "  Copied: bin/*.dll (Windows runtime DLLs)"
+
+      # Validate that critical DLLs are present
+      EXPECTED_DLLS="libpq.dll libssl-3-x64.dll libcrypto-3-x64.dll libintl-9.dll libxml2.dll"
+      MISSING_DLLS=""
+      for dll in $EXPECTED_DLLS; do
+        if [ ! -f "$PG_BIN_DIR/$dll" ]; then
+          MISSING_DLLS="$MISSING_DLLS $dll"
+        fi
+      done
+      if [ -n "$MISSING_DLLS" ]; then
+        echo "  WARNING: Missing expected DLL(s) in $PG_BIN_DIR:"
+        for dll in $MISSING_DLLS; do
+          echo "    - $dll"
+        done
+        echo "  The Windows app may fail to start. Check EDB download integrity."
+      else
+        echo "  All expected DLLs present."
+      fi
     fi
 
     # Copy lib directory — shared libraries (.dylib/.so/.dll), skip static archives (.a), libtool (.la), pkg-config (.pc)

@@ -4,8 +4,6 @@ export const env = {
   UPLOAD_DIR: process.env.UPLOAD_DIR || './uploads',
   NODE_ENV: process.env.NODE_ENV || 'development',
   BIND_ADDRESS: process.env.BIND_ADDRESS || '0.0.0.0',
-  TLS_CERT_PATH: process.env.TLS_CERT_PATH || '',
-  TLS_KEY_PATH: process.env.TLS_KEY_PATH || '',
   CORS_ORIGINS: process.env.CORS_ORIGINS || '*',
   PUBLIC_HIDE_EMAIL: process.env.PUBLIC_HIDE_EMAIL !== 'false',
 } as const;

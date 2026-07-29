@@ -44,6 +44,20 @@ process.on('unhandledRejection', (reason: any) => {
   // If the app is truly broken, the user can close it manually.
 });
 
+// Prevent multiple instances from racing on the same pgdata directory.
+// Without this lock, two Electron instances launched simultaneously (e.g.
+// double-click + auto-start) both run initdb in parallel, corrupting the
+// data directory and producing cryptic "pg_wal: File exists" errors.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  log('[Main] Another instance is already running, quitting');
+  app.quit();
+  process.exit(0);
+}
+app.on('second-instance', () => {
+  log('[Main] Second instance attempted to start, ignoring');
+});
+
 let mainWindow: BrowserWindow | null = null;
 let pgManager: PgManager | null = null;
 let backendProcess: ChildProcess | Electron.UtilityProcess | null = null;
@@ -126,20 +140,6 @@ function startBackend(port: number): Promise<void> {
       FRONTEND_DIST_PATH: frontendDistPath,
       MIGRATIONS_DIR: path.join(backendDistPath, 'db', 'migrations'),
     };
-
-    // Generate and configure TLS cert for HTTPS
-    try {
-      const { ensureTlsCert } = require('../utils/tlsCert');
-      const lanIp = getLanIp();
-      const { certPath, keyPath } = ensureTlsCert(app.getPath('userData'), lanIp);
-      env.TLS_CERT_PATH = certPath;
-      env.TLS_KEY_PATH = keyPath;
-      log(`[TLS] HTTPS enabled — cert: ${certPath}`);
-    } catch (err: any) {
-      log(`[TLS] Failed to generate TLS cert: ${err.message}`);
-      log('[TLS] Falling back to HTTP');
-    }
-
     log(`[Main] Starting backend server from ${entryPoint}`);
     log(`[Main] Frontend dist path: ${frontendDistPath}`);
     log(`[Main] DATABASE_URL set: ${!!env.DATABASE_URL}`);
@@ -472,24 +472,46 @@ async function main(): Promise<void> {
   process.env.UPLOAD_DIR = uploadDir;
 
   // Start the backend server (which runs migrations on startup)
-  try {
-    await startBackend(port);
-    log('[Main] Backend server started successfully');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await startBackend(port);
+      log('[Main] Backend server started successfully');
 
-    // Set up native menu IPC after the backend is ready.
-    setupMenuIpc();
-  } catch (err) {
-    logError('[Main] Failed to start backend', err);
-    flushLog();
-    const backendError = err instanceof Error ? err.message : String(err);
-    const platformInfo = `Platform: ${process.platform} ${process.arch}`;
-    let helpText = '';
-    if (process.platform === 'win32' && process.arch === 'arm64') {
-      helpText = '\n\nYou are on Windows ARM64. If PostgreSQL failed to start, you may need to:\n1. Enable x64 emulation in Windows Settings\n2. Or connect to an external PostgreSQL server via the database config dialog';
+      // Set up native menu IPC after the backend is ready.
+      setupMenuIpc();
+      break;
+    } catch (err) {
+      logError('[Main] Failed to start backend', err);
+      flushLog();
+      const backendError = err instanceof Error ? err.message : String(err);
+
+      if (attempt < 2) {
+        const { response } = await dialog.showMessageBox({
+          type: 'error',
+          title: 'Startup Error',
+          message: `Failed to start the backend server: ${backendError}`,
+          detail: `Platform: ${process.platform} ${process.arch}\n\nLog file: ${getLogPath()}`,
+          buttons: ['Retry', 'Quit'],
+          defaultId: 0,
+          cancelId: 1,
+        });
+        if (response === 1) {
+          app.quit();
+          return;
+        }
+        killBackend();
+        continue;
+      }
+
+      const platformInfo = `Platform: ${process.platform} ${process.arch}`;
+      let helpText = '';
+      if (process.platform === 'win32' && process.arch === 'arm64') {
+        helpText = '\n\nYou are on Windows ARM64. If PostgreSQL failed to start, you may need to:\n1. Enable x64 emulation in Windows Settings\n2. Or connect to an external PostgreSQL server via the database config dialog';
+      }
+      dialog.showErrorBox('Startup Error', `Failed to start the backend server after multiple attempts: ${backendError}\n\n${platformInfo}${helpText}\n\nLog file: ${getLogPath()}`);
+      app.quit();
+      return;
     }
-    dialog.showErrorBox('Startup Error', `Failed to start the backend server: ${backendError}\n\n${platformInfo}${helpText}\n\nLog file: ${getLogPath()}`);
-    app.quit();
-    return;
   }
 
   // Set up folder picker handler for local backup.

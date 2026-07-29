@@ -747,7 +747,8 @@
     "confirmButton": "Replace All Data",
     "unitsByte": "B",
     "unitsKb": "KB",
-    "unitsMb": "MB"
+    "unitsMb": "MB",
+    "busyWait": "This may take a moment for large databases."
   },
   "offline": {
     "mode": "Offline",

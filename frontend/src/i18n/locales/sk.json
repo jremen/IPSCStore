@@ -763,7 +763,8 @@
     "confirmButton": "Nahradiť všetky dáta",
     "unitsByte": "B",
     "unitsKb": "KB",
-    "unitsMb": "MB"
+    "unitsMb": "MB",
+    "busyWait": "Pri veľkých databázach to môže chvíľu trvať."
   },
   "offline": {
     "mode": "Offline",

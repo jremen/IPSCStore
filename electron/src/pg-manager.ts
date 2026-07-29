@@ -3,6 +3,7 @@ import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
+import { openSync, readSync, closeSync, existsSync } from 'fs';
 import { log, logError, getLogPath } from './logger.js';
 
 const execFileAsync = promisify(execFile);
@@ -57,6 +58,101 @@ const SYSTEM_PG_PATHS: Record<string, string[]> = {
     'C:\\Program Files\\PostgreSQL\\17\\bin',
   ],
 };
+
+/** NTSTATUS code → human-readable name for Windows error diagnostics */
+const NTSTATUS_CODES: Record<number, string> = {
+  0xc0000135: 'STATUS_DLL_NOT_FOUND',
+  0xc000007b: 'STATUS_INVALID_IMAGE_FORMAT',
+  0xc0000142: 'STATUS_DLL_INIT_FAILED',
+  0xc0000409: 'STATUS_STACK_BUFFER_OVERRUN',
+  0xc0000005: 'STATUS_ACCESS_VIOLATION',
+  0xc000001d: 'STATUS_ILLEGAL_INSTRUCTION',
+};
+
+function statusToString(status: number): string {
+  const name = NTSTATUS_CODES[status];
+  const hex = `0x${(status >>> 0).toString(16).toUpperCase().padStart(8, '0')}`;
+  return name ? `${name} (${hex})` : hex;
+}
+
+/**
+ * Parse the PE Import Directory of a Windows executable to discover its
+ * required DLL dependencies. Returns an array of DLL filenames.
+ * Uses pure-JS pointer arithmetic — no dumpbin or external tool needed.
+ */
+function parsePeImports(binPath: string): string[] {
+  const fd = openSync(binPath, 'r');
+  try {
+    const fileSize = 1024 * 1024;
+    const buf = Buffer.alloc(fileSize);
+    const bytesRead = readSync(fd, buf, 0, fileSize, 0);
+    const data = buf.subarray(0, bytesRead);
+    if (data.length < 4 || data.readUInt16LE(0) !== 0x5A4D) return [];
+
+    const peOffset = data.readUInt32LE(0x3C);
+    if (peOffset + 4 > data.length || data.readUInt32LE(peOffset) !== 0x00004550) return [];
+
+    const fileHeader = data.subarray(peOffset + 4, peOffset + 24);
+    const numSections = fileHeader.readUInt16LE(2);
+    const optHeaderSize = fileHeader.readUInt16LE(16);
+
+    const sectionTableOffset = peOffset + 24;
+    const optHeader = data.subarray(sectionTableOffset, sectionTableOffset + optHeaderSize);
+    const magic = optHeader.readUInt16LE(0);
+    if (magic !== 0x020b && magic !== 0x010b) return [];
+
+    const numRvaAndSizesOff = magic === 0x020b ? 0x6c : 0x60;
+    const importDirOff = magic === 0x020b ? 0x70 + 8 : 0x60 + 8;
+    const numRvaAndSizes = optHeader.readUInt32LE(numRvaAndSizesOff);
+    if (numRvaAndSizes < 2) return [];
+
+    const importRva = optHeader.readUInt32LE(importDirOff);
+    if (importRva === 0) return [];
+
+    // Build section table for RVA → file offset resolution
+    const sections: Array<{ rva: number; size: number; offset: number }> = [];
+    for (let i = 0; i < numSections; i++) {
+      const s = sectionTableOffset + optHeaderSize + i * 40;
+      if (s + 40 > data.length) break;
+      sections.push({
+        rva: data.readUInt32LE(s + 12),
+        size: data.readUInt32LE(s + 8),
+        offset: data.readUInt32LE(s + 20),
+      });
+    }
+
+    const rvaToOffset = (rva: number): number => {
+      for (const s of sections) {
+        if (rva >= s.rva && rva < s.rva + s.size) return s.offset + (rva - s.rva);
+      }
+      return -1;
+    };
+
+    // Walk IMAGE_IMPORT_DESCRIPTOR array (20 bytes each, zero-terminated)
+    const importDataOff = rvaToOffset(importRva);
+    if (importDataOff < 0) return [];
+
+    const dlls: string[] = [];
+    for (let off = importDataOff; off + 20 <= data.length; off += 20) {
+      const origFirstThunk = data.readUInt32LE(off);
+      const nameRva = data.readUInt32LE(off + 12);
+      if (origFirstThunk === 0 && nameRva === 0) break;
+      if (nameRva === 0) continue;
+
+      const nameOff = rvaToOffset(nameRva);
+      if (nameOff < 0 || nameOff >= data.length) continue;
+
+      let end = nameOff;
+      while (end < data.length && data[end] !== 0) end++;
+      const dllName = data.toString('utf-8', nameOff, end);
+      if (dllName) dlls.push(dllName);
+    }
+
+    return [...new Set(dlls)];
+  } finally {
+    closeSync(fd);
+  }
+}
 
 export interface PgConfig {
   dataDir: string;
@@ -204,6 +300,92 @@ export class PgManager {
     }
   }
 
+  /**
+   * On Windows, check that all DLLs imported by initdb.exe are loadable
+   * before actually running it. Missing DLLs (especially vcruntime140.dll
+   * and msvcp140.dll from the Visual C++ Runtime) cause a silent startup
+   * failure with no stdout/stderr. Catches the issue early with an
+   * actionable error message.
+   */
+  private checkWindowsDlls(): void {
+    if (process.platform !== 'win32') return;
+
+    const initdbPath = this.getBin('initdb');
+    let requiredDlls: string[];
+    try {
+      requiredDlls = parsePeImports(initdbPath);
+    } catch (err: any) {
+      log(`[PgManager] Windows preflight: could not parse PE imports: ${err?.message}`);
+      return;
+    }
+
+    if (requiredDlls.length === 0) {
+      log('[PgManager] Windows preflight: no DLL imports found (unusual)');
+      return;
+    }
+
+    log(`[PgManager] Windows preflight: ${requiredDlls.length} DLL(s) required by initdb`);
+
+    const searchPaths = [
+      this.pgBinDir,
+      'C:\\Windows\\System32',
+    ];
+
+    const missing: Array<{ name: string; foundIn: string | null }> = [];
+    for (const dll of requiredDlls) {
+      // Skip API set forwarders (api-ms-*, ext-ms-*) — these are virtual
+      // DLLs resolved by the Windows loader via the API set schema, not
+      // physical files. Always available on Windows 10+, cannot be checked
+      // with existsSync.
+      const lower = dll.toLowerCase();
+      if (lower.startsWith('api-ms-') || lower.startsWith('ext-ms-')) {
+        log(`  ${dll}: API set (skipped)`);
+        continue;
+      }
+      let foundIn: string | null = null;
+      for (const sp of searchPaths) {
+        if (existsSync(path.join(sp, dll))) {
+          foundIn = sp;
+          break;
+        }
+      }
+      missing.push({ name: dll, foundIn });
+    }
+
+    for (const m of missing) {
+      log(`  ${m.name}: ${m.foundIn ? `found in ${m.foundIn}` : 'MISSING'}`);
+    }
+
+    const trulyMissing = missing.filter(m => !m.foundIn);
+    if (trulyMissing.length === 0) {
+      log('[PgManager] Windows preflight: all DLLs found');
+      return;
+    }
+
+    const systemMissing = trulyMissing.filter(m => !existsSync(path.join(this.pgBinDir, m.name)));
+    const bundledMissing = trulyMissing.filter(m => existsSync(path.join(this.pgBinDir, m.name)));
+
+    let helpMsg = '';
+    if (systemMissing.length > 0) {
+      helpMsg +=
+        `Missing system DLLs:\n  ${systemMissing.map(m => m.name).join(', ')}\n\n` +
+        'This usually means Microsoft Visual C++ 2015-2022 Redistributable (x64) is not installed.\n' +
+        'Download from: https://aka.ms/vs/17/release/vc_redist.x64.exe\n';
+    }
+    if (bundledMissing.length > 0) {
+      helpMsg +=
+        `Missing bundled DLLs (expected in ${this.pgBinDir}):\n` +
+        `  ${bundledMissing.map(m => m.name).join(', ')}\n\n` +
+        'Re-run download-pg.sh to re-download the PostgreSQL binaries,\n' +
+        'or check that the build process copied all DLLs to the pg/bin/ directory.\n';
+    }
+
+    throw new Error(
+      `PostgreSQL cannot start on Windows: missing required DLLs\n\n${helpMsg}\n` +
+      `Log file: ${getLogPath()}`
+    );
+  }
+
   /** Get the connection string for the database */
   getConnectionString(): string {
     return `postgresql://${this.config.user}:${this.config.password}@${this.config.host}:${this.config.port}/${this.config.database}`;
@@ -261,8 +443,6 @@ export class PgManager {
       // Directory may not exist, that's fine
     }
 
-    log('[PgManager] Initializing PostgreSQL data directory...');
-
     // Create data directory
     await fs.mkdir(this.config.dataDir, { recursive: true });
 
@@ -302,6 +482,14 @@ export class PgManager {
       }
     }
 
+    // On Windows, check DLL dependencies before running initdb.
+    // A missing DLL (e.g. vcruntime140.dll from the Visual C++ Runtime)
+    // causes initdb.exe to fail silently — the Windows loader exits the
+    // process before main() runs, so there is no stdout/stderr to capture.
+    if (process.platform === 'win32') {
+      this.checkWindowsDlls();
+    }
+
     // Run initdb
     const initdb = this.getBin('initdb');
     const env = this.getEnvWithBinPath();
@@ -321,7 +509,26 @@ export class PgManager {
       // Capture initdb output for better error reporting
       const initdbOut = err?.stdout ? `\nOutput: ${err.stdout.substring(0, 500)}` : '';
       const initdbErr = err?.stderr ? `\nError output: ${err.stderr.substring(0, 500)}` : '';
-      logError(`[PgManager] initdb failed${initdbOut}${initdbErr}`, err?.message || String(err));
+
+      // Log detailed error info (especially useful on Windows where
+      // NTSTATUS codes like STATUS_DLL_NOT_FOUND are otherwise hidden)
+      const exitCode = err?.status !== undefined ? err.status : null;
+      const statusHex = exitCode !== null
+        ? `0x${(exitCode >>> 0).toString(16).toUpperCase().padStart(8, '0')}`
+        : '';
+      const statusName = exitCode !== null ? statusToString(exitCode) : '';
+      const errDetails = [
+        err?.code ? `code=${err.code}` : '',
+        statusName ? `status=${statusName}` : exitCode !== null ? `status=${exitCode}` : '',
+        err?.signal ? `signal=${err.signal}` : '',
+        err?.killed ? 'killed=true' : '',
+        err?.path ? `path=${err.path}` : '',
+      ].filter(Boolean).join('; ');
+      if (errDetails) {
+        logError(`[PgManager] initdb failed — ${errDetails}${initdbOut}${initdbErr}`, err?.message || String(err));
+      } else {
+        logError(`[PgManager] initdb failed${initdbOut}${initdbErr}`, err?.message || String(err));
+      }
 
       // On Windows ARM64, provide a helpful hint about x64 emulation
       if (isWin32 && process.arch === 'arm64') {
@@ -339,29 +546,6 @@ export class PgManager {
         `Log file: ${getLogPath()}`
       );
     }
-
-    // Start temporarily to create database
-    await this.start();
-
-    // Wait for readiness
-    await this.waitReady();
-
-    // Create the database
-    const createdb = this.getBin('createdb');
-    try {
-      await execFileAsync(createdb, [
-        '-h', this.config.host,
-        '-p', String(this.config.port),
-        '-U', this.config.user,
-        this.config.database,
-      ], { env });
-    } catch (err) {
-      // Database might already exist, that's OK
-      log('[PgManager] Database may already exist, continuing...');
-    }
-
-    // Stop PostgreSQL after initialization
-    await this.stop();
 
     log('[PgManager] PostgreSQL initialized successfully');
   }
@@ -521,7 +705,29 @@ export class PgManager {
       }
     }
 
+    // Ensure the target database exists (create it if not).
+    // This decouples database creation from initdb, so if initdb completed
+    // but database creation was interrupted (e.g. crash, power loss), the
+    // next launch self-heals instead of failing with "database does not exist".
+    await this.ensureDatabase();
+
     log('[PgManager] PostgreSQL started');
+  }
+
+  /** Ensure the target database exists; create it if not. */
+  private async ensureDatabase(): Promise<void> {
+    const createdb = this.getBin('createdb');
+    const env = this.getEnvWithBinPath();
+    try {
+      await execFileAsync(createdb, [
+        '-h', this.config.host,
+        '-p', String(this.config.port),
+        '-U', this.config.user,
+        this.config.database,
+      ], { env });
+    } catch {
+      log('[PgManager] Database may already exist, continuing...');
+    }
   }
 
   /** Stop PostgreSQL gracefully */

@@ -1,6 +1,4 @@
 import { serve } from '@hono/node-server';
-import { createServer } from 'https';
-import fs from 'fs';
 import { app, enableStaticServing } from './app.js';
 import { env } from './env.js';
 import { closeDb } from './db/client.js';
@@ -19,34 +17,6 @@ async function main() {
     console.log(`Serving frontend from ${frontendDistPath}`);
   }
 
-  // If TLS cert and key are provided, serve over HTTPS
-  if (env.TLS_CERT_PATH && env.TLS_KEY_PATH) {
-    const certExists = fs.existsSync(env.TLS_CERT_PATH);
-    const keyExists = fs.existsSync(env.TLS_KEY_PATH);
-
-    if (certExists && keyExists) {
-      const cert = fs.readFileSync(env.TLS_CERT_PATH);
-      const key = fs.readFileSync(env.TLS_KEY_PATH);
-
-      serve(
-        {
-          fetch: app.fetch,
-          port: env.PORT,
-          hostname: env.BIND_ADDRESS,
-          createServer: () => createServer({ cert, key }),
-        },
-        (info) => {
-          console.log(`Server running at https://${env.BIND_ADDRESS}:${info.port}`);
-        }
-      );
-      return;
-    } else {
-      console.warn(`[TLS] Certificate files not found: ${env.TLS_CERT_PATH}, ${env.TLS_KEY_PATH}`);
-      console.warn('[TLS] Falling back to HTTP');
-    }
-  }
-
-  // Default: HTTP
   serve({ fetch: app.fetch, port: env.PORT, hostname: env.BIND_ADDRESS }, (info) => {
     console.log(`Server running at http://${env.BIND_ADDRESS}:${info.port}`);
   });

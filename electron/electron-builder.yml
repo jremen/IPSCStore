@@ -22,6 +22,8 @@ extraResources:
     to: pg
     filter:
       - "**/*"
+  - from: resources/vc_redist.x64.exe
+    to: vc_redist.x64.exe
 
 # After each arch build, thin universal PG binaries to single-arch
 # so the universal merger can LIPO-merge them back properly.
@@ -45,6 +47,9 @@ win:
         - x64
         - arm64
   icon: resources/icon.ico
+
+nsis:
+  include: resources/installer/vcredist.nsh
 
 linux:
   target:
